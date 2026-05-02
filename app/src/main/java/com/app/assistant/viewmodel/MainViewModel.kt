@@ -662,7 +662,7 @@ class MainViewModel(application: Application, private val speak: Boolean) : Andr
             .build()
 
         val requestBodyJson = JSONObject().apply {
-            put("model", "meta-llama/llama-4-maverick-17b-128e-instruct")
+            put("model", "llama-3.3-70b-versatile")
             put("messages", messagesArray)
             put("temperature", 1)
             put("top_p", 1)

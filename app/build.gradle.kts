@@ -4,7 +4,7 @@ import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    kotlin("plugin.serialization") version "2.0.0"
+    alias(libs.plugins.jetbrains.kotlin.serialization)
 }
 
 android {
@@ -69,7 +69,7 @@ android {
         buildConfig = true // Ensure buildConfig is enabled
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
+        kotlinCompilerExtensionVersion = libs.versions.androidxComposeCompiler.get()
     }
     packaging {
         resources {
@@ -88,20 +88,19 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material3:material3:1.2.1")
-    implementation("androidx.compose.material3:material3-window-size-class:1.2.1")
-    implementation("androidx.compose.material3:material3-adaptive-navigation-suite:1.3.0-beta02")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation ("com.google.mlkit:translate:17.0.3")
-    implementation ("org.commonmark:commonmark:0.24.0")
+    implementation(libs.androidx.material3.window.size)
+    implementation(libs.androidx.material3.adaptive.navigation.suite)
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.mlkit.translate)
+    implementation(libs.commonmark)
     //implementation ("com.github.jeziellago:compose-markdown:0.5.4")
-    implementation("io.coil-kt.coil3:coil-compose:3.0.0-rc02")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.0-rc02")
-    implementation ("org.jetbrains.kotlin:kotlin-reflect")
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+    implementation(libs.kotlin.reflect)
     implementation(libs.play.services.location)
     implementation(libs.androidx.ui.test.android)
-    implementation("androidx.security:security-crypto:1.1.0")
+    implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.runtime.saveable)
     testImplementation(libs.junit)
 //    androidTestImplementation(libs.androidx.junit)
@@ -112,5 +111,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     //MediaPipe library
-    implementation ("com.google.mediapipe:tasks-text:0.10.29")
+    implementation(libs.mediapipe.tasks.text)
 }
