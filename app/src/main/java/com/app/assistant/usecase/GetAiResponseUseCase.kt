@@ -42,13 +42,9 @@ data class GroqChoice(
 )
 
 class GetAiResponseUseCase(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val client: OkHttpClient
 ) {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
 
     private val json = Json { ignoreUnknownKeys = true }
 

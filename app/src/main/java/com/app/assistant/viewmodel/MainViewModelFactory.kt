@@ -14,6 +14,8 @@ import com.app.assistant.usecase.PlaySongUseCase
 import com.app.assistant.usecase.ProcessChatCommandUseCase
 import com.app.assistant.usecase.SetAlarmUseCase
 import com.app.assistant.usecase.SetReminderUseCase
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 
 class MainViewModelFactory(
     private val application: Application,
@@ -23,11 +25,18 @@ class MainViewModelFactory(
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
             val settingsRepo = SettingsRepository(application)
             val contactsRepo = ContactsRepository(application)
-            val weatherRepo = WeatherRepository(application)
+            
+            val okHttpClient = OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build()
 
-            val getAiResponseUseCase = GetAiResponseUseCase(settingsRepo)
+            val weatherRepo = WeatherRepository(application, okHttpClient)
+
+            val getAiResponseUseCase = GetAiResponseUseCase(settingsRepo, okHttpClient)
             val callContactUseCase = CallContactUseCase(application, contactsRepo)
-            val playSongUseCase = PlaySongUseCase(settingsRepo)
+            val playSongUseCase = PlaySongUseCase(settingsRepo, okHttpClient)
             val navigateUseCase = NavigateUseCase()
             val getWeatherUseCase = GetWeatherUseCase(application, weatherRepo, getAiResponseUseCase)
             val setAlarmUseCase = SetAlarmUseCase()

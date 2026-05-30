@@ -31,8 +31,8 @@ data class GeocodingResponse(
 
 class WeatherRepository(
     private val context: Context,
+    private val client: OkHttpClient
 ) {
-    private val client = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
     fun extractPlaceName(inputText: String): String {

@@ -383,19 +383,6 @@ class MainViewModel(
                 continuation.resume(translatedText)
             }
         }
-
-    private fun markdownToPlainText(markdown: String): String {
-        var plainText = markdown
-        plainText = plainText.replace(Regex("#+ "), "") // Remove headers
-        plainText = plainText.replace(Regex("\\*\\*(.*?)\\*\\*"), "$1") // Bold
-        plainText = plainText.replace(Regex("\\*(.*?)\\*"), "$1") // Italic
-        plainText = plainText.replace(Regex("!\\[.*?\\]\\(.*?\\)"), "") // Images
-        plainText = plainText.replace(Regex("\\[.*?\\]\\(.*?\\)"), "") // Links
-        plainText = plainText.replace(Regex("`{1,3}.*?`{1,3}"), "") // Inline code
-        plainText = plainText.replace(Regex("\\n\\n"), "\n") // Simplify newlines
-        return plainText.trim()
-    }
-
     private suspend fun processResponse(
         response: String?,
         loadingItemId: Long,
@@ -405,7 +392,7 @@ class MainViewModel(
         navigationURI: URI = URI(""),
     ) {
         response?.let {
-            val plaintext = markdownToPlainText(it)
+            val plaintext = com.app.assistant.util.MarkdownUtils.markdownToPlainText(it)
 
             if (getIsTranslationEnabled()) {
                 translatorManager.translateFromEnglish(plaintext) { translatedText ->

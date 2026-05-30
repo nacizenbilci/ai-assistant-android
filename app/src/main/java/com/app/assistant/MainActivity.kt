@@ -54,13 +54,18 @@ class MainActivity : ComponentActivity() {
         MainViewModelFactory(application, intent.getBooleanExtra("speak", false))
     }
 
-    private lateinit var textToSpeech: TextToSpeech
+    private lateinit var textToSpeechManager: com.app.assistant.hardware.TextToSpeechManager
+    private lateinit var speechRecognizerManager: com.app.assistant.hardware.SpeechRecognizerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         allowOnLockScreen()
         enableEdgeToEdge()
-        initializeTextToSpeech()
+        
+        textToSpeechManager = com.app.assistant.hardware.TextToSpeechManager(this) { isSpeaking ->
+            viewModel.setSpeaking(isSpeaking)
+        }
+        speechRecognizerManager = com.app.assistant.hardware.SpeechRecognizerManager(this, lifecycleScope)
 
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -83,13 +88,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UIEvent.SpeakText -> {
-                            speakResponse(event.text)
+                            textToSpeechManager.speak(event.text)
                         }
 
                         is UIEvent.StopSpeaking -> {
-                            if (::textToSpeech.isInitialized) {
-                                textToSpeech.stop()
-                            }
+                            textToSpeechManager.stop()
                         }
 
                         is UIEvent.StartSpeechRecognition -> {
@@ -121,138 +124,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun initializeTextToSpeech() {
-        textToSpeech =
-            TextToSpeech(application) { status ->
-                if (status == TextToSpeech.SUCCESS) {
-                    Log.d("TextToSpeech", "Initialization Success")
-                } else {
-                    Log.d("TextToSpeech", "Initialization Failed")
-                }
-            }
-    }
-
-    private fun speakResponse(plaintext: String) {
-        if (!::textToSpeech.isInitialized) return
-        textToSpeech.speak(plaintext, TextToSpeech.QUEUE_FLUSH, null, "left_for_now_id")
-        textToSpeech.setOnUtteranceProgressListener(
-            object : UtteranceProgressListener() {
-                override fun onDone(utteranceId: String?) {
-                    viewModel.setSpeaking(false)
-                }
-
-                @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) {
-                    viewModel.setSpeaking(false)
-                }
-
-                override fun onStart(utteranceId: String?) {
-                    viewModel.setSpeaking(true)
-                }
-            },
-        )
-    }
-
     private fun startSpeechRecognition() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
             return
         }
 
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audioManager.mode = AudioManager.MODE_IN_CALL
-        audioManager.isBluetoothScoOn = true
-        audioManager.startBluetoothSco()
-
-        val originalRingerMode = audioManager.ringerMode
-
-        if (::textToSpeech.isInitialized && textToSpeech.isSpeaking) {
-            textToSpeech.stop()
+        if (textToSpeechManager.isSpeaking()) {
+            textToSpeechManager.stop()
         }
 
-        val speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        val speechRecognizerIntent =
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                if (viewModel.getIsTranslationEnabled()) {
-                    val localeCode = getLocaleCode(viewModel.getActiveLanguageCode())
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeCode)
-                } else {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                }
-            }
-
-        speechRecognizer.setRecognitionListener(
-            object : RecognitionListener {
-                override fun onReadyForSpeech(bundle: Bundle?) {
-                    if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                    }
-                }
+        speechRecognizerManager.startListening(
+            languageCode = viewModel.getActiveLanguageCode(),
+            isTranslationEnabled = viewModel.getIsTranslationEnabled(),
+            listener = object : com.app.assistant.hardware.SpeechRecognizerManager.SpeechListener {
+                override fun onReadyForSpeech() {}
 
                 override fun onBeginningOfSpeech() {
                     viewModel.setListening(true)
                 }
 
-                override fun onRmsChanged(v: Float) {}
-
-                override fun onBufferReceived(bytes: ByteArray?) {}
-
                 override fun onEndOfSpeech() {
                     viewModel.setListening(false)
-                    if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        lifecycleScope.launch {
-                            delay(800)
-                            audioManager.ringerMode = originalRingerMode
-                        }
-                    }
                 }
 
                 override fun onError(errorCode: Int) {
                     viewModel.setListening(false)
-                    if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        lifecycleScope.launch {
-                            delay(800)
-                            audioManager.ringerMode = originalRingerMode
-                        }
-                    }
                 }
 
-                override fun onResults(bundle: Bundle?) {
+                override fun onResults(recognizedText: String) {
                     viewModel.setListening(false)
-                    val recognizedText = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.get(0) ?: ""
                     viewModel.onSpeechRecognized(recognizedText)
                 }
 
-                override fun onPartialResults(bundle: Bundle) {
-                    val recognizedText = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.get(0) ?: ""
+                override fun onPartialResults(recognizedText: String) {
                     viewModel.onSpeechPartialResult(recognizedText)
                 }
-
-                override fun onEvent(
-                    i: Int,
-                    bundle: Bundle?,
-                ) {}
-            },
-        )
-
-        speechRecognizer.startListening(speechRecognizerIntent)
-
-        registerComponentCallbacks(
-            object : ComponentCallbacks2 {
-                override fun onTrimMemory(level: Int) {
-                    if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-                        audioManager.stopBluetoothSco()
-                        audioManager.isBluetoothScoOn = false
-                        speechRecognizer.destroy()
-                    }
-                }
-
-                override fun onConfigurationChanged(newConfig: Configuration) {}
-
-                override fun onLowMemory() {}
-            },
+            }
         )
     }
 
@@ -426,9 +334,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::textToSpeech.isInitialized) {
-            textToSpeech.shutdown()
-        }
+        textToSpeechManager.shutdown()
+        speechRecognizerManager.destroy()
         viewModel.shutdownResources()
     }
 }

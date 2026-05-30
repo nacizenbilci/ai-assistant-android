@@ -50,7 +50,8 @@ data class YouTubeSearchResponse(
 )
 
 class PlaySongUseCase(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val client: OkHttpClient
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -100,7 +101,6 @@ class PlaySongUseCase(
     }
 
     private suspend fun youtubeApiCall(query: String): Pair<String, String> {
-        val client = OkHttpClient()
         val deferredResult = CompletableDeferred<Pair<String, String>>()
 
         val urlBuilder = "https://www.googleapis.com/youtube/v3/search"
