@@ -4,14 +4,19 @@ sealed class LockState {
     object None : LockState() // Default state when no task is locked
 
     data class LockAlarm(
-        var day: String? = null, // Already processed day (e.g., "tomorrow")
-        var time: String? = null // Time to be provided
+        // Already processed day (e.g., "tomorrow")
+        var day: String? = null,
+        // Time to be provided
+        var time: String? = null,
     ) : LockState()
 
     data class LockReminder(
-        var day: String? = null, // Already processed day (e.g., "tomorrow")
-        var time: String? = null, // Time to be provided
-        var context: String? = null // Message for reminder
+        // Already processed day (e.g., "tomorrow")
+        var day: String? = null,
+        // Time to be provided
+        var time: String? = null,
+        // Message for reminder
+        var context: String? = null,
     ) : LockState()
 
     object LockNavigation : LockState() // No additional data needed

@@ -27,7 +27,10 @@ object EncryptionUtil {
     }
 
     // Encrypt a string and return encrypted text and IV
-    fun encrypt(input: String, ivString: String): Pair<String, String> {
+    fun encrypt(
+        input: String,
+        ivString: String,
+    ): Pair<String, String> {
         val iv = Base64.decode(ivString, Base64.DEFAULT)
         val cipher = Cipher.getInstance(TRANSFORMATION)
         val spec = GCMParameterSpec(TAG_LENGTH_BIT, iv)
@@ -39,7 +42,10 @@ object EncryptionUtil {
     }
 
     // Decrypt an encrypted string using IV
-    fun decrypt(encryptedInput: String, ivString: String): String {
+    fun decrypt(
+        encryptedInput: String,
+        ivString: String,
+    ): String {
         val iv = Base64.decode(ivString, Base64.DEFAULT)
         val cipher = Cipher.getInstance(TRANSFORMATION)
         val spec = GCMParameterSpec(TAG_LENGTH_BIT, iv)
@@ -58,9 +64,7 @@ object EncryptionUtil {
     }
 
     // Save and restore secret key as Base64 (for persistence)
-    fun getSecretKeyAsString(): String {
-        return Base64.encodeToString(secretKey.encoded, Base64.DEFAULT)
-    }
+    fun getSecretKeyAsString(): String = Base64.encodeToString(secretKey.encoded, Base64.DEFAULT)
 
     fun restoreSecretKeyFromString(keyString: String): SecretKey {
         val decodedKey = Base64.decode(keyString, Base64.DEFAULT)

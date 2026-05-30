@@ -1,4 +1,4 @@
-package com.app.assistant.Classifier
+package com.app.assistant.classifier
 
 import android.content.Context
 import android.os.SystemClock
@@ -11,7 +11,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor
 class TextClassifierHelper(
     var currentModel: String = MOBILEBERT,
     val context: Context,
-    val listener: TextResultsListener
+    val listener: TextResultsListener,
 ) {
     private lateinit var textClassifier: TextClassifier
     private lateinit var executor: ScheduledThreadPoolExecutor
@@ -21,29 +21,40 @@ class TextClassifierHelper(
     }
 
     fun initClassifier() {
-        val baseOptionsBuilder = BaseOptions.builder()
-            .setModelAssetPath(currentModel)
+        val baseOptionsBuilder =
+            BaseOptions
+                .builder()
+                .setModelAssetPath(currentModel)
 
         try {
             val baseOptions = baseOptionsBuilder.build()
-            val optionsBuilder = TextClassifier.TextClassifierOptions.builder()
-                .setBaseOptions(baseOptions)
+            val optionsBuilder =
+                TextClassifier.TextClassifierOptions
+                    .builder()
+                    .setBaseOptions(baseOptions)
             val options = optionsBuilder.build()
             textClassifier = TextClassifier.createFromOptions(context, options)
         } catch (e: IllegalStateException) {
             listener.onError(
                 "Text classifier failed to initialize. See error logs for " +
-                        "details"
+                    "details",
             )
             Log.e(
-                TAG, "Text classifier failed to load the task with error: " + e
-                    .message
+                TAG,
+                "Text classifier failed to load the task with error: " +
+                    e
+                        .message,
             )
         }
     }
 
     // Run text classification using MediaPipe Text Classifier API
-    fun classify(text: String, itemId: Long, loadingItemId: Long, speak: Boolean) {
+    fun classify(
+        text: String,
+        itemId: Long,
+        loadingItemId: Long,
+        speak: Boolean,
+    ) {
         executor = ScheduledThreadPoolExecutor(1)
 
         executor.execute {
@@ -61,7 +72,15 @@ class TextClassifierHelper(
 
     interface TextResultsListener {
         fun onError(error: String)
-        fun onResult(results: TextClassifierResult, inferenceTime: Long, inputText: String, itemId: Long, loadingItemId: Long, speak: Boolean)
+
+        fun onResult(
+            results: TextClassifierResult,
+            inferenceTime: Long,
+            inputText: String,
+            itemId: Long,
+            loadingItemId: Long,
+            speak: Boolean,
+        )
     }
 
     companion object {

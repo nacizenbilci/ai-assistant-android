@@ -17,8 +17,9 @@ import java.util.Locale
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 
-class DynamicConversationRepository(private val context: Context) {
-
+class DynamicConversationRepository(
+    private val context: Context,
+) {
     companion object {
         private const val TABLE_GROUPS = "groups"
         private const val COLUMN_GROUP_ID = "group_id"
@@ -34,10 +35,11 @@ class DynamicConversationRepository(private val context: Context) {
     private suspend fun startNewChat(msg: String): Long {
         withContext(Dispatchers.IO) {
             val db = dbHelper.writableDatabase
-            val contentValues = ContentValues().apply {
-                put(COLUMN_TITLE, generateChatTitle(msg))
-                put(COLUMN_CREATED_AT, System.nanoTime())
-            }
+            val contentValues =
+                ContentValues().apply {
+                    put(COLUMN_TITLE, generateChatTitle(msg))
+                    put(COLUMN_CREATED_AT, System.nanoTime())
+                }
             currentGroupId = db.insert(TABLE_GROUPS, null, contentValues)
         }
         return currentGroupId
@@ -58,14 +60,15 @@ class DynamicConversationRepository(private val context: Context) {
 
             val db = dbHelper.writableDatabase
             val (encryptedMap, iv) = encryptConversation(conversation)
-            val values = ContentValues().apply {
-                encryptedMap.forEach { (key, value) -> put(key, value) }
-                put("iv", iv)
-                put(COLUMN_GROUP_ID, currentGroupId)
-            }
-            try{
-            db.insert(TABLE_MESSAGES, null, values)
-            }catch (e: Exception){
+            val values =
+                ContentValues().apply {
+                    encryptedMap.forEach { (key, value) -> put(key, value) }
+                    put("iv", iv)
+                    put(COLUMN_GROUP_ID, currentGroupId)
+                }
+            try {
+                db.insert(TABLE_MESSAGES, null, values)
+            } catch (e: Exception) {
                 e.message?.let { Log.d("Test", it) }
             }
         }
@@ -77,24 +80,28 @@ class DynamicConversationRepository(private val context: Context) {
             db.delete(
                 TABLE_MESSAGES,
                 "id = ?",
-                arrayOf(id.toString())
+                arrayOf(id.toString()),
             )
         }
     }
 
-    suspend fun updateMessage(oldConversation: Conversation, newConversation: Conversation) {
+    suspend fun updateMessage(
+        oldConversation: Conversation,
+        newConversation: Conversation,
+    ) {
         withContext(Dispatchers.IO) {
             val db = dbHelper.writableDatabase
             val (encryptedMap, iv) = encryptConversation(newConversation)
-            val values = ContentValues().apply {
-                encryptedMap.forEach { (key, value) -> put(key, value) }
-                put("iv", iv)
-            }
+            val values =
+                ContentValues().apply {
+                    encryptedMap.forEach { (key, value) -> put(key, value) }
+                    put("iv", iv)
+                }
             db.update(
                 TABLE_MESSAGES,
                 values,
                 "id = ?",
-                arrayOf(oldConversation.id.toString())
+                arrayOf(oldConversation.id.toString()),
             )
         }
     }
@@ -113,15 +120,16 @@ class DynamicConversationRepository(private val context: Context) {
         val groupList = mutableListOf<Group>()
         withContext(Dispatchers.IO) {
             val db = dbHelper.readableDatabase
-            val cursor: Cursor = db.query(
-                TABLE_GROUPS,
-                arrayOf(COLUMN_GROUP_ID, COLUMN_TITLE),
-                null,
-                null,
-                null,
-                null,
-                "$COLUMN_GROUP_ID DESC" // Sort by latest created
-            )
+            val cursor: Cursor =
+                db.query(
+                    TABLE_GROUPS,
+                    arrayOf(COLUMN_GROUP_ID, COLUMN_TITLE),
+                    null,
+                    null,
+                    null,
+                    null,
+                    "$COLUMN_GROUP_ID DESC", // Sort by latest created
+                )
 
             while (cursor.moveToNext()) {
                 val groupId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GROUP_ID))
@@ -133,20 +141,20 @@ class DynamicConversationRepository(private val context: Context) {
         return groupList
     }
 
-
     suspend fun loadMessagesForGroup(groupId: Long): MutableList<Conversation> {
         val tempList = mutableListOf<Conversation>()
         withContext(Dispatchers.IO) {
             val db = dbHelper.readableDatabase
-            val cursor: Cursor = db.query(
-                TABLE_MESSAGES,
-                null,
-                "$COLUMN_GROUP_ID = ?",
-                arrayOf(groupId.toString()),
-                null,
-                null,
-                COLUMN_MESSAGE_ID // Sort by latest created
-            )
+            val cursor: Cursor =
+                db.query(
+                    TABLE_MESSAGES,
+                    null,
+                    "$COLUMN_GROUP_ID = ?",
+                    arrayOf(groupId.toString()),
+                    null,
+                    null,
+                    COLUMN_MESSAGE_ID, // Sort by latest created
+                )
 
             while (cursor.moveToNext()) {
                 val conversation = cursorToConversation(cursor)
@@ -165,21 +173,31 @@ class DynamicConversationRepository(private val context: Context) {
         properties.filter { it.name != "isLoading" }.forEach { property ->
             val columnName = property.name
             val columnIndex = cursor.getColumnIndexOrThrow(columnName)
-            val value = when (property.returnType.toString()) {
-                "kotlin.String" -> cursor.getString(columnIndex)//?.let { EncryptionUtil.decrypt(it, iv) }
-                "kotlin.Int" -> cursor.getInt(columnIndex)
-                "kotlin.Long" -> cursor.getLong(columnIndex)
-                "kotlin.Boolean" -> cursor.getString(columnIndex).toBooleanStrictOrNull() ?: false
-                "java.net.URI" -> URI(cursor.getString(columnIndex))
-                else -> null
-            }
+            val value =
+                when (property.returnType.toString()) {
+                    "kotlin.String" -> cursor.getString(columnIndex)
+
+                    // ?.let { EncryptionUtil.decrypt(it, iv) }
+
+                    "kotlin.Int" -> cursor.getInt(columnIndex)
+
+                    "kotlin.Long" -> cursor.getLong(columnIndex)
+
+                    "kotlin.Boolean" -> cursor.getString(columnIndex).toBooleanStrictOrNull() ?: false
+
+                    "java.net.URI" -> URI(cursor.getString(columnIndex))
+
+                    else -> null
+                }
             fieldMap[columnName] = value
         }
 
         return Conversation::class.constructors.first().callBy(
-            Conversation::class.primaryConstructor!!.parameters
-                .filter { it.name != "isLoading" }  // Ignore "isLoading"
-                .associateWith { parameter -> fieldMap[parameter.name] }
+            Conversation::class
+                .primaryConstructor!!
+                .parameters
+                .filter { it.name != "isLoading" } // Ignore "isLoading"
+                .associateWith { parameter -> fieldMap[parameter.name] },
         )
     }
 
@@ -191,8 +209,8 @@ class DynamicConversationRepository(private val context: Context) {
         properties.forEach { property ->
             val key = property.name
             val value = property.getter.call(conversation)?.toString()
-            if (value != null && key!="isLoading") {
-                //encryptedMap[key] = EncryptionUtil.encrypt(value, iv).first
+            if (value != null && key != "isLoading") {
+                // encryptedMap[key] = EncryptionUtil.encrypt(value, iv).first
                 encryptedMap[key] = value
             }
         }

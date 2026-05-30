@@ -30,7 +30,7 @@ class AssistActivity : ComponentActivity() {
         finish()
     }
 
-    private fun moveToMainActivity(){
+    private fun moveToMainActivity() {
         val intent = Intent(this, MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         intent.putExtra("speak", true)
@@ -47,8 +47,9 @@ class AssistActivity : ComponentActivity() {
         } else {
             this.window.addFlags(
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+            )
         }
     }
 }

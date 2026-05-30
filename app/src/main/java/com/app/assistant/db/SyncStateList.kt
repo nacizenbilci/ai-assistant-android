@@ -10,9 +10,8 @@ import kotlinx.coroutines.launch
 
 class SyncStateList(
     private val repository: DynamicConversationRepository, // Repository to handle DB operations
-    private val stateList: SnapshotStateList<Conversation> = mutableStateListOf()
+    private val stateList: SnapshotStateList<Conversation> = mutableStateListOf(),
 ) : MutableList<Conversation> by stateList {
-
     override fun add(element: Conversation): Boolean {
         val result = stateList.add(element)
         if (result && !element.isLoading) {
@@ -31,7 +30,10 @@ class SyncStateList(
         return result
     }
 
-    override fun set(index: Int, element: Conversation): Conversation {
+    override fun set(
+        index: Int,
+        element: Conversation,
+    ): Conversation {
         val oldElement = stateList[index]
         stateList[index] = element
         CoroutineScope(Dispatchers.IO).launch {

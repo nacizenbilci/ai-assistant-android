@@ -1,3 +1,6 @@
 package com.app.assistant.model
 
-data class Group(val groupId: Long, val title: String)
+data class Group(
+    val groupId: Long,
+    val title: String,
+)

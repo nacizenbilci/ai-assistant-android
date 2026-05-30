@@ -126,7 +126,6 @@ import com.app.assistant.ui.theme.AssistantTheme
 import com.app.assistant.util.Category
 import com.app.assistant.viewmodel.MainViewModel
 import kotlinx.coroutines.currentCoroutineContext
-import org.commonmark.node.Text as CText
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -148,11 +147,11 @@ import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
 import kotlin.math.hypot
+import org.commonmark.node.Text as CText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupUI(viewModel: MainViewModel) {
-
     AssistantTheme {
         var showCopyIcon by remember { mutableStateOf(false) }
         var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -166,9 +165,10 @@ fun SetupUI(viewModel: MainViewModel) {
 
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
-        val drawerState = remember(isCustomUI) {
-            DrawerState(DrawerValue.Closed)
-        }
+        val drawerState =
+            remember(isCustomUI) {
+                DrawerState(DrawerValue.Closed)
+            }
         val scope = rememberCoroutineScope()
         val groupList by viewModel.groupList.collectAsState(initial = emptyList())
 
@@ -178,14 +178,17 @@ fun SetupUI(viewModel: MainViewModel) {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
-                if (isCustomUI) null else {
+                if (isCustomUI) {
+                    null
+                } else {
                     ModalDrawerSheet {
                         Text("Chats", modifier = Modifier.padding(16.dp))
                         Column(
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp)
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState())
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .weight(1f)
+                                    .verticalScroll(rememberScrollState()),
                         ) {
                             groupList.forEach { group ->
                                 NavigationDrawerItem(
@@ -194,7 +197,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                     onClick = {
                                         viewModel.loadMessagesFromGroup(group.groupId)
                                         scope.launch { drawerState.close() }
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -204,52 +207,53 @@ fun SetupUI(viewModel: MainViewModel) {
                             icon = {
                                 Icon(
                                     painter = (painterResource(id = R.drawable.ic_settings)),
-                                    contentDescription = "Settings"
+                                    contentDescription = "Settings",
                                 )
                             },
                             selected = false,
                             onClick = {
                                 showSettingsDialog = true
                                 scope.launch { drawerState.close() }
-                            }
+                            },
                         )
                         NavigationDrawerItem(
                             label = { Text(text = "Start new chat") },
                             icon = {
                                 Icon(
                                     painter = (painterResource(id = R.drawable.ic_add_new_chat)),
-                                    contentDescription = "Start new chat"
+                                    contentDescription = "Start new chat",
                                 )
                             },
                             selected = false,
                             onClick = {
                                 viewModel.newChat()
                                 scope.launch { drawerState.close() }
-                            }
+                            },
                         )
                     }
                 }
-            }
+            },
         ) {
-            val scaffoldContent = @Composable{
+            val scaffoldContent = @Composable {
                 Scaffold(
-                    containerColor = if(isCustomUIHalfPage) Color.Transparent else MaterialTheme.colorScheme.background,
-                    modifier = if (isCustomUI) {
-                        Modifier
-                            .height(screenHeight / 2)
-                            .padding(16.dp, 16.dp, 16.dp, 8.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(Color.Transparent, shape = RoundedCornerShape(16.dp))
-                            .clickable {
-                                if (!isCustomUIHalfPage) {
-                                    Modifier.clickable(onClick = {})
-                                } else {
-                                    backPressedDispatcher?.onBackPressed()
+                    containerColor = if (isCustomUIHalfPage) Color.Transparent else MaterialTheme.colorScheme.background,
+                    modifier =
+                        if (isCustomUI) {
+                            Modifier
+                                .height(screenHeight / 2)
+                                .padding(16.dp, 16.dp, 16.dp, 8.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(Color.Transparent, shape = RoundedCornerShape(16.dp))
+                                .clickable {
+                                    if (!isCustomUIHalfPage) {
+                                        Modifier.clickable(onClick = {})
+                                    } else {
+                                        backPressedDispatcher?.onBackPressed()
+                                    }
                                 }
-                            }
-                    } else {
-                        Modifier
-                    },
+                        } else {
+                            Modifier
+                        },
                     topBar = {
                         if (!isCustomUI) {
                             TopAppBar(
@@ -263,7 +267,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                     }) {
                                         Icon(
                                             painter = (painterResource(id = R.drawable.ic_menu)),
-                                            contentDescription = "Menu"
+                                            contentDescription = "Menu",
                                         )
                                     }
                                 },
@@ -272,20 +276,26 @@ fun SetupUI(viewModel: MainViewModel) {
                                     if (showCopyIcon) {
                                         IconButton(onClick = {
                                             selectedItemIndex?.let { index ->
-                                                val textToCopy = when {
-                                                    viewModel.getIsTranslationEnabled() -> viewModel.chatList.getOrNull(
-                                                        index
-                                                    )?.translatedText
+                                                val textToCopy =
+                                                    when {
+                                                        viewModel.getIsTranslationEnabled() -> {
+                                                            viewModel.chatList
+                                                                .getOrNull(
+                                                                    index,
+                                                                )?.translatedText
+                                                        }
 
-                                                    else -> viewModel.chatList.getOrNull(index)?.englishText
-                                                } ?: ""
+                                                        else -> {
+                                                            viewModel.chatList.getOrNull(index)?.englishText
+                                                        }
+                                                    } ?: ""
                                                 clipboardManager.setText(AnnotatedString(textToCopy))
                                                 selectedItemIndex = null
                                             }
                                         }) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.ic_content_copy),
-                                                contentDescription = "Copy"
+                                                contentDescription = "Copy",
                                             )
                                         }
                                         IconButton(onClick = {
@@ -293,7 +303,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                         }) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.ic_delete),
-                                                contentDescription = "Delete"
+                                                contentDescription = "Delete",
                                             )
                                         }
                                     }
@@ -302,54 +312,55 @@ fun SetupUI(viewModel: MainViewModel) {
                                     }) {
                                         Icon(
                                             painter = (painterResource(id = R.drawable.ic_translate)),
-                                            contentDescription = "Translate"
+                                            contentDescription = "Translate",
                                         )
                                     }
                                     if (viewModel.chatList.isNotEmpty()) {
                                         IconButton(onClick = { clearShowDialog = true }) {
                                             Icon(
                                                 painter = (painterResource(id = R.drawable.ic_restart)),
-                                                contentDescription = "Restart Chat"
+                                                contentDescription = "Restart Chat",
                                             )
                                         }
                                     }
-                                }
+                                },
                             )
                         }
-                        if(!isCustomUIHalfPage && isCustomUI){
+                        if (!isCustomUIHalfPage && isCustomUI) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(24.dp)
-                                    .then(
-                                        Modifier
-                                            .pointerInput(Unit) {
-                                                detectDragGestures(
-                                                    onDragStart = { /* Optional: trigger on drag start */ },
-                                                    onDragEnd = {
-                                                        viewModel.expandToFullScreen()
-                                                    },
-                                                    onDrag = { change, dragAmount ->
-                                                        //track dragAmount if needed
-                                                    }
-                                                )
-                                            })
-                                    .clickable { viewModel.expandToFullScreen() },
-                                contentAlignment = Alignment.Center
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(24.dp)
+                                        .then(
+                                            Modifier
+                                                .pointerInput(Unit) {
+                                                    detectDragGestures(
+                                                        onDragStart = { /* Optional: trigger on drag start */ },
+                                                        onDragEnd = {
+                                                            viewModel.expandToFullScreen()
+                                                        },
+                                                        onDrag = { change, dragAmount ->
+                                                            // track dragAmount if needed
+                                                        },
+                                                    )
+                                                },
+                                        ).clickable { viewModel.expandToFullScreen() },
+                                contentAlignment = Alignment.Center,
                             ) {
                                 Box(
-                                    modifier = Modifier
-                                        .width(36.dp)
-                                        .height(4.dp)
-                                        .background(
-                                            color = Color.Gray,
-                                            shape = RoundedCornerShape(2.dp)
-                                        )
+                                    modifier =
+                                        Modifier
+                                            .width(36.dp)
+                                            .height(4.dp)
+                                            .background(
+                                                color = Color.Gray,
+                                                shape = RoundedCornerShape(2.dp),
+                                            ),
                                 )
                             }
-
                         }
-                    }
+                    },
                 ) { innerPadding ->
                     MyLayout(
                         modifier = Modifier.padding(innerPadding),
@@ -359,7 +370,7 @@ fun SetupUI(viewModel: MainViewModel) {
                         selectedItemIndex = selectedItemIndex,
                         onSelectedItemChange = { newIndex -> selectedItemIndex = newIndex },
                         viewModel = viewModel,
-                        isCustomUI = isCustomUI
+                        isCustomUI = isCustomUI,
                     )
                 }
             }
@@ -380,34 +391,34 @@ fun SetupUI(viewModel: MainViewModel) {
                         if (tapped) {
                             backPressedDispatcher?.onBackPressed()
                         }
-                    }
+                    },
                 )
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = animatedBoxAlpha))
-                        .imePadding()
-                        .animateContentSize()
-                        .clickable(
-                            enabled = !tapped,
-                            onClick = {
-                                tapped = true
-                            }
-                        ),
-                    contentAlignment = Alignment.BottomCenter
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = animatedBoxAlpha))
+                            .imePadding()
+                            .animateContentSize()
+                            .clickable(
+                                enabled = !tapped,
+                                onClick = {
+                                    tapped = true
+                                },
+                            ),
+                    contentAlignment = Alignment.BottomCenter,
                 ) {
                     scaffoldContent()
                 }
-            }
-            else{
+            } else {
                 scaffoldContent()
             }
         }
 
         if (showBottomSheet) {
             var searchQuery by remember { mutableStateOf("") }
-            val filteredItems = viewModel.languages.filter {it.first.contains(searchQuery, true)}.map { it }
+            val filteredItems = viewModel.languages.filter { it.first.contains(searchQuery, true) }.map { it }
             val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
             val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
 
@@ -415,63 +426,72 @@ fun SetupUI(viewModel: MainViewModel) {
                 onDismissRequest = {
                     showBottomSheet = false
                 },
-                sheetState = sheetState
+                sheetState = sheetState,
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    Row(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp, 0.dp, 16.dp, 16.dp)) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp, 0.dp, 16.dp, 16.dp),
+                    ) {
                         Text(
-                            modifier = Modifier
-                                .weight(1f)
-                                .align(Alignment.CenterVertically),
-                            text = "Chat in different languages"
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .align(Alignment.CenterVertically),
+                            text = "Chat in different languages",
                         )
-                        Switch(checked = isTranslationEnabled,
+                        Switch(
+                            checked = isTranslationEnabled,
                             onCheckedChange = { viewModel.updateTranslationEnabled(it) },
-                            modifier = Modifier.align(
-                            Alignment.CenterVertically))
+                            modifier =
+                                Modifier.align(Alignment.CenterVertically),
+                        )
                     }
 
-
                     TextField(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(0.dp)
-                            .imePadding(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(0.dp)
+                                .imePadding(),
                         value = searchQuery,
                         placeholder = { Text("Search...") },
                         singleLine = true,
                         onValueChange = { searchQuery = it },
-                        colors = TextFieldDefaults.colors(
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent
-                        ),
-                        enabled = isTranslationEnabled
+                        colors =
+                            TextFieldDefaults.colors(
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                            ),
+                        enabled = isTranslationEnabled,
                     )
 
-                    if(isLanguageLoading)
+                    if (isLanguageLoading) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
 
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(0.dp, 16.dp, 0.dp, 0.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(0.dp, 16.dp, 0.dp, 0.dp),
                     ) {
                         items(items = filteredItems) { lang ->
                             Text(
                                 text = lang.first,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(enabled = isTranslationEnabled) {
-                                        if (isTranslationEnabled) {
-                                            viewModel.onItemSelected(lang.second)
-                                        }
-                                    }
-                                    .padding(16.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = isTranslationEnabled) {
+                                            if (isTranslationEnabled) {
+                                                viewModel.onItemSelected(lang.second)
+                                            }
+                                        }.padding(16.dp),
                             )
                         }
                     }
@@ -495,11 +515,11 @@ fun SetupUI(viewModel: MainViewModel) {
                     TextButton(onClick = { clearShowDialog = false }) {
                         Text("No")
                     }
-                }
+                },
             )
         }
 
-        if(deleteShowDialog){
+        if (deleteShowDialog) {
             AlertDialog(
                 onDismissRequest = {
                     deleteShowDialog = false
@@ -524,7 +544,7 @@ fun SetupUI(viewModel: MainViewModel) {
                     }) {
                         Text("No")
                     }
-                }
+                },
             )
         }
 
@@ -539,22 +559,23 @@ fun SetupUI(viewModel: MainViewModel) {
                 onSave = { ytKey, chKey ->
                     viewModel.saveKeys(ytKey, chKey)
                     showSettingsDialog = false
-                }
+                },
             )
         }
 
         BackHandler(enabled = selectedItemIndex != null) {
-            selectedItemIndex = null  // Clear selection instead of handling system back
+            selectedItemIndex = null // Clear selection instead of handling system back
         }
     }
 }
 
 @Composable
+@Suppress("ktlint:standard:function-naming")
 fun SettingsDialog(
     initialYoutubeKey: String,
     initialChatKey: String,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSave: (String, String) -> Unit,
 ) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
@@ -571,13 +592,13 @@ fun SettingsDialog(
                 TextField(
                     value = apiKey1,
                     onValueChange = { apiKey1 = it },
-                    label = { Text("YouTube API Key") }
+                    label = { Text("YouTube API Key") },
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = apiKey2,
                     onValueChange = { apiKey2 = it },
-                    label = { Text("Chat API Key") }
+                    label = { Text("Chat API Key") },
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("App Version: $versionName")
@@ -592,18 +613,19 @@ fun SettingsDialog(
             Button(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
     )
 }
 
 @Composable
+@Suppress("ktlint:standard:function-naming")
 fun MyLayout(
     modifier: Modifier = Modifier,
     onShowCopyIconChange: (Boolean) -> Unit,
     selectedItemIndex: Int?,
     onSelectedItemChange: (Int) -> Unit,
     viewModel: MainViewModel,
-    isCustomUI: Boolean
+    isCustomUI: Boolean,
 ) {
     val boxes = viewModel.chatList
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -611,12 +633,13 @@ fun MyLayout(
     val scrollState = rememberLazyListState()
 
     val context = LocalContext.current
-    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Vibrator::class.java)
-    }
+    val vibrator =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Vibrator::class.java)
+        }
 
     LaunchedEffect(Unit) {
         viewModel.showToastEvent.collectLatest { message: String ->
@@ -640,13 +663,16 @@ fun MyLayout(
 
     Column(modifier = modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .padding(0.dp, 0.dp, 0.dp, 0.dp),
-            verticalArrangement = if (isCustomUI)
-                Arrangement.spacedBy(8.dp, Alignment.Bottom)
-            else
-                Arrangement.spacedBy(8.dp),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(0.dp, 0.dp, 0.dp, 0.dp),
+            verticalArrangement =
+                if (isCustomUI) {
+                    Arrangement.spacedBy(8.dp, Alignment.Bottom)
+                } else {
+                    Arrangement.spacedBy(8.dp)
+                },
             state = scrollState,
         ) {
             itemsIndexed(boxes) { index, conversation ->
@@ -655,7 +681,7 @@ fun MyLayout(
                     index = index,
                     isSelected = index == selectedItemIndex,
                     onLongClick = { newIndex -> onSelectedItemChange(newIndex) },
-                    viewModel = viewModel
+                    viewModel = viewModel,
                 )
             }
         }
@@ -664,7 +690,7 @@ fun MyLayout(
             UserInputField(
                 focusManager = focusManager,
                 keyboardController = keyboardController,
-                viewModel = viewModel
+                viewModel = viewModel,
             )
         }
     }
@@ -677,16 +703,17 @@ fun MyLayout(
 }
 
 @Composable
+@Suppress("ktlint:standard:function-naming")
 private fun UserInputField(
     focusManager: FocusManager,
     keyboardController: SoftwareKeyboardController,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
 ) {
     val isSpeaking by viewModel.isSpeaking.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
 
     val containerColor = TextFieldDefaults.colors().unfocusedContainerColor
-    val rippleColor  = adjustContrast(containerColor)
+    val rippleColor = adjustContrast(containerColor)
 
     // State for current radius + alpha
     val rippleRadius = remember { Animatable(0f) }
@@ -697,10 +724,11 @@ private fun UserInputField(
 
     LaunchedEffect(isListening, textFieldSize) {
         if (isListening && textFieldSize != IntSize.Zero) {
-            val maxRadius = hypot(
-                textFieldSize.width / 2f,
-                textFieldSize.height / 2f
-            )
+            val maxRadius =
+                hypot(
+                    textFieldSize.width / 2f,
+                    textFieldSize.height / 2f,
+                )
             while (currentCoroutineContext().isActive) { // keep running until LaunchedEffect cancels
                 rippleRadius.snapTo(0f)
                 rippleAlpha.snapTo(0.5f)
@@ -709,12 +737,12 @@ private fun UserInputField(
                 launch {
                     rippleRadius.animateTo(
                         targetValue = maxRadius,
-                        animationSpec = tween(1000, easing = LinearEasing)
+                        animationSpec = tween(1000, easing = LinearEasing),
                     )
                 }
                 rippleAlpha.animateTo(
                     targetValue = 0f,
-                    animationSpec = tween(1000, easing = LinearEasing)
+                    animationSpec = tween(1000, easing = LinearEasing),
                 )
             }
         } else {
@@ -723,40 +751,42 @@ private fun UserInputField(
         }
     }
 
-
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .imePadding()
-            .padding(8.dp)
-            .clip(RoundedCornerShape(20)) // clip ripple inside
-            .onGloballyPositioned { coords -> textFieldSize = coords.size }
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(8.dp)
+                .clip(RoundedCornerShape(20)) // clip ripple inside
+                .onGloballyPositioned { coords -> textFieldSize = coords.size },
     ) {
         TextField(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth(),
             shape = RoundedCornerShape(20),
             value = viewModel.question.value,
             placeholder = { Text("Type here...") },
             maxLines = 2,
             onValueChange = { viewModel.question.value = it },
-            colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent
-            ),
+            colors =
+                TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                ),
             trailingIcon = {
                 Row(horizontalArrangement = Arrangement.End) {
                     val context = LocalContext.current
                     if (isSpeaking) {
                         IconButton(onClick = {
-                            if (viewModel.textToSpeech.isSpeaking) {
+                            if (isSpeaking) {
                                 viewModel.stopTextToSpeech()
                             }
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_stop),
-                                contentDescription = "Stop"
+                                contentDescription = "Stop",
                             )
                         }
                     } else {
@@ -770,18 +800,18 @@ private fun UserInputField(
                                             focusManager,
                                             keyboardController,
                                             context,
-                                            true
+                                            true,
                                         )
                                     }
                                 },
                                 onPartialResult = { recognizedText ->
                                     viewModel.question.value = recognizedText
-                                }
+                                },
                             )
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_mic),
-                                contentDescription = "Mic"
+                                contentDescription = "Mic",
                             )
                         }
                     }
@@ -791,37 +821,40 @@ private fun UserInputField(
                                 focusManager,
                                 keyboardController,
                                 context,
-                                false
+                                false,
                             )
                         }
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send"
+                            contentDescription = "Send",
                         )
                     }
                 }
-            }
+            },
         )
 
         Canvas(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(20))
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(20)),
         ) {
             if (rippleAlpha.value > 0f) {
                 drawCircle(
                     color = rippleColor.copy(alpha = rippleAlpha.value),
                     radius = rippleRadius.value,
-                    center = center
+                    center = center,
                 )
             }
         }
     }
-
 }
 
-fun adjustContrast(color: Color, factor: Float = 0.15f): Color {
+fun adjustContrast(
+    color: Color,
+    factor: Float = 0.15f,
+): Color {
     val isDark = color.luminance() < 0.5
     return if (isDark) {
         // lighten in dark mode
@@ -829,7 +862,7 @@ fun adjustContrast(color: Color, factor: Float = 0.15f): Color {
             red = (color.red + factor).coerceAtMost(1f),
             green = (color.green + factor).coerceAtMost(1f),
             blue = (color.blue + factor).coerceAtMost(1f),
-            alpha = color.alpha
+            alpha = color.alpha,
         )
     } else {
         // darken in light mode
@@ -837,49 +870,63 @@ fun adjustContrast(color: Color, factor: Float = 0.15f): Color {
             red = (color.red - factor).coerceAtLeast(0f),
             green = (color.green - factor).coerceAtLeast(0f),
             blue = (color.blue - factor).coerceAtLeast(0f),
-            alpha = color.alpha
+            alpha = color.alpha,
         )
     }
 }
 
-
-
 @Composable
+@Suppress("ktlint:standard:function-naming")
 fun ConversationItem(
     conversation: Conversation,
     index: Int,
     isSelected: Boolean,
     onLongClick: (Int) -> Unit,
     viewModel: MainViewModel,
-    backgroundColor: Color = if (conversation.isMe) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceContainerHighest,
-    cornerRadius: Dp = 20.dp
+    backgroundColor: Color =
+        if (conversation.isMe) {
+            MaterialTheme.colorScheme.secondary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+    cornerRadius: Dp = 20.dp,
 ) {
     val uriHandler = LocalUriHandler.current
     val isTranslateEnabled = viewModel.getIsTranslationEnabled()
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = if (conversation.isMe) Arrangement.Start else Arrangement.End
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+            horizontalArrangement = if (conversation.isMe) Arrangement.Start else Arrangement.End,
         ) {
-            if (conversation.isMe)
+            if (conversation.isMe) {
                 Spacer(modifier = Modifier.weight(1f))
+            }
             Card(
                 Modifier
                     .wrapContentWidth()
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.85f),
                 shape = RoundedCornerShape(cornerRadius),
-                colors = CardDefaults.cardColors(containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else backgroundColor)
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                backgroundColor
+                            },
+                    ),
             ) {
                 if (conversation.isLoading) {
                     LoadingDots() // Show loading animation when isLoading is true
                 } else {
-                    if(conversation.isMe)
+                    if (conversation.isMe) {
                         OtherCard(conversation, onLongClick, index, isTranslateEnabled)
-                    else {
+                    } else {
                         when (conversation.category) {
                             Category.CALL.name -> {
                                 MakeCall(uriHandler, conversation, isTranslateEnabled)
@@ -921,20 +968,22 @@ fun ConversationItem(
                     }
                 }
             }
-            if (!conversation.isMe)
+            if (!conversation.isMe) {
                 Spacer(modifier = Modifier.weight(1f))
+            }
         }
 
         if (conversation.isMe) {
             Text(
                 text = conversation.category,
-                modifier = Modifier
-                    .padding(0.dp, 0.dp, 20.dp, 0.dp)
-                    .fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .padding(0.dp, 0.dp, 20.dp, 0.dp)
+                        .fillMaxWidth(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.secondary,
-                textAlign = TextAlign.End
+                textAlign = TextAlign.End,
             )
         }
     }
@@ -944,21 +993,24 @@ fun ConversationItem(
 private fun StartNavigation(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean
+    isTranslateEnabled: Boolean,
 ) {
     Row(
-        modifier = Modifier
-            .padding(8.dp)
-            .clickable {
-                uriHandler.openUri(conversation.navigationURI.toString())
-            }, horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier =
+            Modifier
+                .padding(8.dp)
+                .clickable {
+                    uriHandler.openUri(conversation.navigationURI.toString())
+                },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
-            modifier = Modifier
-                .background(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ),
+            modifier =
+                Modifier
+                    .background(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
         ) {
             Icon(
                 modifier = Modifier.padding(8.dp),
@@ -968,11 +1020,13 @@ private fun StartNavigation(
         }
 
         MarkdownText(
-            modifier = Modifier
-                .align(alignment = Alignment.CenterVertically)
-                .clickable {
-                    uriHandler.openUri(conversation.navigationURI.toString())
-                }, markdown = if(isTranslateEnabled) conversation.translatedText else conversation.englishText
+            modifier =
+                Modifier
+                    .align(alignment = Alignment.CenterVertically)
+                    .clickable {
+                        uriHandler.openUri(conversation.navigationURI.toString())
+                    },
+            markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
         )
     }
 }
@@ -981,15 +1035,16 @@ private fun StartNavigation(
 private fun PlaySong(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean
+    isTranslateEnabled: Boolean,
 ) {
     AsyncImage(
-        modifier = Modifier
-            .clickable {
-                uriHandler.openUri(conversation.navigationURI.toString())
-            },
+        modifier =
+            Modifier
+                .clickable {
+                    uriHandler.openUri(conversation.navigationURI.toString())
+                },
         model = conversation.contentURL,
-        contentDescription = if(isTranslateEnabled) conversation.translatedText else conversation.englishText
+        contentDescription = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
     )
 }
 
@@ -997,20 +1052,24 @@ private fun PlaySong(
 private fun MakeCall(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean
+    isTranslateEnabled: Boolean,
 ) {
-    Row(modifier = Modifier
-        .padding(8.dp)
-        .clickable {
-            uriHandler.openUri(conversation.navigationURI.toString())
-        }, horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Row(
+        modifier =
+            Modifier
+                .padding(8.dp)
+                .clickable {
+                    uriHandler.openUri(conversation.navigationURI.toString())
+                },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
-            modifier = Modifier
-                .background(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ),
+            modifier =
+                Modifier
+                    .background(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ),
         ) {
             Icon(
                 modifier = Modifier.padding(8.dp),
@@ -1019,11 +1078,14 @@ private fun MakeCall(
             )
         }
 
-        MarkdownText(modifier = Modifier
-            .align(alignment = Alignment.CenterVertically)
-            .clickable {
-                uriHandler.openUri(conversation.navigationURI.toString())
-            }, markdown = if(isTranslateEnabled) conversation.translatedText else conversation.englishText
+        MarkdownText(
+            modifier =
+                Modifier
+                    .align(alignment = Alignment.CenterVertically)
+                    .clickable {
+                        uriHandler.openUri(conversation.navigationURI.toString())
+                    },
+            markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
         )
     }
 }
@@ -1032,12 +1094,14 @@ private fun MakeCall(
 private fun ShowWeather(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean
-){
-    MarkdownText(modifier = Modifier
-        .padding(16.dp)
-        .clickable { uriHandler.openUri(conversation.navigationURI.toString()) },
-        markdown = if(isTranslateEnabled) conversation.translatedText else conversation.englishText
+    isTranslateEnabled: Boolean,
+) {
+    MarkdownText(
+        modifier =
+            Modifier
+                .padding(16.dp)
+                .clickable { uriHandler.openUri(conversation.navigationURI.toString()) },
+        markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
     )
 }
 
@@ -1046,22 +1110,25 @@ private fun OtherCard(
     conversation: Conversation,
     onLongClick: (Int) -> Unit,
     index: Int,
-    isTranslateEnabled: Boolean
+    isTranslateEnabled: Boolean,
 ) {
     MarkdownText(
-        markdown = if (isTranslateEnabled && conversation.translatedText.isNotBlank())
-            conversation.translatedText
-        else
-            conversation.englishText,
-        modifier = Modifier
-            .padding(16.dp, 8.dp)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = {
-                        onLongClick(index)
-                    }
-                )
-            }
+        markdown =
+            if (isTranslateEnabled && conversation.translatedText.isNotBlank()) {
+                conversation.translatedText
+            } else {
+                conversation.englishText
+            },
+        modifier =
+            Modifier
+                .padding(16.dp, 8.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = {
+                            onLongClick(index)
+                        },
+                    )
+                },
     )
 }
 
@@ -1073,31 +1140,37 @@ fun LoadingDots() {
     val dot1Offset by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(0) // First dot starts immediately
-        ), label = ""
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+                initialStartOffset = StartOffset(0), // First dot starts immediately
+            ),
+        label = "",
     )
 
     val dot2Offset by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(200) // Second dot starts with a delay
-        ), label = ""
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+                initialStartOffset = StartOffset(200), // Second dot starts with a delay
+            ),
+        label = "",
     )
 
     val dot3Offset by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(400) // Third dot starts with a larger delay
-        ), label = ""
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(durationMillis = 400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+                initialStartOffset = StartOffset(400), // Third dot starts with a larger delay
+            ),
+        label = "",
     )
 
     // Unicode character for big dot (⏺ or ● for larger circles)
@@ -1108,7 +1181,7 @@ fun LoadingDots() {
         Text(
             text = dotChar,
             modifier = Modifier.offset(y = dot1Offset.dp),
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(modifier = Modifier.width(4.dp))
 
@@ -1116,7 +1189,7 @@ fun LoadingDots() {
         Text(
             text = dotChar,
             modifier = Modifier.offset(y = dot2Offset.dp),
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(modifier = Modifier.width(4.dp))
 
@@ -1124,7 +1197,7 @@ fun LoadingDots() {
         Text(
             text = dotChar,
             modifier = Modifier.offset(y = dot3Offset.dp),
-            style = MaterialTheme.typography.bodyLarge
+            style = MaterialTheme.typography.bodyLarge,
         )
     }
 }
@@ -1132,14 +1205,15 @@ fun LoadingDots() {
 @Composable
 fun MarkdownText(
     modifier: Modifier = Modifier,
-    markdown: String
+    markdown: String,
 ) {
-    val annotatedText = remember(markdown) {
-        parseMarkdownToAnnotatedString(markdown)
-    }
+    val annotatedText =
+        remember(markdown) {
+            parseMarkdownToAnnotatedString(markdown)
+        }
     Text(
         text = annotatedText,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
@@ -1155,7 +1229,10 @@ fun parseMarkdownToAnnotatedString(markdown: String): AnnotatedString {
  * Recursively processes nodes. We only append a newline if there's a *next sibling*,
  * preventing extra blank lines at the very end.
  */
-private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
+private fun processNodes(
+    node: Node,
+    builder: AnnotatedString.Builder,
+) {
     var child = node.firstChild
     while (child != null) {
         val nextSibling = child.next
@@ -1163,18 +1240,21 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
             is CText -> {
                 builder.append(child.literal)
             }
+
             is Emphasis -> {
                 val start = builder.length
                 processNodes(child, builder)
                 val end = builder.length
                 builder.addStyle(SpanStyle(fontStyle = FontStyle.Italic), start, end)
             }
+
             is StrongEmphasis -> {
                 val start = builder.length
                 processNodes(child, builder)
                 val end = builder.length
                 builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, end)
             }
+
             is Code -> {
                 // Inline code (single backticks)
                 val start = builder.length
@@ -1184,9 +1264,10 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                 builder.addStyle(
                     SpanStyle(fontFamily = FontFamily.Monospace),
                     start,
-                    end
+                    end,
                 )
             }
+
             is Link -> {
                 val start = builder.length
                 processNodes(child, builder)
@@ -1196,15 +1277,16 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                     tag = "URL",
                     annotation = child.destination,
                     start = start,
-                    end = end
+                    end = end,
                 )
                 // Style the link text
                 builder.addStyle(
                     SpanStyle(color = Color.Blue, textDecoration = TextDecoration.Underline),
                     start,
-                    end
+                    end,
                 )
             }
+
             is Paragraph -> {
                 // Process paragraph content
                 processNodes(child, builder)
@@ -1213,6 +1295,7 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                     builder.append("\n")
                 }
             }
+
             is Heading -> {
                 // Insert a newline before headings (for spacing), unless it's the first node
                 if (builder.isNotEmpty() && !builder.toString().endsWith("\n")) {
@@ -1222,20 +1305,22 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                 processNodes(child, builder)
                 val end = builder.length
                 // Map heading level to style
-                val headingStyle = when (child.level) {
-                    1 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp)
-                    2 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                    3 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    4 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    5 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    else -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
+                val headingStyle =
+                    when (child.level) {
+                        1 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                        2 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                        3 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        4 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        5 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        else -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
                 builder.addStyle(headingStyle, start, end)
                 // Only append a newline if there's another sibling
                 if (nextSibling != null) {
                     builder.append("\n")
                 }
             }
+
             is BlockQuote -> {
                 // Optional: style block quotes in italics or different color
                 val start = builder.length
@@ -1244,12 +1329,13 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                 builder.addStyle(
                     SpanStyle(color = Color.Gray, fontStyle = FontStyle.Italic),
                     start,
-                    end
+                    end,
                 )
                 if (nextSibling != null) {
                     builder.append("\n")
                 }
             }
+
             is BulletList -> {
                 var listItem = child.firstChild
                 while (listItem != null) {
@@ -1265,6 +1351,7 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                     builder.append("\n")
                 }
             }
+
             is OrderedList -> {
                 var index = child.startNumber
                 var listItem = child.firstChild
@@ -1281,6 +1368,7 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                     builder.append("\n")
                 }
             }
+
             is FencedCodeBlock -> {
                 // Code block with triple backticks
                 val start = builder.length
@@ -1290,44 +1378,49 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
                 // Always dark background, white text
                 builder.addStyle(
                     SpanStyle(
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     ),
                     start,
-                    end
+                    end,
                 )
                 // Only append a newline if there's another sibling
                 if (nextSibling != null) {
                     builder.append("\n")
                 }
             }
+
             is IndentedCodeBlock -> {
                 val start = builder.length
                 builder.append(child.literal)
                 val end = builder.length
                 builder.addStyle(
                     SpanStyle(
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
                     ),
                     start,
-                    end
+                    end,
                 )
                 if (nextSibling != null) {
                     builder.append("\n")
                 }
             }
+
             is ThematicBreak -> {
                 builder.append("\n----------------\n")
                 if (nextSibling != null) {
                     builder.append("\n")
                 }
             }
+
             is SoftLineBreak -> {
                 // Usually rendered as a space in Markdown
                 builder.append(" ")
             }
+
             is HardLineBreak -> {
                 builder.append("\n")
             }
+
             else -> {
                 processNodes(child, builder)
             }
@@ -1337,6 +1430,4 @@ private fun processNodes(node: Node, builder: AnnotatedString.Builder) {
 }
 
 /** Quick helper to check if the builder already has text. */
-private fun AnnotatedString.Builder.isNotEmpty(): Boolean {
-    return this.length > 0
-}
+private fun AnnotatedString.Builder.isNotEmpty(): Boolean = this.length > 0
