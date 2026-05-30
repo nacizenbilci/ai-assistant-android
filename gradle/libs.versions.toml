@@ -25,6 +25,8 @@ mediapipeTasksText = "0.10.29"
 kotlinSerialization = "1.9.0"
 androidxComposeCompiler = "1.5.1"
 spotless = "8.4.0"
+room = "2.6.1"
+
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -57,6 +59,10 @@ androidx-ui-test-android = { group = "androidx.compose.ui", name = "ui-test-andr
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 androidx-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "runtimeSaveable" }
 mediapipe-tasks-text = { group = "com.google.mediapipe", name = "tasks-text", version.ref = "mediapipeTasksText" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.jetbrains.kotlin.serialization)
+    kotlin("kapt")
 }
 
 android {
@@ -91,13 +92,23 @@ dependencies {
     implementation(libs.androidx.material3.window.size)
     implementation(libs.androidx.material3.adaptive.navigation.suite)
     implementation(libs.okhttp)
+    constraints {
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3") {
+            because("Kotlin 1.9.0 compatibility")
+        }
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3") {
+            because("Kotlin 1.9.0 compatibility")
+        }
+    }
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.translate)
     implementation(libs.commonmark)
     //implementation ("com.github.jeziellago:compose-markdown:0.5.4")
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    implementation(libs.kotlin.reflect)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
     implementation(libs.play.services.location)
     implementation(libs.androidx.ui.test.android)
     implementation(libs.androidx.security.crypto)
@@ -113,3 +124,11 @@ dependencies {
     //MediaPipe library
     implementation(libs.mediapipe.tasks.text)
 }
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+        force("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
+        force("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.3")
+    }
+}

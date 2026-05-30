@@ -3,8 +3,6 @@ package com.app.assistant.usecase
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
-import org.json.JSONArray
-import org.json.JSONObject
 import java.util.Locale
 
 class ProcessChatCommandUseCase(
@@ -96,15 +94,14 @@ class ProcessChatCommandUseCase(
         systemContext: String,
         chatHistory: List<Conversation>
     ): String? {
-        val messagesArray = JSONArray()
-        messagesArray.put(JSONObject().put("role", "system").put("content", systemContext))
+        val messages = mutableListOf<GroqMessage>()
+        messages.add(GroqMessage(role = "system", content = systemContext))
 
         for (item in chatHistory) {
             val role = if (item.isMe) "user" else "assistant"
-            val messageObject = JSONObject().put("role", role).put("content", item.englishText)
-            messagesArray.put(messageObject)
+            messages.add(GroqMessage(role = role, content = item.englishText))
         }
 
-        return getAiResponseUseCase.execute(messagesArray)
+        return getAiResponseUseCase.execute(messages)
     }
 }

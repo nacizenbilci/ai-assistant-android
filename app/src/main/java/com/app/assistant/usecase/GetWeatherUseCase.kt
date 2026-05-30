@@ -6,8 +6,9 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.app.assistant.repository.WeatherRepository
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -32,10 +33,11 @@ class GetWeatherUseCase(
                     val (lat, long) = coordinates
                     val weatherData = weatherRepository.getWeatherData(lat, long)
                     if (weatherData != null) {
-                        weatherData.remove("latitude")
-                        weatherData.remove("longitude")
+                        val weatherJson = Json.parseToJsonElement(weatherData).jsonObject
+                        val filteredMap = weatherJson.filterKeys { it != "latitude" && it != "longitude" }
+                        val filteredJson = JsonObject(filteredMap)
 
-                        val aiResponse = queryWeatherAI(prompt, weatherData.toString())
+                        val aiResponse = queryWeatherAI(prompt, filteredJson.toString())
                         if (!aiResponse.isNullOrEmpty()) {
                             onSuccess(aiResponse, location)
                         } else {
@@ -75,10 +77,11 @@ class GetWeatherUseCase(
         val city = weatherRepository.getCityNameFromLocation(lat, long) ?: "your location"
         val weatherData = weatherRepository.getWeatherData(lat, long)
         if (weatherData != null) {
-            weatherData.remove("latitude")
-            weatherData.remove("longitude")
+            val weatherJson = Json.parseToJsonElement(weatherData).jsonObject
+            val filteredMap = weatherJson.filterKeys { it != "latitude" && it != "longitude" }
+            val filteredJson = JsonObject(filteredMap)
 
-            val aiResponse = queryWeatherAI(prompt, weatherData.toString())
+            val aiResponse = queryWeatherAI(prompt, filteredJson.toString())
             if (!aiResponse.isNullOrEmpty()) {
                 onSuccess(aiResponse, city)
             } else {
@@ -90,8 +93,6 @@ class GetWeatherUseCase(
     }
 
     private suspend fun queryWeatherAI(question: String, weatherData: String): String? {
-        val messagesArray = JSONArray()
-
         val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault(Locale.Category.FORMAT)).format(Calendar.getInstance().time)
         val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault(Locale.Category.FORMAT)).format(Calendar.getInstance().time)
         val systemContext =
@@ -99,9 +100,11 @@ class GetWeatherUseCase(
                 "which is $date at $time. Please respond with an answer to the user's question based on " +
                 "the latest weather data provided. No need to mention data or time; just answer naturally in 2 to 3 lines."
 
-        messagesArray.put(JSONObject().put("role", "system").put("content", systemContext))
-        messagesArray.put(JSONObject().put("role", "user").put("content", question + System.lineSeparator() + weatherData))
+        val messages = listOf(
+            GroqMessage(role = "system", content = systemContext),
+            GroqMessage(role = "user", content = question + System.lineSeparator() + weatherData)
+        )
 
-        return getAiResponseUseCase.execute(messagesArray)
+        return getAiResponseUseCase.execute(messages)
     }
 }

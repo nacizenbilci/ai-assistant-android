@@ -6,21 +6,34 @@ import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONException
-import org.json.JSONObject
 import java.io.IOException
 import java.util.Locale
+
+@Serializable
+data class GeocodingResult(
+    val name: String,
+    val latitude: Double,
+    val longitude: Double
+)
+
+@Serializable
+data class GeocodingResponse(
+    val results: List<GeocodingResult>? = null
+)
 
 class WeatherRepository(
     private val context: Context,
 ) {
     private val client = OkHttpClient()
+    private val json = Json { ignoreUnknownKeys = true }
 
     fun extractPlaceName(inputText: String): String {
         // Pattern to match place names after "in" or "for", excluding trailing words like "today", "tomorrow", etc.
@@ -98,32 +111,17 @@ class WeatherRepository(
         cityName: String,
     ): Pair<Double, Double>? {
         if (body.isEmpty()) return null
-        val jsonObject = JSONObject(body)
-        var latitude: Double? = null
-        var longitude: Double? = null
-
         try {
-            val results = jsonObject.getJSONArray("results")
+            val response = json.decodeFromString<GeocodingResponse>(body)
+            val results = response.results ?: return null
+            if (results.isEmpty()) return null
 
-            for (i in 0 until results.length()) {
-                val result = results.getJSONObject(i)
-                if (result.getString("name").equals(cityName, ignoreCase = true)) {
-                    latitude = result.getDouble("latitude")
-                    longitude = result.getDouble("longitude")
-                    break
-                }
-            }
-
-            if ((latitude == null || longitude == null) && results.length() > 0) {
-                val firstResult = results.getJSONObject(0)
-                latitude = firstResult.getDouble("latitude")
-                longitude = firstResult.getDouble("longitude")
-            }
+            val matchedResult = results.find { it.name.equals(cityName, ignoreCase = true) } ?: results[0]
+            return Pair(matchedResult.latitude, matchedResult.longitude)
         } catch (e: Exception) {
-            e.message?.let { Log.d("extractCoordinates Excepetion", it) }
+            Log.d("extractCoordinates Exception", e.message ?: "")
         }
-
-        return if (latitude != null && longitude != null) Pair(latitude, longitude) else null
+        return null
     }
 
     fun getCityNameFromLocation(
@@ -147,8 +145,8 @@ class WeatherRepository(
     suspend fun getWeatherData(
         latitude: Double,
         longitude: Double,
-    ): JSONObject? {
-        val deferredResult = CompletableDeferred<JSONObject?>()
+    ): String? {
+        val deferredResult = CompletableDeferred<String?>()
 
         val urlBuilder =
             "https://api.open-meteo.com/v1/forecast"
@@ -184,12 +182,7 @@ class WeatherRepository(
                 ) {
                     if (response.isSuccessful) {
                         val body = response.body?.string() ?: ""
-                        try {
-                            deferredResult.complete(JSONObject(body))
-                        } catch (e: JSONException) {
-                            Log.e("WeatherRepository", "Error parsing JSON: $e")
-                            deferredResult.complete(null)
-                        }
+                        deferredResult.complete(body)
                     } else {
                         Log.e("WeatherRepository", "Weather data request unsuccessful: ${response.code}")
                         deferredResult.complete(null)

@@ -5,15 +5,41 @@ import com.app.assistant.BuildConfig
 import com.app.assistant.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.IOException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+
+@Serializable
+data class GroqMessage(
+    val role: String,
+    val content: String
+)
+
+@Serializable
+data class GroqRequest(
+    val model: String,
+    val messages: List<GroqMessage>,
+    val temperature: Double = 1.0,
+    val top_p: Double = 1.0,
+    val stop: String? = null
+)
+
+@Serializable
+data class GroqResponse(
+    val choices: List<GroqChoice>
+)
+
+@Serializable
+data class GroqChoice(
+    val message: GroqMessage
+)
 
 class GetAiResponseUseCase(
     private val settingsRepository: SettingsRepository
@@ -24,16 +50,18 @@ class GetAiResponseUseCase(
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    suspend fun execute(messagesArray: JSONArray): String? {
-        val requestBodyJson = JSONObject().apply {
-            put("model", "llama-3.3-70b-versatile")
-            put("messages", messagesArray)
-            put("temperature", 1)
-            put("top_p", 1)
-            put("stop", null as Any?)
-        }
+    private val json = Json { ignoreUnknownKeys = true }
 
-        val requestBody = requestBodyJson.toString()
+    suspend fun execute(messages: List<GroqMessage>): String? {
+        val requestObj = GroqRequest(
+            model = "llama-3.3-70b-versatile",
+            messages = messages,
+            temperature = 1.0,
+            top_p = 1.0,
+            stop = null
+        )
+
+        val requestBody = json.encodeToString(requestObj)
             .toRequestBody("application/json".toMediaTypeOrNull())
 
         val chatKey = loadChatKey()
@@ -69,12 +97,9 @@ class GetAiResponseUseCase(
     fun extractFromAI(response: String): String? {
         try {
             if (response.isNotEmpty()) {
-                val jsonObject = JSONObject(response)
-                val choicesArray = jsonObject.getJSONArray("choices")
-                if (choicesArray.length() > 0) {
-                    val choiceObject = choicesArray.getJSONObject(0)
-                    val messageObject = choiceObject.getJSONObject("message")
-                    var content = messageObject.getString("content")
+                val responseObj = json.decodeFromString<GroqResponse>(response)
+                if (responseObj.choices.isNotEmpty()) {
+                    var content = responseObj.choices[0].message.content
 
                     // Regex to remove <think> tags and the content inside
                     val thinkTagRegex = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)

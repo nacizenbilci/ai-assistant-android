@@ -6,21 +6,54 @@ import android.util.Log
 import com.app.assistant.BuildConfig
 import com.app.assistant.repository.SettingsRepository
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
 import java.io.IOException
 import java.net.URI
+
+@Serializable
+data class YouTubeItemId(
+    val kind: String? = null,
+    val videoId: String? = null
+)
+
+@Serializable
+data class YouTubeThumbnailDetail(
+    val url: String? = null
+)
+
+@Serializable
+data class YouTubeThumbnails(
+    val high: YouTubeThumbnailDetail? = null
+)
+
+@Serializable
+data class YouTubeSnippet(
+    val thumbnails: YouTubeThumbnails? = null
+)
+
+@Serializable
+data class YouTubeSearchItem(
+    val id: YouTubeItemId? = null,
+    val snippet: YouTubeSnippet? = null
+)
+
+@Serializable
+data class YouTubeSearchResponse(
+    val items: List<YouTubeSearchItem>? = null
+)
 
 class PlaySongUseCase(
     private val settingsRepository: SettingsRepository
 ) {
+    private val json = Json { ignoreUnknownKeys = true }
+
     suspend fun execute(
         prompt: String,
         onIntentTriggered: suspend (Intent) -> Unit,
@@ -112,23 +145,20 @@ class PlaySongUseCase(
     }
 
     private fun extractVideoIdAndThumbnail(jsonString: String): Pair<String, String> {
-        val jsonObject = JSONObject(jsonString)
-        val itemsArray = jsonObject.optJSONArray("items") ?: return Pair("", "")
-
-        if (itemsArray.length() > 0) {
-            val firstItem = itemsArray.optJSONObject(0) ?: return Pair("", "")
-            val idObject = firstItem.optJSONObject("id") ?: return Pair("", "")
-
-            if (idObject.optString("kind") == "youtube#video") {
-                val videoId = idObject.optString("videoId", "")
-                val thumbnailUrl = firstItem
-                    .optJSONObject("snippet")
-                    ?.optJSONObject("thumbnails")
-                    ?.optJSONObject("high")
-                    ?.optString("url", "") ?: ""
-
-                return Pair(videoId, thumbnailUrl)
+        try {
+            val response = json.decodeFromString<YouTubeSearchResponse>(jsonString)
+            val items = response.items ?: return Pair("", "")
+            if (items.isNotEmpty()) {
+                val firstItem = items[0]
+                val idObject = firstItem.id ?: return Pair("", "")
+                if (idObject.kind == "youtube#video") {
+                    val videoId = idObject.videoId ?: ""
+                    val thumbnailUrl = firstItem.snippet?.thumbnails?.high?.url ?: ""
+                    return Pair(videoId, thumbnailUrl)
+                }
             }
+        } catch (e: Exception) {
+            Log.e("PlaySongUseCase", "Error parsing YouTube JSON", e)
         }
         return Pair("", "")
     }
