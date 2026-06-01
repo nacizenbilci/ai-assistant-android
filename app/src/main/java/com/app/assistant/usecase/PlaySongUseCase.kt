@@ -1,11 +1,7 @@
 package com.app.assistant.usecase
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
 import com.app.assistant.BuildConfig
-import com.app.assistant.R
+import com.app.assistant.model.DeviceAction
 import com.app.assistant.repository.SettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.Serializable
@@ -52,7 +48,7 @@ data class YouTubeSearchResponse(
 )
 
 class PlaySongUseCase(
-    private val context: Context,
+    private val resourceProvider: ResourceProvider,
     private val settingsRepository: SettingsRepository,
     private val client: OkHttpClient
 ) {
@@ -60,7 +56,7 @@ class PlaySongUseCase(
 
     suspend fun execute(
         prompt: String,
-        onIntentTriggered: suspend (Intent) -> Unit,
+        onIntentTriggered: suspend (DeviceAction) -> Unit,
         onSuccess: suspend (songName: String, videoId: String, thumbnailUrl: String, videoUri: URI) -> Unit,
         onMissingApiKey: suspend (searchQuery: String) -> Unit,
         onFailure: suspend (errorMsg: String) -> Unit
@@ -68,7 +64,7 @@ class PlaySongUseCase(
         try {
             val sanitizedPrompt = prompt.replace("\\p{Punct}+".toRegex(), "")
             if (!sanitizedPrompt.lowercase().contains("play ")) {
-                onFailure(context.getString(R.string.song_not_found_fallback))
+                onFailure(resourceProvider.getString("song_not_found"))
                 return
             }
             val searchQuery = sanitizedPrompt.lowercase().substringAfter("play").trim()
@@ -76,20 +72,12 @@ class PlaySongUseCase(
             val (videoId, thumbnailUrl) = youtubeApiCall(searchQuery)
 
             if (videoId.isEmpty()) {
-                onFailure(context.getString(R.string.song_not_found_fallback))
+                onFailure(resourceProvider.getString("song_not_found"))
             } else if (videoId == "Missing API Key") {
-                val intent = Intent(Intent.ACTION_SEARCH).apply {
-                    setPackage("com.google.android.youtube")
-                    putExtra("query", searchQuery)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                onIntentTriggered(intent)
+                onIntentTriggered(DeviceAction.SearchSong(searchQuery))
                 onMissingApiKey(searchQuery)
             } else {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                onIntentTriggered(intent)
+                onIntentTriggered(DeviceAction.PlaySong(videoId))
                 onSuccess(
                     searchQuery,
                     videoId,
@@ -98,8 +86,8 @@ class PlaySongUseCase(
                 )
             }
         } catch (e: Exception) {
-            Log.d("PlaySongUseCase", e.message.toString())
-            onFailure(context.getString(R.string.generic_error_fallback))
+            System.err.println("Error playing song: ${e.message}")
+            onFailure(resourceProvider.getString("generic_error"))
         }
     }
 
@@ -161,7 +149,7 @@ class PlaySongUseCase(
                 }
             }
         } catch (e: Exception) {
-            Log.e("PlaySongUseCase", "Error parsing YouTube JSON", e)
+            System.err.println("Error parsing YouTube JSON: ${e.message}")
         }
         return Pair("", "")
     }

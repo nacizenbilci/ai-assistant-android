@@ -1,19 +1,15 @@
 package com.app.assistant.usecase
 
-import android.content.Context
-import android.content.Intent
-import android.provider.AlarmClock
-import android.util.Log
-import com.app.assistant.R
+import com.app.assistant.model.DeviceAction
 import java.util.Calendar
 import java.util.Locale
 
-class SetAlarmUseCase(private val context: Context) {
+class SetAlarmUseCase(private val resourceProvider: ResourceProvider) {
     suspend fun execute(
         prompt: String,
         dayOverride: String? = null,
         onPromptForTime: suspend (dayMatch: String?) -> Unit,
-        onSuccess: suspend (intent: Intent) -> Unit,
+        onSuccess: suspend (action: DeviceAction) -> Unit,
         onFailure: suspend (errorMsg: String) -> Unit
     ) {
         try {
@@ -26,21 +22,21 @@ class SetAlarmUseCase(private val context: Context) {
             if (timeMatch == null && relativeTimeMatch == null) {
                 onPromptForTime(dayMatch)
             } else {
-                val intent = setAlarmFromPrompt(dayMatch, timeMatch, relativeTimeMatch, context.getString(R.string.new_alarm_message))
-                onSuccess(intent)
+                val action = calculateAlarmAction(dayMatch, timeMatch, relativeTimeMatch, resourceProvider.getString("new_alarm_message"))
+                onSuccess(action)
             }
         } catch (e: Exception) {
-            Log.e("SetAlarmUseCase", "Error setting alarm", e)
-            onFailure(context.getString(R.string.generic_error_fallback))
+            System.err.println("Error setting alarm: ${e.message}")
+            onFailure(resourceProvider.getString("generic_error"))
         }
     }
 
-    private fun setAlarmFromPrompt(
+    private fun calculateAlarmAction(
         dayMatch: String?,
         timeMatch: MatchResult?,
         relativeTimeMatch: MatchResult?,
         message: String
-    ): Intent {
+    ): DeviceAction {
         val calendar = Calendar.getInstance()
 
         if (relativeTimeMatch != null) {
@@ -130,17 +126,13 @@ class SetAlarmUseCase(private val context: Context) {
             }
         }
 
-        return Intent(AlarmClock.ACTION_SET_ALARM).apply {
-            putExtra(AlarmClock.EXTRA_MESSAGE, message)
-            putExtra(AlarmClock.EXTRA_HOUR, calendar.get(Calendar.HOUR_OF_DAY))
-            putExtra(AlarmClock.EXTRA_MINUTES, calendar.get(Calendar.MINUTE))
-            putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-
-            if (repeatDays.isNotEmpty()) {
-                putExtra(AlarmClock.EXTRA_DAYS, ArrayList(repeatDays))
-            }
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        return DeviceAction.SetAlarm(
+            message = message,
+            hour = calendar.get(Calendar.HOUR_OF_DAY),
+            minutes = calendar.get(Calendar.MINUTE),
+            repeatDays = repeatDays,
+            isReminder = false
+        )
     }
 
     companion object {

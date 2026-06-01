@@ -32,13 +32,16 @@ class MainViewModelFactory(
 
             val weatherRepo = WeatherRepository(application, okHttpClient)
 
+            val permissionChecker = AndroidPermissionChecker(application)
+            val resourceProvider = AndroidResourceProvider(application)
+
             val getAiResponseUseCase = GetAiResponseUseCase(settingsRepo, okHttpClient)
-            val callContactUseCase = CallContactUseCase(application, contactsRepo)
-            val playSongUseCase = PlaySongUseCase(application, settingsRepo, okHttpClient)
-            val navigateUseCase = NavigateUseCase(application)
-            val getWeatherUseCase = GetWeatherUseCase(application, weatherRepo, getAiResponseUseCase)
-            val setAlarmUseCase = SetAlarmUseCase(application)
-            val setReminderUseCase = SetReminderUseCase(application)
+            val callContactUseCase = CallContactUseCase(permissionChecker, contactsRepo)
+            val playSongUseCase = PlaySongUseCase(resourceProvider, settingsRepo, okHttpClient)
+            val navigateUseCase = NavigateUseCase(resourceProvider)
+            val getWeatherUseCase = GetWeatherUseCase(permissionChecker, weatherRepo, getAiResponseUseCase)
+            val setAlarmUseCase = SetAlarmUseCase(resourceProvider)
+            val setReminderUseCase = SetReminderUseCase(resourceProvider)
             val processChatCommandUseCase = ProcessChatCommandUseCase(getAiResponseUseCase)
 
             @Suppress("UNCHECKED_CAST")

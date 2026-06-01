@@ -1,16 +1,12 @@
 package com.app.assistant.usecase
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import com.app.assistant.R
+import com.app.assistant.model.DeviceAction
 import java.net.URI
 
-class NavigateUseCase(private val context: Context) {
+class NavigateUseCase(private val resourceProvider: ResourceProvider) {
     suspend fun execute(
         prompt: String,
-        onIntentTriggered: suspend (Intent) -> Unit,
+        onIntentTriggered: suspend (DeviceAction) -> Unit,
         onSuccess: suspend (location: String, navigationUri: URI) -> Unit,
         onFailure: suspend (errorMsg: String) -> Unit
     ) {
@@ -18,24 +14,18 @@ class NavigateUseCase(private val context: Context) {
             val sanitizedPrompt = prompt.replace("\\p{Punct}+".toRegex(), "")
             val location = extractLocation(sanitizedPrompt)
             if (location != null) {
-                val gmmIntentUri = Uri.parse("google.navigation:q=$location")
-                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    setPackage("com.google.android.apps.maps")
-                }
-                onIntentTriggered(mapIntent)
-
                 val encodedURI = java.net.URLEncoder.encode(
                     location,
                     java.nio.charset.StandardCharsets.UTF_8.toString()
                 )
+                onIntentTriggered(DeviceAction.NavigateTo(location))
                 onSuccess(location, URI("google.navigation:q=$encodedURI"))
             } else {
-                onFailure(context.getString(R.string.location_not_found_fallback))
+                onFailure(resourceProvider.getString("location_not_found"))
             }
         } catch (e: Exception) {
-            Log.d("NavigateUseCase", e.message.toString())
-            onFailure(context.getString(R.string.generic_error_fallback))
+            System.err.println("Error navigating: ${e.message}")
+            onFailure(resourceProvider.getString("generic_error"))
         }
     }
 

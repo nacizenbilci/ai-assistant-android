@@ -1,27 +1,23 @@
 package com.app.assistant.usecase
 
-import android.content.Context
-import android.content.Intent
-import android.provider.AlarmClock
-import android.util.Log
-import com.app.assistant.R
+import com.app.assistant.model.DeviceAction
 import java.util.Calendar
 import java.util.Locale
 
-class SetReminderUseCase(private val context: Context) {
+class SetReminderUseCase(private val resourceProvider: ResourceProvider) {
     suspend fun execute(
         prompt: String,
         dayOverride: String? = null,
         contextOverride: String? = null,
         onPromptForTime: suspend (dayMatch: String?, context: String) -> Unit,
-        onSuccess: suspend (intent: Intent) -> Unit,
+        onSuccess: suspend (action: DeviceAction) -> Unit,
         onFailure: suspend (errorMsg: String) -> Unit
     ) {
         try {
             val sanitizedPrompt = prompt.replace(PunctuationRegex, "")
 
             val contextMatch = ContextRegex.find(sanitizedPrompt)
-            val context = contextOverride ?: contextMatch?.groupValues?.get(1)?.trim() ?: this.context.getString(R.string.reminder_default_context)
+            val context = contextOverride ?: contextMatch?.groupValues?.get(1)?.trim() ?: resourceProvider.getString("reminder_default_context")
 
             val timeMatch = TimeRegex.find(sanitizedPrompt)
             val relativeTimeMatch = RelativeTimeRegex.find(sanitizedPrompt)
@@ -30,21 +26,21 @@ class SetReminderUseCase(private val context: Context) {
             if (timeMatch == null && relativeTimeMatch == null) {
                 onPromptForTime(dayMatch, context)
             } else {
-                val intent = setReminderFromPrompt(dayMatch, timeMatch, relativeTimeMatch, context)
-                onSuccess(intent)
+                val action = calculateReminderAction(dayMatch, timeMatch, relativeTimeMatch, context)
+                onSuccess(action)
             }
         } catch (e: Exception) {
-            Log.e("SetReminderUseCase", "Error setting reminder", e)
-            onFailure(this.context.getString(R.string.generic_error_fallback))
+            System.err.println("Error setting reminder: ${e.message}")
+            onFailure(resourceProvider.getString("generic_error"))
         }
     }
 
-    private fun setReminderFromPrompt(
+    private fun calculateReminderAction(
         dayMatch: String?,
         timeMatch: MatchResult?,
         relativeTimeMatch: MatchResult?,
         context: String
-    ): Intent {
+    ): DeviceAction {
         val calendar = Calendar.getInstance()
 
         if (relativeTimeMatch != null) {
@@ -134,18 +130,13 @@ class SetReminderUseCase(private val context: Context) {
             }
         }
 
-        return Intent(AlarmClock.ACTION_SET_ALARM).apply {
-            putExtra(AlarmClock.EXTRA_MESSAGE, context)
-            putExtra(AlarmClock.EXTRA_HOUR, calendar.get(Calendar.HOUR_OF_DAY))
-            putExtra(AlarmClock.EXTRA_MINUTES, calendar.get(Calendar.MINUTE))
-            putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-            putExtra(AlarmClock.EXTRA_RINGTONE, AlarmClock.VALUE_RINGTONE_SILENT)
-
-            if (repeatDays.isNotEmpty()) {
-                putExtra(AlarmClock.EXTRA_DAYS, ArrayList(repeatDays))
-            }
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        return DeviceAction.SetAlarm(
+            message = context,
+            hour = calendar.get(Calendar.HOUR_OF_DAY),
+            minutes = calendar.get(Calendar.MINUTE),
+            repeatDays = repeatDays,
+            isReminder = true
+        )
     }
 
     companion object {

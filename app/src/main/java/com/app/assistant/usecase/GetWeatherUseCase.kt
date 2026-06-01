@@ -1,10 +1,5 @@
 package com.app.assistant.usecase
 
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.util.Log
-import androidx.core.content.ContextCompat
 import com.app.assistant.repository.WeatherRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -14,7 +9,7 @@ import java.util.Calendar
 import java.util.Locale
 
 class GetWeatherUseCase(
-    private val context: Context,
+    private val permissionChecker: PermissionChecker,
     private val weatherRepository: WeatherRepository,
     private val getAiResponseUseCase: GetAiResponseUseCase
 ) {
@@ -50,19 +45,16 @@ class GetWeatherUseCase(
                     onFailure("I can not find such location, please try again.")
                 }
             } else {
-                val isPermissionGranted = ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
+                val isPermissionGranted = permissionChecker.hasPermission("android.permission.ACCESS_COARSE_LOCATION")
 
                 if (!isPermissionGranted) {
-                    onPermissionRequest(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
+                    onPermissionRequest(arrayOf("android.permission.ACCESS_COARSE_LOCATION"))
                 } else {
                     onLocationRequest()
                 }
             }
         } catch (e: Exception) {
-            Log.e("GetWeatherUseCase", "Error fetching weather", e)
+            System.err.println("Error fetching weather: ${e.message}")
             onFailure("Something went wrong, please try again.")
         }
     }

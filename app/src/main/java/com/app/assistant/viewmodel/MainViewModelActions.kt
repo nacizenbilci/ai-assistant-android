@@ -26,8 +26,8 @@ fun MainViewModel.callContact(
                     _uiEvent.emit(UIEvent.RequestPermissions(permissions, 102))
                     processResponse(getRandomResponse(ResponseStrings.permissionContactsCall(getApplication())), loadingItemId, speak, Category.OTHER)
                 },
-                onIntentTriggered = { intent ->
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
+                onIntentTriggered = { action ->
+                    _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
                 },
                 onSuccess = { name, dialUri ->
                     processResponse(
@@ -57,8 +57,8 @@ fun MainViewModel.playSong(
     viewModelScope.launch {
         playSongUseCase.execute(
             prompt = prompt,
-            onIntentTriggered = { intent ->
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+            onIntentTriggered = { action ->
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
             },
             onSuccess = { songName, videoId, thumbnailUrl, videoUri ->
                 processResponse(
@@ -91,8 +91,8 @@ fun MainViewModel.navigate(
     viewModelScope.launch {
         navigateUseCase.execute(
             prompt = prompt,
-            onIntentTriggered = { intent ->
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+            onIntentTriggered = { action ->
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
             },
             onSuccess = { location, navigationUri ->
                 processResponse(
@@ -219,8 +219,8 @@ fun MainViewModel.setAlarm(
                     Category.OTHER
                 )
             },
-            onSuccess = { intent ->
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+            onSuccess = { action ->
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
                 processResponse(
                     getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())),
                     loadingItemId,
@@ -249,9 +249,9 @@ fun MainViewModel.handleAlarmLockState(
             onPromptForTime = {
                 processResponse(getRandomResponse(ResponseStrings.invalidTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
-            onSuccess = { intent ->
+            onSuccess = { action ->
                 lockState = LockState.None
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
@@ -276,8 +276,8 @@ fun MainViewModel.setReminder(
                 lockState = LockState.LockReminder(day = dayMatch, context = context)
                 processResponse(getRandomResponse(ResponseStrings.promptForTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
-            onSuccess = { intent ->
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+            onSuccess = { action ->
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, category)
             },
             onFailure = { errorMsg ->
@@ -302,9 +302,9 @@ fun MainViewModel.handleReminderLockState(
             onPromptForTime = { _, _ ->
                 processResponse(getRandomResponse(ResponseStrings.invalidTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
-            onSuccess = { intent ->
+            onSuccess = { action ->
                 lockState = LockState.None
-                _uiEvent.emit(UIEvent.StartIntent(intent))
+                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
