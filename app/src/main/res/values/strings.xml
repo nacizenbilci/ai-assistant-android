@@ -1,3 +1,22 @@
 <resources>
     <string name="app_name">Assistant</string>
+    <string name="settings_title">Settings</string>
+    <string name="youtube_api_key">YouTube API Key</string>
+    <string name="chat_api_key">Chat API Key</string>
+    <string name="app_version">App Version: %1$s</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="chats">Chats</string>
+    <string name="start_new_chat">Start new chat</string>
+    <string name="menu">Menu</string>
+    <string name="copy">Copy</string>
+    <string name="delete">Delete</string>
+    <string name="translate">Translate</string>
+    <string name="restart_chat">Restart Chat</string>
+    <string name="chat_different_languages">Chat in different languages</string>
+    <string name="search_placeholder">Search…</string>
+    <string name="clear_chat_history_confirm">Are you sure you want to clear this chat from history?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="delete_message_confirm">Delete this message?</string>
 </resources>

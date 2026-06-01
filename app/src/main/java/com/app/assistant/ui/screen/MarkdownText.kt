@@ -35,10 +35,11 @@ import org.commonmark.node.Text as CText
 fun MarkdownText(
     modifier: Modifier = Modifier,
     markdown: String,
+    linkColor: Color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
 ) {
     val annotatedText =
-        remember(markdown) {
-            com.app.assistant.util.MarkdownUtils.parseMarkdownToAnnotatedString(markdown)
+        remember(markdown, linkColor) {
+            com.app.assistant.util.MarkdownUtils.parseMarkdownToAnnotatedString(markdown, linkColor)
         }
     Text(
         text = annotatedText,

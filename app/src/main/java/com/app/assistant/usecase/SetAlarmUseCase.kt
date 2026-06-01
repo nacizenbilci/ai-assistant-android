@@ -15,19 +15,11 @@ class SetAlarmUseCase {
         onFailure: suspend (errorMsg: String) -> Unit
     ) {
         try {
-            val sanitizedPrompt = prompt.replace("[.?!]+".toRegex(), "")
+            val sanitizedPrompt = prompt.replace(PunctuationRegex, "")
 
-            val dayRegex = ("(?i)\\b(today|tomorrow|next week|next weekend|" +
-                "((Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)" +
-                "( morning| evening| night| afternoon)?))\\b").toRegex(RegexOption.IGNORE_CASE)
-            val timeRegex = "(?i)\\b(\\d{1,2})(:(\\d{2}))?\\s*(AM|PM)?\\b".toRegex(RegexOption.IGNORE_CASE)
-            val relativeTimeRegex = ("(?i)\\b(\\d+)?\\s*(?:and\\s*(half))?\\s*" +
-                "(hours?|hrs?|mins?|minutes?|seconds?|secs?)\\s*(?:and\\s*(\\d+))?\\s*" +
-                "(mins?|minutes?|secs?|seconds?)?\\s*(from now|later|next)?\\b").toRegex(RegexOption.IGNORE_CASE)
-
-            val dayMatch = dayOverride ?: dayRegex.find(sanitizedPrompt)?.value?.lowercase(Locale.ROOT)
-            val timeMatch = timeRegex.find(sanitizedPrompt)
-            val relativeTimeMatch = relativeTimeRegex.find(sanitizedPrompt)
+            val dayMatch = dayOverride ?: DayRegex.find(sanitizedPrompt)?.value?.lowercase(Locale.ROOT)
+            val timeMatch = TimeRegex.find(sanitizedPrompt)
+            val relativeTimeMatch = RelativeTimeRegex.find(sanitizedPrompt)
 
             if (timeMatch == null && relativeTimeMatch == null) {
                 onPromptForTime(dayMatch)
@@ -147,5 +139,16 @@ class SetAlarmUseCase {
             }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+    }
+
+    companion object {
+        private val PunctuationRegex = "[.?!]+".toRegex()
+        private val DayRegex = ("(?i)\\b(today|tomorrow|next week|next weekend|" +
+            "((Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)" +
+            "( morning| evening| night| afternoon)?))\\b").toRegex(RegexOption.IGNORE_CASE)
+        private val TimeRegex = "(?i)\\b(\\d{1,2})(:(\\d{2}))?\\s*(AM|PM)?\\b".toRegex(RegexOption.IGNORE_CASE)
+        private val RelativeTimeRegex = ("(?i)\\b(\\d+)?\\s*(?:and\\s*(half))?\\s*" +
+            "(hours?|hrs?|mins?|minutes?|seconds?|secs?)\\s*(?:and\\s*(\\d+))?\\s*" +
+            "(mins?|minutes?|secs?|seconds?)?\\s*(from now|later|next)?\\b").toRegex(RegexOption.IGNORE_CASE)
     }
 }

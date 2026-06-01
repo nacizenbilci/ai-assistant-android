@@ -17,6 +17,20 @@ class TextToSpeechManager(
             if (status == TextToSpeech.SUCCESS) {
                 isInitialized = true
                 Log.d("TextToSpeechManager", "Initialization Success")
+                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        onSpeakingStateChanged(true)
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        onSpeakingStateChanged(false)
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        onSpeakingStateChanged(false)
+                    }
+                })
             } else {
                 Log.e("TextToSpeechManager", "Initialization Failed")
             }
@@ -31,20 +45,6 @@ class TextToSpeechManager(
         }
 
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "tts_utterance_id")
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                onSpeakingStateChanged(true)
-            }
-
-            override fun onDone(utteranceId: String?) {
-                onSpeakingStateChanged(false)
-            }
-
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                onSpeakingStateChanged(false)
-            }
-        })
     }
 
     fun stop() {

@@ -187,10 +187,7 @@ private fun StartNavigation(
         MarkdownText(
             modifier =
                 Modifier
-                    .align(alignment = Alignment.CenterVertically)
-                    .clickable {
-                        uriHandler.openUri(conversation.navigationURI.toString())
-                    },
+                    .align(alignment = Alignment.CenterVertically),
             markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
         )
     }
@@ -246,10 +243,7 @@ private fun MakeCall(
         MarkdownText(
             modifier =
                 Modifier
-                    .align(alignment = Alignment.CenterVertically)
-                    .clickable {
-                        uriHandler.openUri(conversation.navigationURI.toString())
-                    },
+                    .align(alignment = Alignment.CenterVertically),
             markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
         )
     }

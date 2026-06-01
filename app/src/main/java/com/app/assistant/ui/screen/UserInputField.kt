@@ -53,6 +53,7 @@ fun UserInputField(
 ) {
     val isSpeaking by viewModel.isSpeaking.collectAsState()
     val isListening by viewModel.isListening.collectAsState()
+    val question by viewModel.question.collectAsState()
 
     val containerColor = TextFieldDefaults.colors().unfocusedContainerColor
     val rippleColor = adjustContrast(containerColor)
@@ -107,10 +108,10 @@ fun UserInputField(
                 Modifier
                     .fillMaxWidth(),
             shape = RoundedCornerShape(20),
-            value = viewModel.question.value,
+            value = question,
             placeholder = { Text("Type here...") },
             maxLines = 2,
-            onValueChange = { viewModel.question.value = it },
+            onValueChange = { viewModel.setQuestion(it) },
             colors =
                 TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
@@ -119,7 +120,6 @@ fun UserInputField(
                 ),
             trailingIcon = {
                 Row(horizontalArrangement = Arrangement.End) {
-                    val context = LocalContext.current
                     if (isSpeaking) {
                         IconButton(onClick = {
                             if (isSpeaking) {
@@ -134,20 +134,18 @@ fun UserInputField(
                     } else {
                         IconButton(onClick = {
                             viewModel.startSpeechToText(
-                                context,
                                 onResult = { recognizedText ->
-                                    viewModel.question.value = recognizedText
-                                    if (viewModel.question.value.isNotEmpty()) {
+                                    viewModel.setQuestion(recognizedText)
+                                    if (question.isNotEmpty()) {
                                         viewModel.processQuestion(
                                             focusManager,
                                             keyboardController,
-                                            context,
                                             true,
                                         )
                                     }
                                 },
                                 onPartialResult = { recognizedText ->
-                                    viewModel.question.value = recognizedText
+                                    viewModel.setQuestion(recognizedText)
                                 },
                             )
                         }) {
@@ -158,11 +156,10 @@ fun UserInputField(
                         }
                     }
                     IconButton(onClick = {
-                        if (viewModel.question.value.isNotEmpty()) {
+                        if (question.isNotEmpty()) {
                             viewModel.processQuestion(
                                 focusManager,
                                 keyboardController,
-                                context,
                                 false,
                             )
                         }

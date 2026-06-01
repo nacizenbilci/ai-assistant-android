@@ -39,10 +39,13 @@ class DynamicConversationRepository(
             }
 
             val iv = EncryptionUtil.generateIV()
+            val (encryptedEnglish, _) = EncryptionUtil.encrypt(conversation.englishText, iv)
+            val (encryptedTranslated, _) = EncryptionUtil.encrypt(conversation.translatedText, iv)
+
             val messageEntity = MessageEntity(
                 id = conversation.id,
-                englishText = conversation.englishText,
-                translatedText = conversation.translatedText,
+                englishText = encryptedEnglish,
+                translatedText = encryptedTranslated,
                 isMe = conversation.isMe,
                 category = conversation.category,
                 contentURL = conversation.contentURL,
@@ -66,10 +69,13 @@ class DynamicConversationRepository(
     ) {
         withContext(Dispatchers.IO) {
             val iv = EncryptionUtil.generateIV()
+            val (encryptedEnglish, _) = EncryptionUtil.encrypt(newConversation.englishText, iv)
+            val (encryptedTranslated, _) = EncryptionUtil.encrypt(newConversation.translatedText, iv)
+
             val messageEntity = MessageEntity(
                 id = newConversation.id,
-                englishText = newConversation.englishText,
-                translatedText = newConversation.translatedText,
+                englishText = encryptedEnglish,
+                translatedText = encryptedTranslated,
                 isMe = newConversation.isMe,
                 category = newConversation.category,
                 contentURL = newConversation.contentURL,
@@ -101,10 +107,13 @@ class DynamicConversationRepository(
     suspend fun loadMessagesForGroup(groupId: Long): MutableList<Conversation> {
         return withContext(Dispatchers.IO) {
             dao.getMessagesForGroup(groupId).map { entity ->
+                val decryptedEnglish = EncryptionUtil.decrypt(entity.englishText, entity.iv)
+                val decryptedTranslated = EncryptionUtil.decrypt(entity.translatedText, entity.iv)
+
                 Conversation(
                     id = entity.id,
-                    englishText = entity.englishText,
-                    translatedText = entity.translatedText,
+                    englishText = decryptedEnglish,
+                    translatedText = decryptedTranslated,
                     isMe = entity.isMe,
                     isLoading = false,
                     category = entity.category,

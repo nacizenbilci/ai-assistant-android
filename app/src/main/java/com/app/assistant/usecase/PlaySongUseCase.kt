@@ -83,7 +83,7 @@ class PlaySongUseCase(
                 onIntentTriggered(intent)
                 onMissingApiKey(searchQuery)
             } else {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("http://www.youtube.com/watch?v=$videoId")).apply {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId")).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 onIntentTriggered(intent)
@@ -91,7 +91,7 @@ class PlaySongUseCase(
                     searchQuery,
                     videoId,
                     thumbnailUrl,
-                    URI("http://www.youtube.com/watch?v=$videoId")
+                    URI("https://www.youtube.com/watch?v=$videoId")
                 )
             }
         } catch (e: Exception) {

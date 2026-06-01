@@ -26,36 +26,44 @@ class TranslatorManager {
                 val isSelectedModelDownloaded = selectedLanguageCode in downloadedLanguages
                 val isEnglishModelDownloaded = TranslateLanguage.ENGLISH in downloadedLanguages
 
-                // Download selected language model if not already downloaded
                 if (!isSelectedModelDownloaded) {
                     downloadLanguageModel(selectedLanguageCode) { success ->
                         if (!success) {
                             onResult(false)
-                            return@downloadLanguageModel
                         } else {
-                            // Download English model if not already downloaded
                             if (!isEnglishModelDownloaded) {
                                 downloadLanguageModel(TranslateLanguage.ENGLISH) { successEnglish ->
                                     if (!successEnglish) {
                                         onResult(false)
-                                        return@downloadLanguageModel
                                     } else {
+                                        initializeTranslators(selectedLanguageCode)
                                         onResult(true)
                                     }
                                 }
                             } else {
                                 Log.d("Translator", "English language model already exists. Not downloading.")
+                                initializeTranslators(selectedLanguageCode)
                                 onResult(true)
                             }
                         }
                     }
                 } else {
-                    Log.d("Translator", "Selected language model ($selectedLanguageCode) already exists. Not downloading.")
-                    onResult(true)
+                    if (!isEnglishModelDownloaded) {
+                        Log.d("Translator", "Selected model exists, downloading English model.")
+                        downloadLanguageModel(TranslateLanguage.ENGLISH) { successEnglish ->
+                            if (!successEnglish) {
+                                onResult(false)
+                            } else {
+                                initializeTranslators(selectedLanguageCode)
+                                onResult(true)
+                            }
+                        }
+                    } else {
+                        Log.d("Translator", "Both models already exist. Not downloading.")
+                        initializeTranslators(selectedLanguageCode)
+                        onResult(true)
+                    }
                 }
-
-                // Set up the translators for the selected language and English
-                initializeTranslators(selectedLanguageCode)
             }.addOnFailureListener { e ->
                 Log.e("Translator", "Failed to get downloaded models: ${e.message}")
                 onResult(false)

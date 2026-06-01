@@ -26,25 +26,6 @@ class ProcessChatCommandUseCase(
     }
 
     fun isNegativeOrNotRequired(phrase: String): Boolean {
-        val negativePatterns = listOf(
-            Regex("\\bno\\b", RegexOption.IGNORE_CASE),
-            Regex("\\bnah\\b", RegexOption.IGNORE_CASE),
-            Regex("\\bnot\\b.*", RegexOption.IGNORE_CASE),
-            Regex("\\bnever\\b.*", RegexOption.IGNORE_CASE),
-            Regex("\\bforget\\b.*", RegexOption.IGNORE_CASE),
-            Regex("\\bleave\\b.*", RegexOption.IGNORE_CASE),
-            Regex("\\bdrop\\b.*", RegexOption.IGNORE_CASE),
-            Regex("\\bcancel\\b", RegexOption.IGNORE_CASE),
-            Regex("\\babort\\b", RegexOption.IGNORE_CASE),
-            Regex("\\bstop\\b", RegexOption.IGNORE_CASE),
-            Regex("\\bquit\\b", RegexOption.IGNORE_CASE),
-            Regex("\\bdisregard\\b", RegexOption.IGNORE_CASE),
-            Regex("changed my mind", RegexOption.IGNORE_CASE),
-            Regex("don't bother", RegexOption.IGNORE_CASE),
-            Regex("let it go", RegexOption.IGNORE_CASE),
-            Regex("scratch that", RegexOption.IGNORE_CASE),
-            Regex("just kidding", RegexOption.IGNORE_CASE)
-        )
         return negativePatterns.any { it.containsMatchIn(phrase) }
     }
 
@@ -55,22 +36,7 @@ class ProcessChatCommandUseCase(
             .first()
             .categories()
 
-        val categoryWords = mapOf(
-            Category.CALL to listOf("call", "phone", "ring", "connect", "need", "get", "dial"),
-            Category.SONGS to listOf("music", "song", "play", "tune", "listen"),
-            Category.ALARM to listOf("alarm", "wake", "set", "remind", "morning"),
-            Category.REMINDER to listOf("remind", "notify", "alert", "remember"),
-            Category.NAVIGATION to listOf(
-                "navigate", "find", "show", "directions", "take me to",
-                "where is", "get to", "go to", "navigation to", "way"
-            ),
-            Category.WEATHER to listOf(
-                "sunny", "cloudy", "rain", "temperature", "umbrella", "weather",
-                "outside", "report", "forecast", "carry", "going to", "how is", "will it be"
-            ),
-            Category.SETTINGS to emptyList(),
-            Category.OTHER to emptyList()
-        )
+
 
         val highestCategory = categories.maxByOrNull { it.score() }
         val highestCategoryEnum = highestCategory?.categoryName()?.uppercase()?.let { Category.valueOf(it) }
@@ -103,5 +69,44 @@ class ProcessChatCommandUseCase(
         }
 
         return getAiResponseUseCase.execute(messages)
+    }
+
+    companion object {
+        private val negativePatterns = listOf(
+            Regex("\\bno\\b", RegexOption.IGNORE_CASE),
+            Regex("\\bnah\\b", RegexOption.IGNORE_CASE),
+            Regex("\\bnot\\b.*", RegexOption.IGNORE_CASE),
+            Regex("\\bnever\\b.*", RegexOption.IGNORE_CASE),
+            Regex("\\bforget\\b.*", RegexOption.IGNORE_CASE),
+            Regex("\\bleave\\b.*", RegexOption.IGNORE_CASE),
+            Regex("\\bdrop\\b.*", RegexOption.IGNORE_CASE),
+            Regex("\\bcancel\\b", RegexOption.IGNORE_CASE),
+            Regex("\\babort\\b", RegexOption.IGNORE_CASE),
+            Regex("\\bstop\\b", RegexOption.IGNORE_CASE),
+            Regex("\\bquit\\b", RegexOption.IGNORE_CASE),
+            Regex("\\bdisregard\\b", RegexOption.IGNORE_CASE),
+            Regex("changed my mind", RegexOption.IGNORE_CASE),
+            Regex("don't bother", RegexOption.IGNORE_CASE),
+            Regex("let it go", RegexOption.IGNORE_CASE),
+            Regex("scratch that", RegexOption.IGNORE_CASE),
+            Regex("just kidding", RegexOption.IGNORE_CASE)
+        )
+
+        private val categoryWords = mapOf(
+            Category.CALL to listOf("call", "phone", "ring", "connect", "need", "get", "dial"),
+            Category.SONGS to listOf("music", "song", "play", "tune", "listen"),
+            Category.ALARM to listOf("alarm", "wake", "set", "remind", "morning"),
+            Category.REMINDER to listOf("remind", "notify", "alert", "remember"),
+            Category.NAVIGATION to listOf(
+                "navigate", "find", "show", "directions", "take me to",
+                "where is", "get to", "go to", "navigation to", "way"
+            ),
+            Category.WEATHER to listOf(
+                "sunny", "cloudy", "rain", "temperature", "umbrella", "weather",
+                "outside", "report", "forecast", "carry", "going to", "how is", "will it be"
+            ),
+            Category.SETTINGS to emptyList(),
+            Category.OTHER to emptyList()
+        )
     }
 }

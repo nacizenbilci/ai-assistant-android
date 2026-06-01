@@ -10,12 +10,13 @@ import kotlinx.coroutines.launch
 
 class SyncStateList(
     private val repository: DynamicConversationRepository, // Repository to handle DB operations
+    private val scope: CoroutineScope,
     private val stateList: SnapshotStateList<Conversation> = mutableStateListOf(),
 ) : MutableList<Conversation> by stateList {
     override fun add(element: Conversation): Boolean {
         val result = stateList.add(element)
         if (result && !element.isLoading) {
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch(Dispatchers.IO) {
                 repository.addMessage(element)
             }
         }
@@ -24,7 +25,7 @@ class SyncStateList(
 
     override fun removeAt(index: Int): Conversation {
         val result = stateList.removeAt(index)
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch(Dispatchers.IO) {
             repository.deleteMessage(result.id)
         }
         return result
@@ -36,7 +37,7 @@ class SyncStateList(
     ): Conversation {
         val oldElement = stateList[index]
         stateList[index] = element
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch(Dispatchers.IO) {
             repository.updateMessage(oldElement, element)
         }
         return oldElement
@@ -45,7 +46,7 @@ class SyncStateList(
     fun clearAll(): Job {
         val oldList = stateList.toList()
         stateList.clear()
-        return CoroutineScope(Dispatchers.IO).launch {
+        return scope.launch(Dispatchers.IO) {
             repository.clearMessages(oldList) // Suspends until DB operations finish
         }
     }

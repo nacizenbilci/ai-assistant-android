@@ -28,30 +28,42 @@ import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
 
 object MarkdownUtils {
+    private val HeaderRegex = Regex("#+ ")
+    private val BoldRegex = Regex("\\*\\*(.*?)\\*\\*")
+    private val ItalicRegex = Regex("\\*(.*?)\\*")
+    private val ImageRegex = Regex("!\\[.*?\\]\\(.*?\\)")
+    private val LinkRegex = Regex("\\[.*?\\]\\(.*?\\)")
+    private val CodeRegex = Regex("`{1,3}.*?`{1,3}")
+    private val NewlinesRegex = Regex("\\n\\n")
+
+    private val parser = Parser.builder().build()
 
     fun markdownToPlainText(markdown: String): String {
         var plainText = markdown
-        plainText = plainText.replace(Regex("#+ "), "") // Remove headers
-        plainText = plainText.replace(Regex("\\*\\*(.*?)\\*\\*"), "$1") // Bold
-        plainText = plainText.replace(Regex("\\*(.*?)\\*"), "$1") // Italic
-        plainText = plainText.replace(Regex("!\\[.*?\\]\\(.*?\\)"), "") // Images
-        plainText = plainText.replace(Regex("\\[.*?\\]\\(.*?\\)"), "") // Links
-        plainText = plainText.replace(Regex("`{1,3}.*?`{1,3}"), "") // Inline code
-        plainText = plainText.replace(Regex("\\n\\n"), "\n") // Simplify newlines
+        plainText = plainText.replace(HeaderRegex, "") // Remove headers
+        plainText = plainText.replace(BoldRegex, "$1") // Bold
+        plainText = plainText.replace(ItalicRegex, "$1") // Italic
+        plainText = plainText.replace(ImageRegex, "") // Images
+        plainText = plainText.replace(LinkRegex, "") // Links
+        plainText = plainText.replace(CodeRegex, "") // Inline code
+        plainText = plainText.replace(NewlinesRegex, "\n") // Simplify newlines
         return plainText.trim()
     }
 
-    fun parseMarkdownToAnnotatedString(markdown: String): AnnotatedString {
-        val parser = Parser.builder().build()
+    fun parseMarkdownToAnnotatedString(
+        markdown: String,
+        linkColor: Color = Color.Blue
+    ): AnnotatedString {
         val document = parser.parse(markdown)
         val builder = AnnotatedString.Builder()
-        processNodes(document, builder)
+        processNodes(document, builder, linkColor)
         return builder.toAnnotatedString()
     }
 
     private fun processNodes(
         node: Node,
         builder: AnnotatedString.Builder,
+        linkColor: Color,
     ) {
         var child = node.firstChild
         while (child != null) {
@@ -63,14 +75,14 @@ object MarkdownUtils {
 
                 is Emphasis -> {
                     val start = builder.length
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     val end = builder.length
                     builder.addStyle(SpanStyle(fontStyle = FontStyle.Italic), start, end)
                 }
 
                 is StrongEmphasis -> {
                     val start = builder.length
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     val end = builder.length
                     builder.addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, end)
                 }
@@ -89,7 +101,7 @@ object MarkdownUtils {
 
                 is Link -> {
                     val start = builder.length
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     val end = builder.length
                     builder.addStringAnnotation(
                         tag = "URL",
@@ -98,14 +110,14 @@ object MarkdownUtils {
                         end = end,
                     )
                     builder.addStyle(
-                        SpanStyle(color = Color.Blue, textDecoration = TextDecoration.Underline),
+                        SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline),
                         start,
                         end,
                     )
                 }
 
                 is Paragraph -> {
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     if (nextSibling != null) {
                         builder.append("\n")
                     }
@@ -116,7 +128,7 @@ object MarkdownUtils {
                         builder.append("\n")
                     }
                     val start = builder.length
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     val end = builder.length
                     val headingStyle =
                         when (child.level) {
@@ -135,7 +147,7 @@ object MarkdownUtils {
 
                 is BlockQuote -> {
                     val start = builder.length
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                     val end = builder.length
                     builder.addStyle(
                         SpanStyle(color = Color.Gray, fontStyle = FontStyle.Italic),
@@ -152,7 +164,7 @@ object MarkdownUtils {
                     while (listItem != null) {
                         if (listItem is ListItem) {
                             builder.append("• ")
-                            processNodes(listItem, builder)
+                            processNodes(listItem, builder, linkColor)
                             builder.append("\n")
                         }
                         listItem = listItem.next
@@ -168,7 +180,7 @@ object MarkdownUtils {
                     while (listItem != null) {
                         if (listItem is ListItem) {
                             builder.append("$index. ")
-                            processNodes(listItem, builder)
+                            processNodes(listItem, builder, linkColor)
                             builder.append("\n")
                             index++
                         }
@@ -227,7 +239,7 @@ object MarkdownUtils {
                 }
 
                 else -> {
-                    processNodes(child, builder)
+                    processNodes(child, builder, linkColor)
                 }
             }
             child = nextSibling

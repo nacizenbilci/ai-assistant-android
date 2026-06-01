@@ -124,12 +124,12 @@ class WeatherRepository(
         return null
     }
 
-    fun getCityNameFromLocation(
+    suspend fun getCityNameFromLocation(
         latitude: Double,
         longitude: Double,
-    ): String? {
+    ): String? = withContext(Dispatchers.IO) {
         val geocoder = Geocoder(context, Locale.getDefault())
-        return try {
+        return@withContext try {
             val addresses = geocoder.getFromLocation(latitude, longitude, 1)
             if (addresses?.isNotEmpty() == true) {
                 addresses[0].locality // This gives the city name

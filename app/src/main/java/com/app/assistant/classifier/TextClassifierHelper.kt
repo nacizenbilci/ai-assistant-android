@@ -14,7 +14,7 @@ class TextClassifierHelper(
     val listener: TextResultsListener,
 ) {
     private lateinit var textClassifier: TextClassifier
-    private lateinit var executor: ScheduledThreadPoolExecutor
+    private val executor = ScheduledThreadPoolExecutor(1)
 
     init {
         initClassifier()
@@ -55,8 +55,6 @@ class TextClassifierHelper(
         loadingItemId: Long,
         speak: Boolean,
     ) {
-        executor = ScheduledThreadPoolExecutor(1)
-
         executor.execute {
             // inferenceTime is the amount of time, in milliseconds, that it takes to
             // classify the input text.
@@ -67,6 +65,14 @@ class TextClassifierHelper(
             inferenceTime = SystemClock.uptimeMillis() - inferenceTime
 
             listener.onResult(results, inferenceTime, text, itemId, loadingItemId, speak)
+        }
+    }
+
+    fun shutDown() {
+        try {
+            executor.shutdown()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error shutting down executor", e)
         }
     }
 

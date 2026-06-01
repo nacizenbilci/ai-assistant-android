@@ -3,6 +3,7 @@ package com.app.assistant.viewmodel
 import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.app.assistant.db.DynamicConversationRepository
 import com.app.assistant.repository.ContactsRepository
 import com.app.assistant.repository.SettingsRepository
 import com.app.assistant.repository.WeatherRepository
@@ -25,12 +26,9 @@ class MainViewModelFactory(
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
             val settingsRepo = SettingsRepository(application)
             val contactsRepo = ContactsRepository(application)
+            val dbRepo = DynamicConversationRepository(application)
             
-            val okHttpClient = OkHttpClient.Builder()
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .build()
+            val okHttpClient = okHttpClient
 
             val weatherRepo = WeatherRepository(application, okHttpClient)
 
@@ -48,6 +46,7 @@ class MainViewModelFactory(
                 application,
                 speak,
                 settingsRepo,
+                dbRepo,
                 callContactUseCase,
                 playSongUseCase,
                 navigateUseCase,
@@ -58,5 +57,15 @@ class MainViewModelFactory(
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
+    }
+
+    companion object {
+        val okHttpClient: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .build()
+        }
     }
 }

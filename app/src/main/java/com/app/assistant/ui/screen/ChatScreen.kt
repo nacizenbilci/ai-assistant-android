@@ -61,6 +61,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
@@ -80,7 +81,7 @@ fun SetupUI(viewModel: MainViewModel) {
         var showSettingsDialog by remember { mutableStateOf(false) }
 
         val sheetState = rememberModalBottomSheetState()
-        var showBottomSheet by viewModel.showBottomSheet
+        val showBottomSheet by viewModel.showBottomSheet.collectAsState()
 
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
@@ -101,7 +102,7 @@ fun SetupUI(viewModel: MainViewModel) {
                     null
                 } else {
                     ModalDrawerSheet {
-                        Text("Chats", modifier = Modifier.padding(16.dp))
+                        Text(stringResource(id = R.string.chats), modifier = Modifier.padding(16.dp))
                         Column(
                             modifier =
                                 Modifier
@@ -122,11 +123,11 @@ fun SetupUI(viewModel: MainViewModel) {
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                         NavigationDrawerItem(
-                            label = { Text(text = "Settings") },
+                            label = { Text(text = stringResource(id = R.string.settings_title)) },
                             icon = {
                                 Icon(
                                     painter = (painterResource(id = R.drawable.ic_settings)),
-                                    contentDescription = "Settings",
+                                    contentDescription = stringResource(id = R.string.settings_title),
                                 )
                             },
                             selected = false,
@@ -136,11 +137,11 @@ fun SetupUI(viewModel: MainViewModel) {
                             },
                         )
                         NavigationDrawerItem(
-                            label = { Text(text = "Start new chat") },
+                            label = { Text(text = stringResource(id = R.string.start_new_chat)) },
                             icon = {
                                 Icon(
                                     painter = (painterResource(id = R.drawable.ic_add_new_chat)),
-                                    contentDescription = "Start new chat",
+                                    contentDescription = stringResource(id = R.string.start_new_chat),
                                 )
                             },
                             selected = false,
@@ -186,7 +187,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                     }) {
                                         Icon(
                                             painter = (painterResource(id = R.drawable.ic_menu)),
-                                            contentDescription = "Menu",
+                                            contentDescription = stringResource(id = R.string.menu),
                                         )
                                     }
                                 },
@@ -214,7 +215,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                         }) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.ic_content_copy),
-                                                contentDescription = "Copy",
+                                                contentDescription = stringResource(id = R.string.copy),
                                             )
                                         }
                                         IconButton(onClick = {
@@ -222,23 +223,23 @@ fun SetupUI(viewModel: MainViewModel) {
                                         }) {
                                             Icon(
                                                 painter = painterResource(id = R.drawable.ic_delete),
-                                                contentDescription = "Delete",
+                                                contentDescription = stringResource(id = R.string.delete),
                                             )
                                         }
                                     }
                                     IconButton(onClick = {
-                                        showBottomSheet = true
+                                        viewModel.setShowBottomSheet(true)
                                     }) {
                                         Icon(
                                             painter = (painterResource(id = R.drawable.ic_translate)),
-                                            contentDescription = "Translate",
+                                            contentDescription = stringResource(id = R.string.translate),
                                         )
                                     }
                                     if (viewModel.chatList.isNotEmpty()) {
                                         IconButton(onClick = { clearShowDialog = true }) {
                                             Icon(
                                                 painter = (painterResource(id = R.drawable.ic_restart)),
-                                                contentDescription = "Restart Chat",
+                                                contentDescription = stringResource(id = R.string.restart_chat),
                                             )
                                         }
                                     }
@@ -343,7 +344,7 @@ fun SetupUI(viewModel: MainViewModel) {
 
             ModalBottomSheet(
                 onDismissRequest = {
-                    showBottomSheet = false
+                    viewModel.setShowBottomSheet(false)
                 },
                 sheetState = sheetState,
             ) {
@@ -361,7 +362,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                 Modifier
                                     .weight(1f)
                                     .align(Alignment.CenterVertically),
-                            text = "Chat in different languages",
+                            text = stringResource(id = R.string.chat_different_languages),
                         )
                         Switch(
                             checked = isTranslationEnabled,
@@ -378,7 +379,7 @@ fun SetupUI(viewModel: MainViewModel) {
                                 .padding(0.dp)
                                 .imePadding(),
                         value = searchQuery,
-                        placeholder = { Text("Search...") },
+                        placeholder = { Text(stringResource(id = R.string.search_placeholder)) },
                         singleLine = true,
                         onValueChange = { searchQuery = it },
                         colors =
@@ -421,18 +422,18 @@ fun SetupUI(viewModel: MainViewModel) {
         if (clearShowDialog) {
             AlertDialog(
                 onDismissRequest = { clearShowDialog = false },
-                text = { Text("Are you sure you want to clear this chat from history?") },
+                text = { Text(stringResource(id = R.string.clear_chat_history_confirm)) },
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.clearBoxes()
                         clearShowDialog = false
                     }) {
-                        Text("Yes")
+                        Text(stringResource(id = R.string.yes))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { clearShowDialog = false }) {
-                        Text("No")
+                        Text(stringResource(id = R.string.no))
                     }
                 },
             )
@@ -444,7 +445,7 @@ fun SetupUI(viewModel: MainViewModel) {
                     deleteShowDialog = false
                     selectedItemIndex = null
                 },
-                text = { Text("Delete this message?") },
+                text = { Text(stringResource(id = R.string.delete_message_confirm)) },
                 confirmButton = {
                     TextButton(onClick = {
                         selectedItemIndex?.let { index ->
@@ -453,7 +454,7 @@ fun SetupUI(viewModel: MainViewModel) {
                         deleteShowDialog = false
                         selectedItemIndex = null
                     }) {
-                        Text("Yes")
+                        Text(stringResource(id = R.string.yes))
                     }
                 },
                 dismissButton = {
@@ -461,7 +462,7 @@ fun SetupUI(viewModel: MainViewModel) {
                         deleteShowDialog = false
                         selectedItemIndex = null
                     }) {
-                        Text("No")
+                        Text(stringResource(id = R.string.no))
                     }
                 },
             )

@@ -43,6 +43,7 @@ class MainViewModel(
     application: Application,
     private val speak: Boolean,
     private val settingsRepository: SettingsRepository,
+    private val repository: DynamicConversationRepository,
     private val callContactUseCase: CallContactUseCase,
     private val playSongUseCase: PlaySongUseCase,
     private val navigateUseCase: NavigateUseCase,
@@ -51,17 +52,26 @@ class MainViewModel(
     private val setReminderUseCase: SetReminderUseCase,
     private val processChatCommandUseCase: ProcessChatCommandUseCase,
 ) : AndroidViewModel(application) {
-    var question = mutableStateOf("")
+    private val _question = MutableStateFlow("")
+    val question: StateFlow<String> = _question.asStateFlow()
 
-    // DB reference
-    private val repository = DynamicConversationRepository(application)
-    var chatList = SyncStateList(repository)
-        private set
+    fun setQuestion(text: String) {
+        _question.value = text
+    }
+
+    val chatList: SyncStateList by lazy {
+        SyncStateList(repository, viewModelScope)
+    }
     var currentGroupId: Long = -1L
         private set
-    var languages: List<Pair<String, String>>
-    var showBottomSheet = mutableStateOf(false)
-        private set
+    var languages: List<Pair<String, String>> = emptyList()
+
+    private val _showBottomSheet = MutableStateFlow(false)
+    val showBottomSheet: StateFlow<Boolean> = _showBottomSheet.asStateFlow()
+
+    fun setShowBottomSheet(show: Boolean) {
+        _showBottomSheet.value = show
+    }
     private val _isLanguageLoading = MutableStateFlow(false)
     val isLanguageLoading: StateFlow<Boolean> = _isLanguageLoading
     private val _showToastEvent = MutableSharedFlow<String>()
@@ -140,7 +150,9 @@ class MainViewModel(
             _isCustomUIHalfPage.value = true
             _isListening.value = true
         }
-        languages = getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java)
+        viewModelScope.launch(Dispatchers.Default) {
+            languages = getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java)
+        }
         if (speak) {
             startSpeechRecognition()
         }
@@ -184,7 +196,6 @@ class MainViewModel(
             context = getApplication<Application>().applicationContext,
             listener = listener,
         )
-        classifierHelper.initClassifier()
     }
 
     // Function to update isTranslationEnabled and persist the value
@@ -242,6 +253,7 @@ class MainViewModel(
 
     fun shutdownResources() {
         translatorManager.closeTranslator()
+        classifierHelper.shutDown()
     }
 
     fun processQuestion(
@@ -252,7 +264,7 @@ class MainViewModel(
         val originalQuestion = question.value
         focusManager?.clearFocus()
         keyboardController?.hide()
-        question.value = ""
+        setQuestion("")
 
         viewModelScope.launch {
             val itemId: Long
@@ -299,14 +311,7 @@ class MainViewModel(
         }
     }
 
-    fun processQuestion(
-        focusManager: FocusManager? = null,
-        keyboardController: SoftwareKeyboardController? = null,
-        context: android.content.Context,
-        speak: Boolean = false,
-    ) {
-        processQuestion(focusManager, keyboardController, speak)
-    }
+
 
     private fun processClassifierResponse(
         inferenceTime: Long,
@@ -476,7 +481,6 @@ class MainViewModel(
     }
 
     fun startSpeechToText(
-        context: android.content.Context,
         onResult: (String) -> Unit,
         onPartialResult: (String) -> Unit,
     ) {
@@ -509,7 +513,7 @@ class MainViewModel(
             if (success) {
                 updateActiveLanguageCode(selectedLanguageCode)
                 _isLanguageLoading.value = false
-                showBottomSheet.value = false
+                setShowBottomSheet(false)
                 if (showCompletionToast) {
                     triggerToast("Download completed, its recommended to use selected language keyboard.")
                 }

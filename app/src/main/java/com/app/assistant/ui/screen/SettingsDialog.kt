@@ -14,7 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.app.assistant.R
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -33,32 +35,34 @@ fun SettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Settings") },
+        title = { Text(stringResource(id = R.string.settings_title)) },
         text = {
             Column {
                 TextField(
                     value = apiKey1,
                     onValueChange = { apiKey1 = it },
-                    label = { Text("YouTube API Key") },
+                    label = { Text(stringResource(id = R.string.youtube_api_key)) },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 TextField(
                     value = apiKey2,
                     onValueChange = { apiKey2 = it },
-                    label = { Text("Chat API Key") },
+                    label = { Text(stringResource(id = R.string.chat_api_key)) },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("App Version: $versionName")
+                Text(stringResource(id = R.string.app_version, versionName.toString()))
             }
         },
         confirmButton = {
             Button(onClick = { onSave(apiKey1, apiKey2) }) {
-                Text("Save")
+                Text(stringResource(id = R.string.save))
             }
         },
         dismissButton = {
             Button(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(id = R.string.cancel))
             }
         },
     )
