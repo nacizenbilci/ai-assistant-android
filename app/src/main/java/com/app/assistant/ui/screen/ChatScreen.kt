@@ -98,59 +98,22 @@ fun SetupUI(viewModel: MainViewModel) {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
-                if (isCustomUI) {
-                    null
-                } else {
-                    ModalDrawerSheet {
-                        Text(stringResource(id = R.string.chats), modifier = Modifier.padding(16.dp))
-                        Column(
-                            modifier =
-                                Modifier
-                                    .padding(horizontal = 8.dp)
-                                    .weight(1f)
-                                    .verticalScroll(rememberScrollState()),
-                        ) {
-                            groupList.forEach { group ->
-                                NavigationDrawerItem(
-                                    label = { Text(text = group.title) },
-                                    selected = false,
-                                    onClick = {
-                                        viewModel.loadMessagesFromGroup(group.groupId)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                )
-                            }
+                if (!isCustomUI) {
+                    ChatDrawerContent(
+                        groupList = groupList,
+                        onGroupClick = { groupId ->
+                            viewModel.loadMessagesFromGroup(groupId)
+                            scope.launch { drawerState.close() }
+                        },
+                        onSettingsClick = {
+                            showSettingsDialog = true
+                            scope.launch { drawerState.close() }
+                        },
+                        onNewChatClick = {
+                            viewModel.newChat()
+                            scope.launch { drawerState.close() }
                         }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        NavigationDrawerItem(
-                            label = { Text(text = stringResource(id = R.string.settings_title)) },
-                            icon = {
-                                Icon(
-                                    painter = (painterResource(id = R.drawable.ic_settings)),
-                                    contentDescription = stringResource(id = R.string.settings_title),
-                                )
-                            },
-                            selected = false,
-                            onClick = {
-                                showSettingsDialog = true
-                                scope.launch { drawerState.close() }
-                            },
-                        )
-                        NavigationDrawerItem(
-                            label = { Text(text = stringResource(id = R.string.start_new_chat)) },
-                            icon = {
-                                Icon(
-                                    painter = (painterResource(id = R.drawable.ic_add_new_chat)),
-                                    contentDescription = stringResource(id = R.string.start_new_chat),
-                                )
-                            },
-                            selected = false,
-                            onClick = {
-                                viewModel.newChat()
-                                scope.launch { drawerState.close() }
-                            },
-                        )
-                    }
+                    )
                 }
             },
         ) {
@@ -176,109 +139,40 @@ fun SetupUI(viewModel: MainViewModel) {
                         },
                     topBar = {
                         if (!isCustomUI) {
-                            TopAppBar(
-                                navigationIcon = {
-                                    IconButton(onClick = {
-                                        scope.launch {
-                                            drawerState.apply {
-                                                if (isClosed) open() else close()
-                                            }
-                                        }
-                                    }) {
-                                        Icon(
-                                            painter = (painterResource(id = R.drawable.ic_menu)),
-                                            contentDescription = stringResource(id = R.string.menu),
-                                        )
+                            ChatTopAppBar(
+                                showCopyIcon = showCopyIcon,
+                                onCopyClick = {
+                                    selectedItemIndex?.let { index ->
+                                        val textToCopy =
+                                            when {
+                                                viewModel.getIsTranslationEnabled() -> {
+                                                    viewModel.chatList.getOrNull(index)?.translatedText
+                                                }
+                                                else -> {
+                                                    viewModel.chatList.getOrNull(index)?.englishText
+                                                }
+                                            } ?: ""
+                                        clipboardManager.setText(AnnotatedString(textToCopy))
+                                        selectedItemIndex = null
                                     }
                                 },
-                                title = { Text("") },
-                                actions = {
-                                    if (showCopyIcon) {
-                                        IconButton(onClick = {
-                                            selectedItemIndex?.let { index ->
-                                                val textToCopy =
-                                                    when {
-                                                        viewModel.getIsTranslationEnabled() -> {
-                                                            viewModel.chatList
-                                                                .getOrNull(
-                                                                    index,
-                                                                )?.translatedText
-                                                        }
-
-                                                        else -> {
-                                                            viewModel.chatList.getOrNull(index)?.englishText
-                                                        }
-                                                    } ?: ""
-                                                clipboardManager.setText(AnnotatedString(textToCopy))
-                                                selectedItemIndex = null
-                                            }
-                                        }) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_content_copy),
-                                                contentDescription = stringResource(id = R.string.copy),
-                                            )
-                                        }
-                                        IconButton(onClick = {
-                                            deleteShowDialog = true
-                                        }) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_delete),
-                                                contentDescription = stringResource(id = R.string.delete),
-                                            )
+                                onDeleteClick = { deleteShowDialog = true },
+                                onTranslateClick = { viewModel.setShowBottomSheet(true) },
+                                chatListNotEmpty = viewModel.chatList.isNotEmpty(),
+                                onClearChatClick = { clearShowDialog = true },
+                                onMenuClick = {
+                                    scope.launch {
+                                        drawerState.apply {
+                                            if (isClosed) open() else close()
                                         }
                                     }
-                                    IconButton(onClick = {
-                                        viewModel.setShowBottomSheet(true)
-                                    }) {
-                                        Icon(
-                                            painter = (painterResource(id = R.drawable.ic_translate)),
-                                            contentDescription = stringResource(id = R.string.translate),
-                                        )
-                                    }
-                                    if (viewModel.chatList.isNotEmpty()) {
-                                        IconButton(onClick = { clearShowDialog = true }) {
-                                            Icon(
-                                                painter = (painterResource(id = R.drawable.ic_restart)),
-                                                contentDescription = stringResource(id = R.string.restart_chat),
-                                            )
-                                        }
-                                    }
-                                },
+                                }
                             )
                         }
                         if (!isCustomUIHalfPage && isCustomUI) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(24.dp)
-                                        .then(
-                                            Modifier
-                                                .pointerInput(Unit) {
-                                                    detectDragGestures(
-                                                        onDragStart = { /* Optional: trigger on drag start */ },
-                                                        onDragEnd = {
-                                                            viewModel.expandToFullScreen()
-                                                        },
-                                                        onDrag = { change, dragAmount ->
-                                                            // track dragAmount if needed
-                                                        },
-                                                    )
-                                                },
-                                        ).clickable { viewModel.expandToFullScreen() },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .width(36.dp)
-                                            .height(4.dp)
-                                            .background(
-                                                color = Color.Gray,
-                                                shape = RoundedCornerShape(2.dp),
-                                            ),
-                                )
-                            }
+                            CustomUiDragHandle(
+                                onDragEnd = { viewModel.expandToFullScreen() }
+                            )
                         }
                     },
                 ) { innerPadding ->
@@ -297,7 +191,6 @@ fun SetupUI(viewModel: MainViewModel) {
 
             if (isCustomUI) {
                 var tapped by remember { mutableStateOf(false) }
-                val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
                 LaunchedEffect(Unit) {
                     tapped = false
@@ -337,134 +230,43 @@ fun SetupUI(viewModel: MainViewModel) {
         }
 
         if (showBottomSheet) {
-            var searchQuery by remember { mutableStateOf("") }
-            val filteredItems = viewModel.languages.filter { it.first.contains(searchQuery, true) }.map { it }
             val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
             val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
 
-            ModalBottomSheet(
-                onDismissRequest = {
-                    viewModel.setShowBottomSheet(false)
-                },
+            LanguageSelectionBottomSheet(
                 sheetState = sheetState,
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp, 0.dp, 16.dp, 16.dp),
-                    ) {
-                        Text(
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .align(Alignment.CenterVertically),
-                            text = stringResource(id = R.string.chat_different_languages),
-                        )
-                        Switch(
-                            checked = isTranslationEnabled,
-                            onCheckedChange = { viewModel.updateTranslationEnabled(it) },
-                            modifier =
-                                Modifier.align(Alignment.CenterVertically),
-                        )
-                    }
-
-                    TextField(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(0.dp)
-                                .imePadding(),
-                        value = searchQuery,
-                        placeholder = { Text(stringResource(id = R.string.search_placeholder)) },
-                        singleLine = true,
-                        onValueChange = { searchQuery = it },
-                        colors =
-                            TextFieldDefaults.colors(
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                disabledIndicatorColor = Color.Transparent,
-                            ),
-                        enabled = isTranslationEnabled,
-                    )
-
-                    if (isLanguageLoading) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-
-                    LazyColumn(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .padding(0.dp, 16.dp, 0.dp, 0.dp),
-                    ) {
-                        items(items = filteredItems) { lang ->
-                            Text(
-                                text = lang.first,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable(enabled = isTranslationEnabled) {
-                                            if (isTranslationEnabled) {
-                                                viewModel.onItemSelected(lang.second)
-                                            }
-                                        }.padding(16.dp),
-                            )
-                        }
-                    }
-                }
-            }
+                languages = viewModel.languages,
+                isTranslationEnabled = isTranslationEnabled,
+                isLanguageLoading = isLanguageLoading,
+                onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
+                onLanguageSelected = { viewModel.onItemSelected(it) },
+                onDismissRequest = { viewModel.setShowBottomSheet(false) }
+            )
         }
 
         if (clearShowDialog) {
-            AlertDialog(
-                onDismissRequest = { clearShowDialog = false },
-                text = { Text(stringResource(id = R.string.clear_chat_history_confirm)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        viewModel.clearBoxes()
-                        clearShowDialog = false
-                    }) {
-                        Text(stringResource(id = R.string.yes))
-                    }
+            ClearChatDialog(
+                onConfirm = {
+                    viewModel.clearBoxes()
+                    clearShowDialog = false
                 },
-                dismissButton = {
-                    TextButton(onClick = { clearShowDialog = false }) {
-                        Text(stringResource(id = R.string.no))
-                    }
-                },
+                onDismiss = { clearShowDialog = false }
             )
         }
 
         if (deleteShowDialog) {
-            AlertDialog(
-                onDismissRequest = {
+            DeleteMessageDialog(
+                onConfirm = {
+                    selectedItemIndex?.let { index ->
+                        viewModel.deleteMessage(index)
+                    }
                     deleteShowDialog = false
                     selectedItemIndex = null
                 },
-                text = { Text(stringResource(id = R.string.delete_message_confirm)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        selectedItemIndex?.let { index ->
-                            viewModel.deleteMessage(index)
-                        }
-                        deleteShowDialog = false
-                        selectedItemIndex = null
-                    }) {
-                        Text(stringResource(id = R.string.yes))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        deleteShowDialog = false
-                        selectedItemIndex = null
-                    }) {
-                        Text(stringResource(id = R.string.no))
-                    }
-                },
+                onDismiss = {
+                    deleteShowDialog = false
+                    selectedItemIndex = null
+                }
             )
         }
 
@@ -488,3 +290,4 @@ fun SetupUI(viewModel: MainViewModel) {
         }
     }
 }
+
