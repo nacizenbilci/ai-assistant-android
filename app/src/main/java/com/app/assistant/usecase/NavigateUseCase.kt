@@ -1,11 +1,13 @@
 package com.app.assistant.usecase
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import com.app.assistant.R
 import java.net.URI
 
-class NavigateUseCase {
+class NavigateUseCase(private val context: Context) {
     suspend fun execute(
         prompt: String,
         onIntentTriggered: suspend (Intent) -> Unit,
@@ -29,11 +31,11 @@ class NavigateUseCase {
                 )
                 onSuccess(location, URI("google.navigation:q=$encodedURI"))
             } else {
-                onFailure("I can not find such location, please try again.")
+                onFailure(context.getString(R.string.location_not_found_fallback))
             }
         } catch (e: Exception) {
             Log.d("NavigateUseCase", e.message.toString())
-            onFailure("Something went wrong, please try again.")
+            onFailure(context.getString(R.string.generic_error_fallback))
         }
     }
 

@@ -1,9 +1,11 @@
 package com.app.assistant.usecase
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import com.app.assistant.BuildConfig
+import com.app.assistant.R
 import com.app.assistant.repository.SettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.serialization.Serializable
@@ -50,6 +52,7 @@ data class YouTubeSearchResponse(
 )
 
 class PlaySongUseCase(
+    private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val client: OkHttpClient
 ) {
@@ -65,7 +68,7 @@ class PlaySongUseCase(
         try {
             val sanitizedPrompt = prompt.replace("\\p{Punct}+".toRegex(), "")
             if (!sanitizedPrompt.lowercase().contains("play ")) {
-                onFailure("I can not find such song, please try again.")
+                onFailure(context.getString(R.string.song_not_found_fallback))
                 return
             }
             val searchQuery = sanitizedPrompt.lowercase().substringAfter("play").trim()
@@ -73,7 +76,7 @@ class PlaySongUseCase(
             val (videoId, thumbnailUrl) = youtubeApiCall(searchQuery)
 
             if (videoId.isEmpty()) {
-                onFailure("I can not find such song, please try again.")
+                onFailure(context.getString(R.string.song_not_found_fallback))
             } else if (videoId == "Missing API Key") {
                 val intent = Intent(Intent.ACTION_SEARCH).apply {
                     setPackage("com.google.android.youtube")
@@ -96,7 +99,7 @@ class PlaySongUseCase(
             }
         } catch (e: Exception) {
             Log.d("PlaySongUseCase", e.message.toString())
-            onFailure("Something went wrong, please try again.")
+            onFailure(context.getString(R.string.generic_error_fallback))
         }
     }
 

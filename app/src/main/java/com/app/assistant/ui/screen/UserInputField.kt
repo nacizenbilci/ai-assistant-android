@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -109,7 +110,7 @@ fun UserInputField(
                     .fillMaxWidth(),
             shape = RoundedCornerShape(20),
             value = question,
-            placeholder = { Text("Type here...") },
+            placeholder = { Text(stringResource(id = R.string.type_here_placeholder)) },
             maxLines = 2,
             onValueChange = { viewModel.setQuestion(it) },
             colors =
@@ -128,7 +129,7 @@ fun UserInputField(
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_stop),
-                                contentDescription = "Stop",
+                                contentDescription = stringResource(id = R.string.stop_desc),
                             )
                         }
                     } else {
@@ -151,7 +152,7 @@ fun UserInputField(
                         }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_mic),
-                                contentDescription = "Mic",
+                                contentDescription = stringResource(id = R.string.mic_desc),
                             )
                         }
                     }
@@ -166,7 +167,7 @@ fun UserInputField(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
+                            contentDescription = stringResource(id = R.string.send_desc),
                         )
                     }
                 }

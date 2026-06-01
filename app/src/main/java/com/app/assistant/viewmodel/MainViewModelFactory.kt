@@ -34,11 +34,11 @@ class MainViewModelFactory(
 
             val getAiResponseUseCase = GetAiResponseUseCase(settingsRepo, okHttpClient)
             val callContactUseCase = CallContactUseCase(application, contactsRepo)
-            val playSongUseCase = PlaySongUseCase(settingsRepo, okHttpClient)
-            val navigateUseCase = NavigateUseCase()
+            val playSongUseCase = PlaySongUseCase(application, settingsRepo, okHttpClient)
+            val navigateUseCase = NavigateUseCase(application)
             val getWeatherUseCase = GetWeatherUseCase(application, weatherRepo, getAiResponseUseCase)
-            val setAlarmUseCase = SetAlarmUseCase()
-            val setReminderUseCase = SetReminderUseCase()
+            val setAlarmUseCase = SetAlarmUseCase(application)
+            val setReminderUseCase = SetReminderUseCase(application)
             val processChatCommandUseCase = ProcessChatCommandUseCase(getAiResponseUseCase)
 
             @Suppress("UNCHECKED_CAST")

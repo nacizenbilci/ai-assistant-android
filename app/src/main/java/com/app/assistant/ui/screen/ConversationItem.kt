@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import com.app.assistant.R
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
 import com.app.assistant.viewmodel.MainViewModel
@@ -180,7 +182,7 @@ private fun StartNavigation(
             Icon(
                 modifier = Modifier.padding(8.dp),
                 imageVector = Icons.Default.LocationOn,
-                contentDescription = "Navigation",
+                contentDescription = stringResource(id = R.string.navigation_desc),
             )
         }
 
@@ -236,7 +238,7 @@ private fun MakeCall(
             Icon(
                 modifier = Modifier.padding(8.dp),
                 imageVector = Icons.Default.Call,
-                contentDescription = "Call",
+                contentDescription = stringResource(id = R.string.call_desc),
             )
         }
 

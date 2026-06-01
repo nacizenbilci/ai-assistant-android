@@ -1,12 +1,14 @@
 package com.app.assistant.usecase
 
+import android.content.Context
 import android.content.Intent
 import android.provider.AlarmClock
 import android.util.Log
+import com.app.assistant.R
 import java.util.Calendar
 import java.util.Locale
 
-class SetAlarmUseCase {
+class SetAlarmUseCase(private val context: Context) {
     suspend fun execute(
         prompt: String,
         dayOverride: String? = null,
@@ -24,12 +26,12 @@ class SetAlarmUseCase {
             if (timeMatch == null && relativeTimeMatch == null) {
                 onPromptForTime(dayMatch)
             } else {
-                val intent = setAlarmFromPrompt(dayMatch, timeMatch, relativeTimeMatch, "New Alarm")
+                val intent = setAlarmFromPrompt(dayMatch, timeMatch, relativeTimeMatch, context.getString(R.string.new_alarm_message))
                 onSuccess(intent)
             }
         } catch (e: Exception) {
             Log.e("SetAlarmUseCase", "Error setting alarm", e)
-            onFailure("Something went wrong, please try again.")
+            onFailure(context.getString(R.string.generic_error_fallback))
         }
     }
 

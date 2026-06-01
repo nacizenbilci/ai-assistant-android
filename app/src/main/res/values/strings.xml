@@ -19,4 +19,154 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
     <string name="delete_message_confirm">Delete this message?</string>
+
+    <!-- UI Descriptions & Placeholders -->
+    <string name="navigation_desc">Navigation</string>
+    <string name="call_desc">Call</string>
+    <string name="type_here_placeholder">Type here...</string>
+    <string name="stop_desc">Stop</string>
+    <string name="mic_desc">Mic</string>
+    <string name="send_desc">Send</string>
+
+    <!-- Toast Messages -->
+    <string name="downloading_model_toast">Downloading translation model.</string>
+    <string name="download_completed_toast">Download completed, its recommended to use selected language keyboard.</string>
+    <string name="download_failed_toast">Something went wrong, model download failed.</string>
+
+    <!-- UseCase Specific Strings -->
+    <string name="playing_song">Playing %1$s</string>
+    <string name="youtube_key_missing">Your Youtube API key is missing or invalid.</string>
+    <string name="navigating_to">Navigating to %1$s.</string>
+    <string name="new_alarm_message">New Alarm</string>
+    <string name="reminder_default_context">Reminder</string>
+    <string name="song_not_found_fallback">I can not find such song, please try again.</string>
+    <string name="location_not_found_fallback">I can not find such location, please try again.</string>
+    <string name="generic_error_fallback">Something went wrong, please try again.</string>
+
+    <!-- Dynamic Response String Arrays -->
+    <string-array name="permission_contacts_call">
+        <item>I need permission to access your contacts and make phone call. Please allow and try again.</item>
+        <item>Hey, I’ll need access to your contacts and calling first. Can you allow that?</item>
+        <item>Looks like I don’t have permission to call yet. Please enable it and retry.</item>
+        <item>I can help with that, but I need contacts and call access first.</item>
+        <item>Please grant me contacts and calling permission so I can make the call for you.</item>
+        <item>I can’t make calls without your permission. Could you turn it on?</item>
+    </string-array>
+
+    <string-array name="permission_location">
+        <item>I need permission to access your location. Please try again.</item>
+        <item>I can get the weather, but I’ll need your location first.</item>
+        <item>Looks like location access isn’t granted. Please allow it and try again.</item>
+        <item>Hey, could you enable location permission so I can show the weather?</item>
+        <item>To fetch the forecast, I’ll need your location. Can you grant access?</item>
+        <item>Without your location, I can’t check the weather. Please turn it on.</item>
+    </string-array>
+
+    <string-array name="location_service_off">
+        <item>I need to know your location for that. Please turn on your location and try again.</item>
+        <item>looks like location is off. Could you enable it?</item>
+        <item>I can’t continue without your location. Please turn it on.</item>
+        <item>Hey, I’ll need your location for this. Can you switch it on?</item>
+        <item>Looks like your location services are disabled. Please activate them.</item>
+        <item>Please turn on location, then I’ll be able to continue.</item>
+    </string-array>
+
+    <string-array name="call_failed">
+        <item>Sorry, failed to make call. Please try again.</item>
+        <item>Oops, the call didn’t go through. Want to retry?</item>
+        <item>I couldn’t complete the call. Please try again.</item>
+        <item>Looks like that call failed. Give it another shot?</item>
+        <item>Something went wrong with the call. Please try again later.</item>
+        <item>I wasn’t able to connect the call. Can we try once more?</item>
+    </string-array>
+
+    <string-array name="contact_not_found">
+        <item>I cannot find such contact, please try again.</item>
+        <item>I didn’t find that contact in your list.</item>
+        <item>No contact matched that name, could you check and retry?</item>
+        <item>Sorry, I couldn’t locate that person in your contacts.</item>
+        <item>Looks like that name isn’t saved in your contacts.</item>
+        <item>I couldn’t find that contact. Maybe try with a different name?</item>
+    </string-array>
+
+    <string-array name="song_not_found">
+        <item>I can not find such song, please try again.</item>
+        <item>Sorry, I couldn’t find that track.</item>
+        <item>no song matched your request. Want to try another?</item>
+        <item>I wasn’t able to locate that song. Please retry.</item>
+        <item>Looks like that song isn’t available right now.</item>
+        <item>I couldn’t find that one. Maybe try with a different title?</item>
+    </string-array>
+
+    <string-array name="location_not_found">
+        <item>I can not find such location, please try again.</item>
+        <item>Sorry, I couldn’t figure out where that is.</item>
+        <item>I wasn’t able to locate that place.</item>
+        <item>No results for that location. Can you check and try again?</item>
+        <item>Looks like that place isn’t on my map data.</item>
+        <item>I couldn’t find that spot. Maybe try with a different name?</item>
+    </string-array>
+
+    <string-array name="weather_report_unavailable">
+        <item>Seems weather report is not available, please try again.</item>
+        <item>Sorry, I couldn’t get the weather right now.</item>
+        <item>The weather service isn’t responding. Please try later.</item>
+        <item>Looks like weather data is down at the moment.</item>
+        <item>I wasn’t able to fetch the forecast. Can you retry later?</item>
+        <item>Weather info isn’t available right now. Please check back soon.</item>
+    </string-array>
+
+    <string-array name="location_unknown_suggest_city">
+        <item>Your location is not available to me. Please try again with your city name.</item>
+        <item>I couldn’t detect your location. Could you tell me your city instead?</item>
+        <item>Looks like location services aren’t working. Please provide your city name.</item>
+        <item>I’m not getting your location right now. Can you enter your city?</item>
+        <item>Sorry, I can’t access your current location. A city name would help.</item>
+        <item>Your location seems unavailable. Please try with your city name.</item>
+    </string-array>
+
+    <string-array name="invalid_time">
+        <item>That doesn\'t seems like an actual time. Please try again.</item>
+        <item>I didn’t recognize that as a valid time.</item>
+        <item>That time format looks off. Could you retry?</item>
+        <item>Sorry, I couldn’t understand that time input.</item>
+        <item>That doesn’t look like a proper time. Please try again.</item>
+        <item>Can you give me a valid time so I can continue?</item>
+    </string-array>
+
+    <string-array name="alarm_set_success">
+        <item>Alarm set successfully...</item>
+        <item>Done! Your alarm is ready.</item>
+        <item>Great, I’ve set the alarm for you.</item>
+        <item>All set, your alarm has been scheduled.</item>
+        <item>Alarm saved successfully.</item>
+        <item>Okay, I’ve configured the alarm as requested.</item>
+    </string-array>
+
+    <string-array name="reminder_set_success">
+        <item>Reminder set successfully...</item>
+        <item>Done! Your reminder is ready.</item>
+        <item>Great, I’ve saved the reminder for you.</item>
+        <item>All set, your reminder has been scheduled.</item>
+        <item>Reminder saved successfully.</item>
+        <item>Okay, I’ve created the reminder as requested.</item>
+    </string-array>
+
+    <string-array name="prompt_for_time">
+        <item>Sure, at what time?</item>
+        <item>Alright, when should I set it?</item>
+        <item>Okay, what time would you like?</item>
+        <item>Got it, please tell me the time.</item>
+        <item>When do you want me to set it for?</item>
+        <item>Sure thing, what time works for you?</item>
+    </string-array>
+
+    <string-array name="generic_error">
+        <item>Something went wrong, please try again.</item>
+        <item>Oops, that didn’t work. Please retry.</item>
+        <item>I ran into an issue. Can you try again?</item>
+        <item>Sorry, something broke there. Please try once more.</item>
+        <item>That didn’t go through. Could you retry?</item>
+        <item>An error popped up. Let’s try that again.</item>
+    </string-array>
 </resources>

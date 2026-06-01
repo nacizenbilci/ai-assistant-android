@@ -26,6 +26,7 @@ import com.app.assistant.util.LockState
 import com.app.assistant.classifier.TextClassifierHelper
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
 import com.google.mlkit.nl.translate.TranslateLanguage
+import com.app.assistant.R
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -506,7 +507,7 @@ class MainViewModel(
     fun onItemSelected(selectedLanguageCode: String) {
         _isLanguageLoading.value = true
         setupTranslator(selectedLanguageCode, true)
-        triggerToast("Downloading translation model.")
+        triggerToast(getApplication<Application>().getString(R.string.downloading_model_toast))
     }
 
     private fun setupTranslator(
@@ -519,11 +520,11 @@ class MainViewModel(
                 _isLanguageLoading.value = false
                 setShowBottomSheet(false)
                 if (showCompletionToast) {
-                    triggerToast("Download completed, its recommended to use selected language keyboard.")
+                    triggerToast(getApplication<Application>().getString(R.string.download_completed_toast))
                 }
             } else {
                 _isLanguageLoading.value = false
-                triggerToast("Something went wrong, model download failed.")
+                triggerToast(getApplication<Application>().getString(R.string.download_failed_toast))
             }
         }
     }

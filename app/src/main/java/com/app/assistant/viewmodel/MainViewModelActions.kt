@@ -1,6 +1,7 @@
 package com.app.assistant.viewmodel
 
 import android.content.Intent
+import android.app.Application
 import androidx.lifecycle.viewModelScope
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
@@ -23,7 +24,7 @@ fun MainViewModel.callContact(
                 prompt = prompt,
                 onPermissionRequest = { permissions ->
                     _uiEvent.emit(UIEvent.RequestPermissions(permissions, 102))
-                    processResponse(getRandomResponse(ResponseStrings.permissionContactsCall), loadingItemId, speak, Category.OTHER)
+                    processResponse(getRandomResponse(ResponseStrings.permissionContactsCall(getApplication())), loadingItemId, speak, Category.OTHER)
                 },
                 onIntentTriggered = { intent ->
                     _uiEvent.emit(UIEvent.StartIntent(intent))
@@ -61,7 +62,7 @@ fun MainViewModel.playSong(
             },
             onSuccess = { songName, videoId, thumbnailUrl, videoUri ->
                 processResponse(
-                    "Playing $songName",
+                    getApplication<Application>().getString(com.app.assistant.R.string.playing_song, songName),
                     loadingItemId,
                     speak,
                     category,
@@ -70,7 +71,7 @@ fun MainViewModel.playSong(
                 )
             },
             onMissingApiKey = { searchQuery ->
-                processResponse("Your Youtube API key is missing or invalid.", loadingItemId, speak, Category.OTHER)
+                processResponse(getApplication<Application>().getString(com.app.assistant.R.string.youtube_key_missing), loadingItemId, speak, Category.OTHER)
             },
             onFailure = { errorMsg ->
                 processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
@@ -95,7 +96,7 @@ fun MainViewModel.navigate(
             },
             onSuccess = { location, navigationUri ->
                 processResponse(
-                    "Navigating to $location.",
+                    getApplication<Application>().getString(com.app.assistant.R.string.navigating_to, location),
                     loadingItemId,
                     speak,
                     category,
@@ -122,7 +123,7 @@ fun MainViewModel.fetchWeather(
             prompt = prompt,
             onPermissionRequest = { permissions ->
                 _uiEvent.emit(UIEvent.RequestPermissions(permissions, 103))
-                processResponse(getRandomResponse(ResponseStrings.permissionLocation), loadingItemId, speak, Category.OTHER)
+                processResponse(getRandomResponse(ResponseStrings.permissionLocation(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onLocationRequest = {
                 _uiEvent.emit(
@@ -190,9 +191,9 @@ fun MainViewModel.onLocationFailed(
 ) {
     viewModelScope.launch {
         val responseText = when (errorType) {
-            "GPS_OFF" -> getRandomResponse(ResponseStrings.locationServiceOff)
-            "UNAVAILABLE" -> getRandomResponse(ResponseStrings.weatherReportUnavailable)
-            else -> getRandomResponse(ResponseStrings.locationUnknownSuggestCity)
+            "GPS_OFF" -> getRandomResponse(ResponseStrings.locationServiceOff(getApplication()))
+            "UNAVAILABLE" -> getRandomResponse(ResponseStrings.weatherReportUnavailable(getApplication()))
+            else -> getRandomResponse(ResponseStrings.locationUnknownSuggestCity(getApplication()))
         }
         processResponse(responseText, loadingItemId, speak, Category.OTHER)
     }
@@ -212,7 +213,7 @@ fun MainViewModel.setAlarm(
             onPromptForTime = { dayMatch ->
                 lockState = LockState.LockAlarm(day = dayMatch)
                 processResponse(
-                    getRandomResponse(ResponseStrings.promptForTime),
+                    getRandomResponse(ResponseStrings.promptForTime(getApplication())),
                     loadingItemId,
                     speak,
                     Category.OTHER
@@ -221,7 +222,7 @@ fun MainViewModel.setAlarm(
             onSuccess = { intent ->
                 _uiEvent.emit(UIEvent.StartIntent(intent))
                 processResponse(
-                    getRandomResponse(ResponseStrings.alarmSetSuccess),
+                    getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())),
                     loadingItemId,
                     speak,
                     category
@@ -246,12 +247,12 @@ fun MainViewModel.handleAlarmLockState(
             prompt = prompt,
             dayOverride = state.day,
             onPromptForTime = {
-                processResponse(getRandomResponse(ResponseStrings.invalidTime), loadingItemId, speak, Category.OTHER)
+                processResponse(getRandomResponse(ResponseStrings.invalidTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onSuccess = { intent ->
                 lockState = LockState.None
                 _uiEvent.emit(UIEvent.StartIntent(intent))
-                processResponse(getRandomResponse(ResponseStrings.alarmSetSuccess), loadingItemId, speak, Category.ALARM)
+                processResponse(getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
                 processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
@@ -273,11 +274,11 @@ fun MainViewModel.setReminder(
             prompt = prompt,
             onPromptForTime = { dayMatch, context ->
                 lockState = LockState.LockReminder(day = dayMatch, context = context)
-                processResponse(getRandomResponse(ResponseStrings.promptForTime), loadingItemId, speak, Category.OTHER)
+                processResponse(getRandomResponse(ResponseStrings.promptForTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onSuccess = { intent ->
                 _uiEvent.emit(UIEvent.StartIntent(intent))
-                processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess), loadingItemId, speak, category)
+                processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, category)
             },
             onFailure = { errorMsg ->
                 processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
@@ -299,12 +300,12 @@ fun MainViewModel.handleReminderLockState(
             dayOverride = state.day,
             contextOverride = state.context,
             onPromptForTime = { _, _ ->
-                processResponse(getRandomResponse(ResponseStrings.invalidTime), loadingItemId, speak, Category.OTHER)
+                processResponse(getRandomResponse(ResponseStrings.invalidTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onSuccess = { intent ->
                 lockState = LockState.None
                 _uiEvent.emit(UIEvent.StartIntent(intent))
-                processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess), loadingItemId, speak, Category.ALARM)
+                processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
                 processResponse(errorMsg, loadingItemId, speak, Category.OTHER)

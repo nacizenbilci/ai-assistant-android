@@ -1,12 +1,14 @@
 package com.app.assistant.usecase
 
+import android.content.Context
 import android.content.Intent
 import android.provider.AlarmClock
 import android.util.Log
+import com.app.assistant.R
 import java.util.Calendar
 import java.util.Locale
 
-class SetReminderUseCase {
+class SetReminderUseCase(private val context: Context) {
     suspend fun execute(
         prompt: String,
         dayOverride: String? = null,
@@ -19,7 +21,7 @@ class SetReminderUseCase {
             val sanitizedPrompt = prompt.replace(PunctuationRegex, "")
 
             val contextMatch = ContextRegex.find(sanitizedPrompt)
-            val context = contextOverride ?: contextMatch?.groupValues?.get(1)?.trim() ?: "Reminder"
+            val context = contextOverride ?: contextMatch?.groupValues?.get(1)?.trim() ?: this.context.getString(R.string.reminder_default_context)
 
             val timeMatch = TimeRegex.find(sanitizedPrompt)
             val relativeTimeMatch = RelativeTimeRegex.find(sanitizedPrompt)
@@ -33,7 +35,7 @@ class SetReminderUseCase {
             }
         } catch (e: Exception) {
             Log.e("SetReminderUseCase", "Error setting reminder", e)
-            onFailure("Something went wrong, please try again.")
+            onFailure(this.context.getString(R.string.generic_error_fallback))
         }
     }
 
