@@ -42,15 +42,15 @@ import kotlin.coroutines.suspendCoroutine
 class MainViewModel(
     application: Application,
     private val speak: Boolean,
-    private val settingsRepository: SettingsRepository,
+    internal val settingsRepository: SettingsRepository,
     private val repository: DynamicConversationRepository,
-    private val callContactUseCase: CallContactUseCase,
-    private val playSongUseCase: PlaySongUseCase,
-    private val navigateUseCase: NavigateUseCase,
-    private val getWeatherUseCase: GetWeatherUseCase,
-    private val setAlarmUseCase: SetAlarmUseCase,
-    private val setReminderUseCase: SetReminderUseCase,
-    private val processChatCommandUseCase: ProcessChatCommandUseCase,
+    internal val callContactUseCase: CallContactUseCase,
+    internal val playSongUseCase: PlaySongUseCase,
+    internal val navigateUseCase: NavigateUseCase,
+    internal val getWeatherUseCase: GetWeatherUseCase,
+    internal val setAlarmUseCase: SetAlarmUseCase,
+    internal val setReminderUseCase: SetReminderUseCase,
+    internal val processChatCommandUseCase: ProcessChatCommandUseCase,
 ) : AndroidViewModel(application) {
     private val _question = MutableStateFlow("")
     val question: StateFlow<String> = _question.asStateFlow()
@@ -76,7 +76,7 @@ class MainViewModel(
     val isLanguageLoading: StateFlow<Boolean> = _isLanguageLoading
     private val _showToastEvent = MutableSharedFlow<String>()
     val showToastEvent = _showToastEvent.asSharedFlow()
-    private val translatorManager = TranslatorManager()
+    internal val translatorManager = TranslatorManager()
 
     // For custom ui
     private val _isCustomUI = MutableStateFlow(false)
@@ -106,7 +106,7 @@ class MainViewModel(
     val groupList: StateFlow<List<Group>> = _groupList.asStateFlow()
 
     // UI Event flow
-    private val _uiEvent = MutableSharedFlow<UIEvent>()
+    internal val _uiEvent = MutableSharedFlow<UIEvent>()
     val uiEvent: SharedFlow<UIEvent> = _uiEvent.asSharedFlow()
 
     // Callback properties for SpeechToText
@@ -118,7 +118,7 @@ class MainViewModel(
 
     // LockState
     var lockState: LockState = LockState.None
-        set(value) {
+        internal set(value) {
             // Automatically clear any stored data when lockState is set to None
             if (value is LockState.None) {
                 clearLockStateData()
@@ -151,7 +151,11 @@ class MainViewModel(
             _isListening.value = true
         }
         viewModelScope.launch(Dispatchers.Default) {
-            languages = getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java)
+            languages = cachedLanguages ?: synchronized(this) {
+                cachedLanguages ?: getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java).also {
+                    cachedLanguages = it
+                }
+            }
         }
         if (speak) {
             startSpeechRecognition()
@@ -388,7 +392,7 @@ class MainViewModel(
                 continuation.resume(translatedText)
             }
         }
-    private suspend fun processResponse(
+    internal fun processResponse(
         response: String?,
         loadingItemId: Long,
         speak: Boolean,
@@ -424,7 +428,7 @@ class MainViewModel(
         }
     }
 
-    private fun addConversationItem(
+    internal fun addConversationItem(
         englishText: String,
         translatedText: String,
         isUser: Boolean,
@@ -446,7 +450,7 @@ class MainViewModel(
         }
     }
 
-    private fun speakResponse(plaintext: String) {
+    internal fun speakResponse(plaintext: String) {
         viewModelScope.launch {
             _uiEvent.emit(UIEvent.SpeakText(plaintext))
         }
@@ -530,445 +534,10 @@ class MainViewModel(
         }
     }
 
-    private fun clearLockStateData() {
+    internal fun clearLockStateData() {
         if (lockState is LockState.LockAlarm) {
             (lockState as LockState.LockAlarm).day = null
         }
-    }
-
-    // Call Contact UseCase Delegate
-    private fun callContact(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        if (chatList.isNotEmpty()) {
-            val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-            viewModelScope.launch {
-                callContactUseCase.execute(
-                    prompt = prompt,
-                    onPermissionRequest = { permissions ->
-                        _uiEvent.emit(UIEvent.RequestPermissions(permissions, 102))
-                        processResponse(getRandomResponse(ResponseStrings.permissionContactsCall), loadingItemId, speak, Category.OTHER)
-                    },
-                    onIntentTriggered = { intent ->
-                        _uiEvent.emit(UIEvent.StartIntent(intent))
-                    },
-                    onSuccess = { name, dialUri ->
-                        processResponse(
-                            name,
-                            loadingItemId,
-                            false,
-                            category,
-                            navigationURI = dialUri
-                        )
-                    },
-                    onFailure = { errorMsg ->
-                        processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                    }
-                )
-            }
-        }
-    }
-
-    // Play Song UseCase Delegate
-    private fun playSong(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            playSongUseCase.execute(
-                prompt = prompt,
-                onIntentTriggered = { intent ->
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                },
-                onSuccess = { songName, videoId, thumbnailUrl, videoUri ->
-                    processResponse(
-                        "Playing $songName",
-                        loadingItemId,
-                        speak,
-                        category,
-                        thumbnailUrl,
-                        videoUri
-                    )
-                },
-                onMissingApiKey = { searchQuery ->
-                    processResponse("Your Youtube API key is missing or invalid.", loadingItemId, speak, Category.OTHER)
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    // Navigate UseCase Delegate
-    private fun navigate(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            navigateUseCase.execute(
-                prompt = prompt,
-                onIntentTriggered = { intent ->
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                },
-                onSuccess = { location, navigationUri ->
-                    processResponse(
-                        "Navigating to $location.",
-                        loadingItemId,
-                        speak,
-                        category,
-                        navigationURI = navigationUri
-                    )
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    // Weather UseCase Delegate
-    private fun fetchWeather(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            getWeatherUseCase.execute(
-                prompt = prompt,
-                onPermissionRequest = { permissions ->
-                    _uiEvent.emit(UIEvent.RequestPermissions(permissions, 103))
-                    processResponse(getRandomResponse(ResponseStrings.permissionLocation), loadingItemId, speak, Category.OTHER)
-                },
-                onLocationRequest = {
-                    _uiEvent.emit(
-                        UIEvent.GetLocationForWeather(
-                            itemId,
-                            loadingItemId,
-                            speak,
-                            category.name,
-                            prompt
-                        )
-                    )
-                },
-                onSuccess = { response, location ->
-                    processResponse(
-                        response,
-                        loadingItemId,
-                        speak,
-                        category,
-                        navigationURI = URI("https://www.google.com/search?q=weather+$location")
-                    )
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    fun onLocationReceived(
-        lat: Double,
-        long: Double,
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        categoryName: String,
-        prompt: String,
-    ) {
-        viewModelScope.launch {
-            getWeatherUseCase.processLocationWeather(
-                lat = lat,
-                long = long,
-                prompt = prompt,
-                onSuccess = { response, city ->
-                    processResponse(
-                        response,
-                        loadingItemId,
-                        speak,
-                        Category.valueOf(categoryName),
-                        navigationURI = URI("https://www.google.com/search?q=weather+${
-                            java.net.URLEncoder.encode(city, java.nio.charset.StandardCharsets.UTF_8.toString())
-                        }")
-                    )
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    fun onLocationFailed(
-        loadingItemId: Long,
-        speak: Boolean,
-        errorType: String,
-    ) {
-        viewModelScope.launch {
-            val responseText = when (errorType) {
-                "GPS_OFF" -> getRandomResponse(ResponseStrings.locationServiceOff)
-                "UNAVAILABLE" -> getRandomResponse(ResponseStrings.weatherReportUnavailable)
-                else -> getRandomResponse(ResponseStrings.locationUnknownSuggestCity)
-            }
-            processResponse(responseText, loadingItemId, speak, Category.OTHER)
-        }
-    }
-
-    // Set Alarm UseCase Delegate
-    private fun setAlarm(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            setAlarmUseCase.execute(
-                prompt = prompt,
-                onPromptForTime = { dayMatch ->
-                    lockState = LockState.LockAlarm(day = dayMatch)
-                    processResponse(
-                        getRandomResponse(ResponseStrings.promptForTime),
-                        loadingItemId,
-                        speak,
-                        Category.OTHER
-                    )
-                },
-                onSuccess = { intent ->
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                    processResponse(
-                        getRandomResponse(ResponseStrings.alarmSetSuccess),
-                        loadingItemId,
-                        speak,
-                        category
-                    )
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    private fun handleAlarmLockState(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        state: LockState.LockAlarm,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            setAlarmUseCase.execute(
-                prompt = prompt,
-                dayOverride = state.day,
-                onPromptForTime = {
-                    processResponse(getRandomResponse(ResponseStrings.invalidTime), loadingItemId, speak, Category.OTHER)
-                },
-                onSuccess = { intent ->
-                    lockState = LockState.None
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                    processResponse(getRandomResponse(ResponseStrings.alarmSetSuccess), loadingItemId, speak, Category.ALARM)
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    // Set Reminder UseCase Delegate
-    private fun setReminder(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        category: Category,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            setReminderUseCase.execute(
-                prompt = prompt,
-                onPromptForTime = { dayMatch, context ->
-                    lockState = LockState.LockReminder(day = dayMatch, context = context)
-                    processResponse(getRandomResponse(ResponseStrings.promptForTime), loadingItemId, speak, Category.OTHER)
-                },
-                onSuccess = { intent ->
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                    processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess), loadingItemId, speak, category)
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    private fun handleReminderLockState(
-        itemId: Long,
-        loadingItemId: Long,
-        speak: Boolean,
-        state: LockState.LockReminder,
-    ) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
-        viewModelScope.launch {
-            setReminderUseCase.execute(
-                prompt = prompt,
-                dayOverride = state.day,
-                contextOverride = state.context,
-                onPromptForTime = { _, _ ->
-                    processResponse(getRandomResponse(ResponseStrings.invalidTime), loadingItemId, speak, Category.OTHER)
-                },
-                onSuccess = { intent ->
-                    lockState = LockState.None
-                    _uiEvent.emit(UIEvent.StartIntent(intent))
-                    processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess), loadingItemId, speak, Category.ALARM)
-                },
-                onFailure = { errorMsg ->
-                    processResponse(errorMsg, loadingItemId, speak, Category.OTHER)
-                }
-            )
-        }
-    }
-
-    private fun getRandomResponse(responses: List<String>): String =
-        responses.randomOrNull() ?: responses.firstOrNull() ?: "An unexpected error occurred."
-
-    object ResponseStrings {
-        val permissionContactsCall = listOf(
-            "I need permission to access your contacts and make phone call. Please allow and try again.",
-            "Hey, I’ll need access to your contacts and calling first. Can you allow that?",
-            "Looks like I don’t have permission to call yet. Please enable it and retry.",
-            "I can help with that, but I need contacts and call access first.",
-            "Please grant me contacts and calling permission so I can make the call for you.",
-            "I can’t make calls without your permission. Could you turn it on?"
-        )
-
-        val permissionLocation = listOf(
-            "I need permission to access your location. Please try again.",
-            "I can get the weather, but I’ll need your location first.",
-            "Looks like location access isn’t granted. Please allow it and try again.",
-            "Hey, could you enable location permission so I can show the weather?",
-            "To fetch the forecast, I’ll need your location. Can you grant access?",
-            "Without your location, I can’t check the weather. Please turn it on."
-        )
-
-        val locationServiceOff = listOf(
-            "I need to know your location for that. Please turn on your location and try again.",
-            "looks like location is off. Could you enable it?",
-            "I can’t continue without your location. Please turn it on.",
-            "Hey, I’ll need your location for this. Can you switch it on?",
-            "Looks like your location services are disabled. Please activate them.",
-            "Please turn on location, then I’ll be able to continue."
-        )
-
-        val callFailed = listOf(
-            "Sorry, failed to make call. Please try again.",
-            "Oops, the call didn’t go through. Want to retry?",
-            "I couldn’t complete the call. Please try again.",
-            "Looks like that call failed. Give it another shot?",
-            "Something went wrong with the call. Please try again later.",
-            "I wasn’t able to connect the call. Can we try once more?"
-        )
-
-        val contactNotFound = listOf(
-            "I cannot find such contact, please try again.",
-            "I didn’t find that contact in your list.",
-            "No contact matched that name, could you check and retry?",
-            "Sorry, I couldn’t locate that person in your contacts.",
-            "Looks like that name isn’t saved in your contacts.",
-            "I couldn’t find that contact. Maybe try with a different name?"
-        )
-
-        val songNotFound = listOf(
-            "I can not find such song, please try again.",
-            "Sorry, I couldn’t find that track.",
-            "no song matched your request. Want to try another?",
-            "I wasn’t able to locate that song. Please retry.",
-            "Looks like that song isn’t available right now.",
-            "I couldn’t find that one. Maybe try with a different title?"
-        )
-
-        val locationNotFound = listOf(
-            "I can not find such location, please try again.",
-            "Sorry, I couldn’t figure out where that is.",
-            "I wasn’t able to locate that place.",
-            "No results for that location. Can you check and try again?",
-            "Looks like that place isn’t on my map data.",
-            "I couldn’t find that spot. Maybe try with a different name?"
-        )
-
-        val weatherReportUnavailable = listOf(
-            "Seems weather report is not available, please try again.",
-            "Sorry, I couldn’t get the weather right now.",
-            "The weather service isn’t responding. Please try later.",
-            "Looks like weather data is down at the moment.",
-            "I wasn’t able to fetch the forecast. Can you retry later?",
-            "Weather info isn’t available right now. Please check back soon."
-        )
-
-        val locationUnknownSuggestCity = listOf(
-            "Your location is not available to me. Please try again with your city name.",
-            "I couldn’t detect your location. Could you tell me your city instead?",
-            "Looks like location services aren’t working. Please provide your city name.",
-            "I’m not getting your location right now. Can you enter your city?",
-            "Sorry, I can’t access your current location. A city name would help.",
-            "Your location seems unavailable. Please try with your city name."
-        )
-
-        val invalidTime = listOf(
-            "That doesn't seems like an actual time. Please try again.",
-            "I didn’t recognize that as a valid time.",
-            "That time format looks off. Could you retry?",
-            "Sorry, I couldn’t understand that time input.",
-            "That doesn’t look like a proper time. Please try again.",
-            "Can you give me a valid time so I can continue?"
-        )
-
-        val alarmSetSuccess = listOf(
-            "Alarm set successfully...",
-            "Done! Your alarm is ready.",
-            "Great, I’ve set the alarm for you.",
-            "All set, your alarm has been scheduled.",
-            "Alarm saved successfully.",
-            "Okay, I’ve configured the alarm as requested."
-        )
-
-        val reminderSetSuccess = listOf(
-            "Reminder set successfully...",
-            "Done! Your reminder is ready.",
-            "Great, I’ve saved the reminder for you.",
-            "All set, your reminder has been scheduled.",
-            "Reminder saved successfully.",
-            "Okay, I’ve created the reminder as requested."
-        )
-
-        val promptForTime = listOf(
-            "Sure, at what time?",
-            "Alright, when should I set it?",
-            "Okay, what time would you like?",
-            "Got it, please tell me the time.",
-            "When do you want me to set it for?",
-            "Sure thing, what time works for you?"
-        )
-
-        val genericError = listOf(
-            "Something went wrong, please try again.",
-            "Oops, that didn’t work. Please retry.",
-            "I ran into an issue. Can you try again?",
-            "Sorry, something broke there. Please try once more.",
-            "That didn’t go through. Could you retry?",
-            "An error popped up. Let’s try that again."
-        )
     }
 
     fun saveKeys(
@@ -995,5 +564,9 @@ class MainViewModel(
             chatKey = com.app.assistant.BuildConfig.GROQ_API_KEY
         }
         return chatKey
+    }
+
+    companion object {
+        private var cachedLanguages: List<Pair<String, String>>? = null
     }
 }

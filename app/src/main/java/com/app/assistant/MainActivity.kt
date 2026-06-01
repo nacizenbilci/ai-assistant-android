@@ -34,6 +34,8 @@ import com.app.assistant.ui.screen.SetupUI
 import com.app.assistant.viewmodel.MainViewModel
 import com.app.assistant.viewmodel.MainViewModelFactory
 import com.app.assistant.viewmodel.UIEvent
+import com.app.assistant.viewmodel.onLocationFailed
+import com.app.assistant.viewmodel.onLocationReceived
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
