@@ -18,6 +18,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
+import androidx.compose.runtime.remember
+
 @Composable
 @Suppress("ktlint:standard:function-naming")
 fun SettingsDialog(
@@ -30,8 +34,14 @@ fun SettingsDialog(
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
 
     val context = LocalContext.current
-    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-    val versionName = packageInfo.versionName
+    val versionName = remember(context) {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            packageInfo.versionName ?: "1.0.0"
+        } catch (e: Exception) {
+            "1.0.0"
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -52,7 +62,7 @@ fun SettingsDialog(
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(stringResource(id = R.string.app_version, versionName.toString()))
+                Text(stringResource(id = R.string.app_version, versionName))
             }
         },
         confirmButton = {
@@ -66,4 +76,17 @@ fun SettingsDialog(
             }
         },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsDialogPreview() {
+    AssistantTheme {
+        SettingsDialog(
+            initialYoutubeKey = "AIzaSyFakeKey123",
+            initialChatKey = "gsk_FakeKey456",
+            onDismiss = {},
+            onSave = { _, _ -> }
+        )
+    }
 }

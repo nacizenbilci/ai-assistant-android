@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
 import com.app.assistant.model.Group
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
 
 @Composable
 fun ChatDrawerContent(
@@ -317,4 +319,60 @@ fun DeleteMessageDialog(
             }
         },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChatDrawerContentPreview() {
+    AssistantTheme {
+        ChatDrawerContent(
+            groupList = listOf(
+                Group(1L, "Recent Conversation 1"),
+                Group(2L, "Recent Conversation 2")
+            ),
+            onGroupClick = {},
+            onSettingsClick = {},
+            onNewChatClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ChatTopAppBarPreview() {
+    AssistantTheme {
+        ChatTopAppBar(
+            showCopyIcon = true,
+            onCopyClick = {},
+            onDeleteClick = {},
+            onTranslateClick = {},
+            chatListNotEmpty = true,
+            onClearChatClick = {},
+            onMenuClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CustomUiDragHandlePreview() {
+    AssistantTheme {
+        CustomUiDragHandle(onDragEnd = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ClearChatDialogPreview() {
+    AssistantTheme {
+        ClearChatDialog(onConfirm = {}, onDismiss = {})
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DeleteMessageDialogPreview() {
+    AssistantTheme {
+        DeleteMessageDialog(onConfirm = {}, onDismiss = {})
+    }
 }

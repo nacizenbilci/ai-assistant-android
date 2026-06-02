@@ -19,6 +19,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
+
 @Composable
 fun LoadingDots() {
     val infiniteTransition = rememberInfiniteTransition()
@@ -86,5 +89,13 @@ fun LoadingDots() {
             modifier = Modifier.offset(y = dot3Offset.dp),
             style = MaterialTheme.typography.bodyLarge,
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LoadingDotsPreview() {
+    AssistantTheme {
+        LoadingDots()
     }
 }

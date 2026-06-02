@@ -20,8 +20,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
-import com.app.assistant.viewmodel.MainViewModel
-import kotlinx.coroutines.flow.collectLatest
+import com.app.assistant.model.Conversation
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.SoftwareKeyboardController
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -30,10 +33,17 @@ fun MyLayout(
     onShowCopyIconChange: (Boolean) -> Unit,
     selectedItemIndex: Int?,
     onSelectedItemChange: (Int) -> Unit,
-    viewModel: MainViewModel,
     isCustomUI: Boolean,
+    chatList: List<Conversation>,
+    isSpeaking: Boolean,
+    isListening: Boolean,
+    question: String,
+    onQuestionChange: (String) -> Unit,
+    onStopSpeaking: () -> Unit,
+    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
+    isTranslateEnabled: Boolean,
 ) {
-    val boxes = viewModel.chatList
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
@@ -46,12 +56,6 @@ fun MyLayout(
             @Suppress("DEPRECATION")
             context.getSystemService(Vibrator::class.java)
         }
-
-    LaunchedEffect(Unit) {
-        viewModel.showToastEvent.collectLatest { message: String ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
-    }
 
     LaunchedEffect(selectedItemIndex) {
         onShowCopyIconChange(selectedItemIndex != null)
@@ -81,13 +85,13 @@ fun MyLayout(
                 },
             state = scrollState,
         ) {
-            itemsIndexed(boxes) { index, conversation ->
+            itemsIndexed(chatList) { index, conversation ->
                 ConversationItem(
                     conversation = conversation,
                     index = index,
                     isSelected = index == selectedItemIndex,
                     onLongClick = { newIndex -> onSelectedItemChange(newIndex) },
-                    viewModel = viewModel,
+                    isTranslateEnabled = isTranslateEnabled,
                 )
             }
         }
@@ -96,14 +100,53 @@ fun MyLayout(
             UserInputField(
                 focusManager = focusManager,
                 keyboardController = keyboardController,
-                viewModel = viewModel,
+                isSpeaking = isSpeaking,
+                isListening = isListening,
+                question = question,
+                onQuestionChange = onQuestionChange,
+                onStopSpeaking = onStopSpeaking,
+                onStartListening = onStartListening,
+                onProcessQuestion = onProcessQuestion,
             )
         }
     }
 
-    LaunchedEffect(boxes.size) {
-        if (boxes.isNotEmpty()) {
-            scrollState.animateScrollToItem(boxes.size - 1)
+    LaunchedEffect(chatList.size) {
+        if (chatList.isNotEmpty()) {
+            scrollState.animateScrollToItem(chatList.size - 1)
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MyLayoutPreview() {
+    AssistantTheme {
+        MyLayout(
+            onShowCopyIconChange = {},
+            selectedItemIndex = null,
+            onSelectedItemChange = {},
+            isCustomUI = false,
+            chatList = listOf(
+                Conversation(
+                    englishText = "What is the weather today?",
+                    translatedText = "Quelle est la météo aujourd'hui?",
+                    isMe = true
+                ),
+                Conversation(
+                    englishText = "The weather is sunny at 22°C.",
+                    translatedText = "Il fait beau à 22°C.",
+                    isMe = false
+                )
+            ),
+            isSpeaking = false,
+            isListening = false,
+            question = "",
+            onQuestionChange = {},
+            onStopSpeaking = {},
+            onStartListening = { _, _ -> },
+            onProcessQuestion = { _, _, _ -> },
+            isTranslateEnabled = false
+        )
     }
 }

@@ -35,12 +35,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import androidx.compose.ui.res.stringResource
+import coil3.compose.AsyncImage
 import com.app.assistant.R
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
-import com.app.assistant.viewmodel.MainViewModel
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -49,7 +50,7 @@ fun ConversationItem(
     index: Int,
     isSelected: Boolean,
     onLongClick: (Int) -> Unit,
-    viewModel: MainViewModel,
+    isTranslateEnabled: Boolean,
     backgroundColor: Color =
         if (conversation.isMe) {
             MaterialTheme.colorScheme.secondary
@@ -59,7 +60,6 @@ fun ConversationItem(
     cornerRadius: Dp = 20.dp,
 ) {
     val uriHandler = LocalUriHandler.current
-    val isTranslateEnabled = viewModel.getIsTranslationEnabled()
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -291,4 +291,88 @@ private fun OtherCard(
                     )
                 },
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UserConversationItemPreview() {
+    AssistantTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ConversationItem(
+                conversation = Conversation(
+                    englishText = "Hello! Can you help me?",
+                    translatedText = "Bonjour! Pouvez-vous m'aider?",
+                    isMe = true,
+                    category = Category.OTHER.name
+                ),
+                index = 0,
+                isSelected = false,
+                onLongClick = {},
+                isTranslateEnabled = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AiConversationItemPreview() {
+    AssistantTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ConversationItem(
+                conversation = Conversation(
+                    englishText = "Sure! I can help you set an alarm or make a call.",
+                    translatedText = "Bien sûr! Je peux vous aider.",
+                    isMe = false,
+                    category = Category.OTHER.name
+                ),
+                index = 1,
+                isSelected = false,
+                onLongClick = {},
+                isTranslateEnabled = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LoadingConversationItemPreview() {
+    AssistantTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ConversationItem(
+                conversation = Conversation(
+                    englishText = "",
+                    translatedText = "",
+                    isMe = false,
+                    isLoading = true
+                ),
+                index = 2,
+                isSelected = false,
+                onLongClick = {},
+                isTranslateEnabled = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeatherConversationItemPreview() {
+    AssistantTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            ConversationItem(
+                conversation = Conversation(
+                    englishText = "Today's weather is sunny, 25°C.",
+                    translatedText = "La météo d'aujourd'hui est ensoleillée, 25°C.",
+                    isMe = false,
+                    category = Category.WEATHER.name
+                ),
+                index = 3,
+                isSelected = false,
+                onLongClick = {},
+                isTranslateEnabled = false
+            )
+        }
+    }
 }

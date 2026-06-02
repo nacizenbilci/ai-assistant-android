@@ -60,234 +60,392 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
 import com.app.assistant.ui.theme.AssistantTheme
 import com.app.assistant.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
+import android.widget.Toast
+import kotlinx.coroutines.flow.collectLatest
+import com.app.assistant.model.Group
+import com.app.assistant.model.Conversation
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.SoftwareKeyboardController
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupUI(viewModel: MainViewModel) {
     AssistantTheme {
-        var showCopyIcon by remember { mutableStateOf(false) }
-        var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
-        val clipboardManager = LocalClipboardManager.current
-        var clearShowDialog by remember { mutableStateOf(false) }
-        var deleteShowDialog by remember { mutableStateOf(false) }
-        var showSettingsDialog by remember { mutableStateOf(false) }
-
-        val sheetState = rememberModalBottomSheetState()
         val showBottomSheet by viewModel.showBottomSheet.collectAsState()
-
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
-        val drawerState =
-            remember(isCustomUI) {
-                DrawerState(DrawerValue.Closed)
-            }
-        val scope = rememberCoroutineScope()
         val groupList by viewModel.groupList.collectAsState(initial = emptyList())
+        val chatList = viewModel.chatList
+        val isSpeaking by viewModel.isSpeaking.collectAsState()
+        val isListening by viewModel.isListening.collectAsState()
+        val question by viewModel.question.collectAsState()
+        val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
+        val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
+        val languages = viewModel.languages
+        val youtubeKey = remember(viewModel) { viewModel.loadYoutubeKey() ?: "" }
+        val chatKey = remember(viewModel) { viewModel.loadChatKey() ?: "" }
 
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-        val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            viewModel.showToastEvent.collectLatest { message: String ->
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        }
 
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            drawerContent = {
-                if (!isCustomUI) {
-                    ChatDrawerContent(
-                        groupList = groupList,
-                        onGroupClick = { groupId ->
-                            viewModel.loadMessagesFromGroup(groupId)
-                            scope.launch { drawerState.close() }
-                        },
-                        onSettingsClick = {
-                            showSettingsDialog = true
-                            scope.launch { drawerState.close() }
-                        },
-                        onNewChatClick = {
-                            viewModel.newChat()
-                            scope.launch { drawerState.close() }
-                        }
-                    )
-                }
+        val clipboardManager = LocalClipboardManager.current
+
+        ChatScreenContent(
+            isCustomUI = isCustomUI,
+            isCustomUIHalfPage = isCustomUIHalfPage,
+            groupList = groupList,
+            chatList = chatList,
+            isSpeaking = isSpeaking,
+            isListening = isListening,
+            question = question,
+            showBottomSheet = showBottomSheet,
+            isTranslationEnabled = isTranslationEnabled,
+            isLanguageLoading = isLanguageLoading,
+            languages = languages,
+            youtubeKey = youtubeKey,
+            chatKey = chatKey,
+            onGroupClick = { viewModel.loadMessagesFromGroup(it) },
+            onSettingsClick = { /* Handled in child SettingsDialog */ },
+            onNewChatClick = { viewModel.newChat() },
+            onCopyClick = { index ->
+                val textToCopy = when {
+                    viewModel.getIsTranslationEnabled() -> {
+                        viewModel.chatList.getOrNull(index)?.translatedText
+                    }
+                    else -> {
+                        viewModel.chatList.getOrNull(index)?.englishText
+                    }
+                } ?: ""
+                clipboardManager.setText(AnnotatedString(textToCopy))
             },
-        ) {
-            val scaffoldContent = @Composable {
-                Scaffold(
-                    containerColor = if (isCustomUIHalfPage) Color.Transparent else MaterialTheme.colorScheme.background,
-                    modifier =
-                        if (isCustomUI) {
-                            Modifier
-                                .height(screenHeight / 2)
-                                .padding(16.dp, 16.dp, 16.dp, 8.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color.Transparent, shape = RoundedCornerShape(16.dp))
-                                .clickable {
-                                    if (!isCustomUIHalfPage) {
-                                        Modifier.clickable(onClick = {})
-                                    } else {
-                                        backPressedDispatcher?.onBackPressed()
-                                    }
-                                }
-                        } else {
-                            Modifier
-                        },
-                    topBar = {
-                        if (!isCustomUI) {
-                            ChatTopAppBar(
-                                showCopyIcon = showCopyIcon,
-                                onCopyClick = {
-                                    selectedItemIndex?.let { index ->
-                                        val textToCopy =
-                                            when {
-                                                viewModel.getIsTranslationEnabled() -> {
-                                                    viewModel.chatList.getOrNull(index)?.translatedText
-                                                }
-                                                else -> {
-                                                    viewModel.chatList.getOrNull(index)?.englishText
-                                                }
-                                            } ?: ""
-                                        clipboardManager.setText(AnnotatedString(textToCopy))
-                                        selectedItemIndex = null
-                                    }
-                                },
-                                onDeleteClick = { deleteShowDialog = true },
-                                onTranslateClick = { viewModel.setShowBottomSheet(true) },
-                                chatListNotEmpty = viewModel.chatList.isNotEmpty(),
-                                onClearChatClick = { clearShowDialog = true },
-                                onMenuClick = {
-                                    scope.launch {
-                                        drawerState.apply {
-                                            if (isClosed) open() else close()
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                        if (!isCustomUIHalfPage && isCustomUI) {
-                            CustomUiDragHandle(
-                                onDragEnd = { viewModel.expandToFullScreen() }
-                            )
-                        }
+            onDeleteClick = { viewModel.deleteMessage(it) },
+            onClearChatClick = { viewModel.clearBoxes() },
+            onTranslateClick = { viewModel.setShowBottomSheet(true) },
+            onMenuClick = { /* Handled inside drawer state toggling */ },
+            onDragEnd = { viewModel.expandToFullScreen() },
+            onQuestionChange = { viewModel.setQuestion(it) },
+            onStopSpeaking = { viewModel.stopTextToSpeech() },
+            onStartListening = { onResult, onPartialResult ->
+                viewModel.startSpeechToText(onResult, onPartialResult)
+            },
+            onProcessQuestion = { fm, kc, isVoice ->
+                viewModel.processQuestion(fm, kc, isVoice)
+            },
+            onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
+            onLanguageSelected = { viewModel.onItemSelected(it) },
+            onDismissBottomSheet = { viewModel.setShowBottomSheet(false) },
+            onSaveSettings = { ytKey, chKey -> viewModel.saveKeys(ytKey, chKey) },
+            onBackPressed = { /* Handled in parent context back handler */ }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreenContent(
+    isCustomUI: Boolean,
+    isCustomUIHalfPage: Boolean,
+    groupList: List<Group>,
+    chatList: List<Conversation>,
+    isSpeaking: Boolean,
+    isListening: Boolean,
+    question: String,
+    showBottomSheet: Boolean,
+    isTranslationEnabled: Boolean,
+    isLanguageLoading: Boolean,
+    languages: List<Pair<String, String>>,
+    youtubeKey: String,
+    chatKey: String,
+    onGroupClick: (Long) -> Unit,
+    onSettingsClick: () -> Unit,
+    onNewChatClick: () -> Unit,
+    onCopyClick: (Int) -> Unit,
+    onDeleteClick: (Int) -> Unit,
+    onClearChatClick: () -> Unit,
+    onTranslateClick: () -> Unit,
+    onMenuClick: () -> Unit,
+    onDragEnd: () -> Unit,
+    onQuestionChange: (String) -> Unit,
+    onStopSpeaking: () -> Unit,
+    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
+    onTranslationEnabledChange: (Boolean) -> Unit,
+    onLanguageSelected: (String) -> Unit,
+    onDismissBottomSheet: () -> Unit,
+    onSaveSettings: (String, String) -> Unit,
+    onBackPressed: () -> Unit,
+) {
+    var showCopyIcon by remember { mutableStateOf(false) }
+    var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
+    val clipboardManager = LocalClipboardManager.current
+    var clearShowDialog by remember { mutableStateOf(false) }
+    var deleteShowDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+
+    val drawerState = remember(isCustomUI) {
+        DrawerState(DrawerValue.Closed)
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            if (!isCustomUI) {
+                ChatDrawerContent(
+                    groupList = groupList,
+                    onGroupClick = { groupId ->
+                        onGroupClick(groupId)
+                        scope.launch { drawerState.close() }
                     },
-                ) { innerPadding ->
-                    MyLayout(
-                        modifier = Modifier.padding(innerPadding),
-                        onShowCopyIconChange = { newValue ->
-                            showCopyIcon = newValue
-                        },
-                        selectedItemIndex = selectedItemIndex,
-                        onSelectedItemChange = { newIndex -> selectedItemIndex = newIndex },
-                        viewModel = viewModel,
-                        isCustomUI = isCustomUI,
-                    )
-                }
+                    onSettingsClick = {
+                        showSettingsDialog = true
+                        scope.launch { drawerState.close() }
+                    },
+                    onNewChatClick = {
+                        onNewChatClick()
+                        scope.launch { drawerState.close() }
+                    }
+                )
+            }
+        },
+    ) {
+        val scaffoldContent = @Composable {
+            Scaffold(
+                containerColor = if (isCustomUIHalfPage) Color.Transparent else MaterialTheme.colorScheme.background,
+                modifier =
+                    if (isCustomUI) {
+                        Modifier
+                            .height(screenHeight / 2)
+                            .padding(16.dp, 16.dp, 16.dp, 8.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(Color.Transparent, shape = RoundedCornerShape(16.dp))
+                            .clickable {
+                                if (!isCustomUIHalfPage) {
+                                    Modifier.clickable(onClick = {})
+                                } else {
+                                    backPressedDispatcher?.onBackPressed()
+                                }
+                            }
+                    } else {
+                        Modifier
+                    },
+                topBar = {
+                    if (!isCustomUI) {
+                        ChatTopAppBar(
+                            showCopyIcon = showCopyIcon,
+                            onCopyClick = {
+                                selectedItemIndex?.let { index ->
+                                    onCopyClick(index)
+                                    selectedItemIndex = null
+                                }
+                            },
+                            onDeleteClick = { deleteShowDialog = true },
+                            onTranslateClick = onTranslateClick,
+                            chatListNotEmpty = chatList.isNotEmpty(),
+                            onClearChatClick = { clearShowDialog = true },
+                            onMenuClick = {
+                                scope.launch {
+                                    drawerState.apply {
+                                        if (isClosed) open() else close()
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    if (!isCustomUIHalfPage && isCustomUI) {
+                        CustomUiDragHandle(
+                            onDragEnd = onDragEnd
+                        )
+                    }
+                },
+            ) { innerPadding ->
+                MyLayout(
+                    modifier = Modifier.padding(innerPadding),
+                    onShowCopyIconChange = { newValue ->
+                        showCopyIcon = newValue
+                    },
+                    selectedItemIndex = selectedItemIndex,
+                    onSelectedItemChange = { newIndex -> selectedItemIndex = newIndex },
+                    isCustomUI = isCustomUI,
+                    chatList = chatList,
+                    isSpeaking = isSpeaking,
+                    isListening = isListening,
+                    question = question,
+                    onQuestionChange = onQuestionChange,
+                    onStopSpeaking = onStopSpeaking,
+                    onStartListening = onStartListening,
+                    onProcessQuestion = onProcessQuestion,
+                    isTranslateEnabled = isTranslationEnabled,
+                )
+            }
+        }
+
+        if (isCustomUI) {
+            var tapped by remember { mutableStateOf(false) }
+
+            LaunchedEffect(Unit) {
+                tapped = false
             }
 
-            if (isCustomUI) {
-                var tapped by remember { mutableStateOf(false) }
+            val animatedBoxAlpha by animateFloatAsState(
+                targetValue = if (tapped) 0.0f else 0.3f,
+                animationSpec = tween(durationMillis = 100), // Quick animation
+                label = "boxBackgroundAlpha",
+                finishedListener = {
+                    if (tapped) {
+                        backPressedDispatcher?.onBackPressed()
+                    }
+                },
+            )
 
-                LaunchedEffect(Unit) {
-                    tapped = false
-                }
-
-                val animatedBoxAlpha by animateFloatAsState(
-                    targetValue = if (tapped) 0.0f else 0.3f,
-                    animationSpec = tween(durationMillis = 100), // Quick animation
-                    label = "boxBackgroundAlpha",
-                    finishedListener = {
-                        if (tapped) {
-                            backPressedDispatcher?.onBackPressed()
-                        }
-                    },
-                )
-
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = animatedBoxAlpha))
-                            .imePadding()
-                            .animateContentSize()
-                            .clickable(
-                                enabled = !tapped,
-                                onClick = {
-                                    tapped = true
-                                },
-                            ),
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    scaffoldContent()
-                }
-            } else {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = animatedBoxAlpha))
+                        .imePadding()
+                        .animateContentSize()
+                        .clickable(
+                            enabled = !tapped,
+                            onClick = {
+                                tapped = true
+                            },
+                        ),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
                 scaffoldContent()
             }
+        } else {
+            scaffoldContent()
         }
+    }
 
-        if (showBottomSheet) {
-            val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
-            val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
+    if (showBottomSheet) {
+        LanguageSelectionBottomSheet(
+            sheetState = sheetState,
+            languages = languages,
+            isTranslationEnabled = isTranslationEnabled,
+            isLanguageLoading = isLanguageLoading,
+            onTranslationEnabledChange = onTranslationEnabledChange,
+            onLanguageSelected = onLanguageSelected,
+            onDismissRequest = onDismissBottomSheet
+        )
+    }
 
-            LanguageSelectionBottomSheet(
-                sheetState = sheetState,
-                languages = viewModel.languages,
-                isTranslationEnabled = isTranslationEnabled,
-                isLanguageLoading = isLanguageLoading,
-                onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
-                onLanguageSelected = { viewModel.onItemSelected(it) },
-                onDismissRequest = { viewModel.setShowBottomSheet(false) }
-            )
-        }
+    if (clearShowDialog) {
+        ClearChatDialog(
+            onConfirm = {
+                onClearChatClick()
+                clearShowDialog = false
+            },
+            onDismiss = { clearShowDialog = false }
+        )
+    }
 
-        if (clearShowDialog) {
-            ClearChatDialog(
-                onConfirm = {
-                    viewModel.clearBoxes()
-                    clearShowDialog = false
-                },
-                onDismiss = { clearShowDialog = false }
-            )
-        }
-
-        if (deleteShowDialog) {
-            DeleteMessageDialog(
-                onConfirm = {
-                    selectedItemIndex?.let { index ->
-                        viewModel.deleteMessage(index)
-                    }
-                    deleteShowDialog = false
-                    selectedItemIndex = null
-                },
-                onDismiss = {
-                    deleteShowDialog = false
-                    selectedItemIndex = null
+    if (deleteShowDialog) {
+        DeleteMessageDialog(
+            onConfirm = {
+                selectedItemIndex?.let { index ->
+                    onDeleteClick(index)
                 }
-            )
-        }
+                deleteShowDialog = false
+                selectedItemIndex = null
+            },
+            onDismiss = {
+                deleteShowDialog = false
+                selectedItemIndex = null
+            }
+        )
+    }
 
-        if (showSettingsDialog) {
-            val youtubeKey = viewModel.loadYoutubeKey() ?: ""
-            val chatKey = viewModel.loadChatKey() ?: ""
+    if (showSettingsDialog) {
+        SettingsDialog(
+            initialYoutubeKey = youtubeKey,
+            initialChatKey = chatKey,
+            onDismiss = { showSettingsDialog = false },
+            onSave = { ytKey, chKey ->
+                onSaveSettings(ytKey, chKey)
+                showSettingsDialog = false
+            },
+        )
+    }
 
-            SettingsDialog(
-                initialYoutubeKey = youtubeKey,
-                initialChatKey = chatKey,
-                onDismiss = { showSettingsDialog = false },
-                onSave = { ytKey, chKey ->
-                    viewModel.saveKeys(ytKey, chKey)
-                    showSettingsDialog = false
-                },
-            )
-        }
+    BackHandler(enabled = selectedItemIndex != null) {
+        selectedItemIndex = null
+    }
+}
 
-        BackHandler(enabled = selectedItemIndex != null) {
-            selectedItemIndex = null // Clear selection instead of handling system back
-        }
+@Preview(showBackground = true)
+@Composable
+fun ChatScreenContentPreview() {
+    AssistantTheme {
+        ChatScreenContent(
+            isCustomUI = false,
+            isCustomUIHalfPage = false,
+            groupList = listOf(
+                Group(1L, "Recent Conversation 1"),
+                Group(2L, "Recent Conversation 2")
+            ),
+            chatList = listOf(
+                Conversation(
+                    englishText = "Hi! How can I configure my API keys?",
+                    translatedText = "Salut! Comment puis-je configurer mes clés API?",
+                    isMe = true
+                ),
+                Conversation(
+                    englishText = "You can configure them by opening settings in the side drawer menu.",
+                    translatedText = "Vous pouvez les configurer en ouvrant les paramètres.",
+                    isMe = false
+                )
+            ),
+            isSpeaking = false,
+            isListening = false,
+            question = "",
+            showBottomSheet = false,
+            isTranslationEnabled = false,
+            isLanguageLoading = false,
+            languages = listOf("English" to "en", "French" to "fr"),
+            youtubeKey = "",
+            chatKey = "",
+            onGroupClick = {},
+            onSettingsClick = {},
+            onNewChatClick = {},
+            onCopyClick = {},
+            onDeleteClick = {},
+            onClearChatClick = {},
+            onTranslateClick = {},
+            onMenuClick = {},
+            onDragEnd = {},
+            onQuestionChange = {},
+            onStopSpeaking = {},
+            onStartListening = { _, _ -> },
+            onProcessQuestion = { _, _, _ -> },
+            onTranslationEnabledChange = {},
+            onLanguageSelected = {},
+            onDismissBottomSheet = {},
+            onSaveSettings = { _, _ -> },
+            onBackPressed = {}
+        )
     }
 }
 

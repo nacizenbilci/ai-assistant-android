@@ -38,8 +38,9 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
 import com.app.assistant.R
-import com.app.assistant.viewmodel.MainViewModel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -50,12 +51,15 @@ import kotlin.math.hypot
 fun UserInputField(
     focusManager: FocusManager,
     keyboardController: SoftwareKeyboardController,
-    viewModel: MainViewModel,
+    isSpeaking: Boolean,
+    isListening: Boolean,
+    question: String,
+    onQuestionChange: (String) -> Unit,
+    onStopSpeaking: () -> Unit,
+    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val isSpeaking by viewModel.isSpeaking.collectAsState()
-    val isListening by viewModel.isListening.collectAsState()
-    val question by viewModel.question.collectAsState()
-
     val containerColor = TextFieldDefaults.colors().unfocusedContainerColor
     val rippleColor = adjustContrast(containerColor)
 
@@ -97,7 +101,7 @@ fun UserInputField(
 
     Box(
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .imePadding()
                 .padding(8.dp)
@@ -112,7 +116,7 @@ fun UserInputField(
             value = question,
             placeholder = { Text(stringResource(id = R.string.type_here_placeholder)) },
             maxLines = 2,
-            onValueChange = { viewModel.setQuestion(it) },
+            onValueChange = onQuestionChange,
             colors =
                 TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
@@ -124,7 +128,7 @@ fun UserInputField(
                     if (isSpeaking) {
                         IconButton(onClick = {
                             if (isSpeaking) {
-                                viewModel.stopTextToSpeech()
+                                onStopSpeaking()
                             }
                         }) {
                             Icon(
@@ -134,19 +138,19 @@ fun UserInputField(
                         }
                     } else {
                         IconButton(onClick = {
-                            viewModel.startSpeechToText(
-                                onResult = { recognizedText ->
-                                    viewModel.setQuestion(recognizedText)
-                                    if (question.isNotEmpty()) {
-                                        viewModel.processQuestion(
+                            onStartListening(
+                                { recognizedText ->
+                                    onQuestionChange(recognizedText)
+                                    if (recognizedText.isNotEmpty()) {
+                                        onProcessQuestion(
                                             focusManager,
                                             keyboardController,
                                             true,
                                         )
                                     }
                                 },
-                                onPartialResult = { recognizedText ->
-                                    viewModel.setQuestion(recognizedText)
+                                { recognizedText ->
+                                    onQuestionChange(recognizedText)
                                 },
                             )
                         }) {
@@ -158,7 +162,7 @@ fun UserInputField(
                     }
                     IconButton(onClick = {
                         if (question.isNotEmpty()) {
-                            viewModel.processQuestion(
+                            onProcessQuestion(
                                 focusManager,
                                 keyboardController,
                                 false,
@@ -212,5 +216,71 @@ fun adjustContrast(
             blue = (color.blue - factor).coerceAtLeast(0f),
             alpha = color.alpha,
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UserInputFieldIdlePreview() {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    AssistantTheme {
+        if (keyboardController != null) {
+            UserInputField(
+                focusManager = focusManager,
+                keyboardController = keyboardController,
+                isSpeaking = false,
+                isListening = false,
+                question = "",
+                onQuestionChange = {},
+                onStopSpeaking = {},
+                onStartListening = { _, _ -> },
+                onProcessQuestion = { _, _, _ -> }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UserInputFieldSpeakingPreview() {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    AssistantTheme {
+        if (keyboardController != null) {
+            UserInputField(
+                focusManager = focusManager,
+                keyboardController = keyboardController,
+                isSpeaking = true,
+                isListening = false,
+                question = "This is a spoken response from the AI",
+                onQuestionChange = {},
+                onStopSpeaking = {},
+                onStartListening = { _, _ -> },
+                onProcessQuestion = { _, _, _ -> }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UserInputFieldListeningPreview() {
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    AssistantTheme {
+        if (keyboardController != null) {
+            UserInputField(
+                focusManager = focusManager,
+                keyboardController = keyboardController,
+                isSpeaking = false,
+                isListening = true,
+                question = "Listening for your voice...",
+                onQuestionChange = {},
+                onStopSpeaking = {},
+                onStartListening = { _, _ -> },
+                onProcessQuestion = { _, _, _ -> }
+            )
+        }
     }
 }

@@ -4,6 +4,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -31,6 +33,9 @@ import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
 import org.commonmark.node.Text as CText
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
+
 @Composable
 fun MarkdownText(
     modifier: Modifier = Modifier,
@@ -45,5 +50,23 @@ fun MarkdownText(
         text = annotatedText,
         modifier = modifier,
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MarkdownTextPreview() {
+    AssistantTheme {
+        MarkdownText(
+            modifier = Modifier.padding(16.dp),
+            markdown = """
+                # Markdown Preview
+                This is a **bold** text and *italic* text.
+                - List item 1
+                - List item 2
+                
+                [Link to Google](https://google.com)
+            """.trimIndent()
+        )
+    }
 }
 
