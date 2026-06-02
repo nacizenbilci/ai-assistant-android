@@ -41,6 +41,7 @@ import com.app.assistant.R
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
 import com.app.assistant.ui.theme.AssistantTheme
 
 @Composable
@@ -151,6 +152,7 @@ fun ConversationItem(
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.secondary,
                 textAlign = TextAlign.End,
+                fontSize = 10.sp
             )
         }
     }

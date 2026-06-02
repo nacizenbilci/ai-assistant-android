@@ -326,13 +326,17 @@ class MainViewModel(
         loadingItemId: Long,
         speak: Boolean,
     ) {
-        val finalCategory = processChatCommandUseCase.resolveCategory(results, inputText)
-        callCommand(finalCategory.name, itemId, loadingItemId, speak)
+        viewModelScope.launch {
+            val finalCategory = processChatCommandUseCase.resolveCategory(results, inputText)
+            callCommand(finalCategory.name, itemId, loadingItemId, speak)
 
-        chatList.find { it.id == itemId }?.let {
-            it.category = finalCategory.name
+            val index = chatList.indexOfFirst { it.id == itemId }
+            if (index != -1) {
+                val updatedItem = chatList[index].copy(category = finalCategory.name)
+                chatList.set(index, updatedItem)
+            }
+            Log.d("Classifier Inference Result", finalCategory.name)
         }
-        Log.d("Classifier Inference Result", finalCategory.name)
     }
 
     private fun callCommand(
