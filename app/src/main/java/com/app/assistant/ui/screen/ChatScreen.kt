@@ -68,8 +68,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
+import com.app.assistant.llm.LlmProvider
 import com.app.assistant.ui.theme.AssistantTheme
 import com.app.assistant.viewmodel.MainViewModel
+import com.app.assistant.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 
 import android.widget.Toast
@@ -81,7 +83,7 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetupUI(viewModel: MainViewModel) {
+fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
     AssistantTheme {
         val showBottomSheet by viewModel.showBottomSheet.collectAsState()
         val isCustomUI by viewModel.isCustomUI.collectAsState()
@@ -94,8 +96,20 @@ fun SetupUI(viewModel: MainViewModel) {
         val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
         val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
         val languages = viewModel.languages
-        val youtubeKey = remember(viewModel) { viewModel.loadYoutubeKey() ?: "" }
-        val chatKey = remember(viewModel) { viewModel.loadChatKey() ?: "" }
+        var youtubeKey by remember { mutableStateOf(settingsViewModel.loadYoutubeKey()) }
+        var chatKey by remember { mutableStateOf(settingsViewModel.loadChatKey()) }
+        var llmProvider by remember { mutableStateOf(settingsViewModel.loadLlmProvider()) }
+        var llmModel by remember { mutableStateOf(settingsViewModel.loadLlmModel()) }
+        var llmCustomUrl by remember { mutableStateOf(settingsViewModel.loadLlmCustomUrl()) }
+        var llmCustomHeaders by remember { mutableStateOf(settingsViewModel.loadLlmCustomHeaders()) }
+        var llmCustomResponsePath by remember { mutableStateOf(settingsViewModel.loadLlmCustomResponsePath()) }
+        var llmCustomRequestTemplate by remember { mutableStateOf(settingsViewModel.loadLlmCustomRequestTemplate()) }
+        var llmCustomMessageFormat by remember { mutableStateOf(settingsViewModel.loadLlmCustomMessageFormat()) }
+        var llmCustomSystemRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomSystemRole()) }
+        var llmCustomUserRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomUserRole()) }
+        var llmCustomAssistantRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomAssistantRole()) }
+
+        var currentScreen by remember { mutableStateOf("chat") }
 
         val context = LocalContext.current
         LaunchedEffect(Unit) {
@@ -106,53 +120,84 @@ fun SetupUI(viewModel: MainViewModel) {
 
         val clipboardManager = LocalClipboardManager.current
 
-        ChatScreenContent(
-            isCustomUI = isCustomUI,
-            isCustomUIHalfPage = isCustomUIHalfPage,
-            groupList = groupList,
-            chatList = chatList,
-            isSpeaking = isSpeaking,
-            isListening = isListening,
-            question = question,
-            showBottomSheet = showBottomSheet,
-            isTranslationEnabled = isTranslationEnabled,
-            isLanguageLoading = isLanguageLoading,
-            languages = languages,
-            youtubeKey = youtubeKey,
-            chatKey = chatKey,
-            onGroupClick = { viewModel.loadMessagesFromGroup(it) },
-            onSettingsClick = { /* Handled in child SettingsDialog */ },
-            onNewChatClick = { viewModel.newChat() },
-            onCopyClick = { index ->
-                val textToCopy = when {
-                    viewModel.getIsTranslationEnabled() -> {
-                        viewModel.chatList.getOrNull(index)?.translatedText
-                    }
-                    else -> {
-                        viewModel.chatList.getOrNull(index)?.englishText
-                    }
-                } ?: ""
-                clipboardManager.setText(AnnotatedString(textToCopy))
-            },
-            onDeleteClick = { viewModel.deleteMessage(it) },
-            onClearChatClick = { viewModel.clearBoxes() },
-            onTranslateClick = { viewModel.setShowBottomSheet(true) },
-            onMenuClick = { /* Handled inside drawer state toggling */ },
-            onDragEnd = { viewModel.expandToFullScreen() },
-            onQuestionChange = { viewModel.setQuestion(it) },
-            onStopSpeaking = { viewModel.stopTextToSpeech() },
-            onStartListening = { onResult, onPartialResult ->
-                viewModel.startSpeechToText(onResult, onPartialResult)
-            },
-            onProcessQuestion = { fm, kc, isVoice ->
-                viewModel.processQuestion(fm, kc, isVoice)
-            },
-            onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
-            onLanguageSelected = { viewModel.onItemSelected(it) },
-            onDismissBottomSheet = { viewModel.setShowBottomSheet(false) },
-            onSaveSettings = { ytKey, chKey -> viewModel.saveKeys(ytKey, chKey) },
-            onBackPressed = { /* Handled in parent context back handler */ }
-        )
+        if (currentScreen == "settings") {
+            SettingsScreen(
+                initialYoutubeKey = youtubeKey,
+                initialChatKey = chatKey,
+                initialProvider = llmProvider,
+                initialModel = llmModel,
+                initialCustomUrl = llmCustomUrl,
+                initialCustomHeaders = llmCustomHeaders,
+                initialCustomResponsePath = llmCustomResponsePath,
+                initialCustomRequestTemplate = llmCustomRequestTemplate,
+                initialCustomMessageFormat = llmCustomMessageFormat,
+                initialCustomSystemRole = llmCustomSystemRole,
+                initialCustomUserRole = llmCustomUserRole,
+                initialCustomAssistantRole = llmCustomAssistantRole,
+                onBack = { currentScreen = "chat" },
+                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole ->
+                    settingsViewModel.saveSettings(ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole)
+                    youtubeKey = ytKey
+                    chatKey = chKey
+                    llmProvider = providerVal
+                    llmModel = modelVal
+                    llmCustomUrl = cUrl
+                    llmCustomHeaders = cHeaders
+                    llmCustomResponsePath = cPath
+                    llmCustomRequestTemplate = cTemplate
+                    llmCustomMessageFormat = cMsgFormat
+                    llmCustomSystemRole = cSystemRole
+                    llmCustomUserRole = cUserRole
+                    llmCustomAssistantRole = cAssistantRole
+                    currentScreen = "chat"
+                }
+            )
+        } else {
+            ChatScreenContent(
+                isCustomUI = isCustomUI,
+                isCustomUIHalfPage = isCustomUIHalfPage,
+                groupList = groupList,
+                chatList = chatList,
+                isSpeaking = isSpeaking,
+                isListening = isListening,
+                question = question,
+                showBottomSheet = showBottomSheet,
+                isTranslationEnabled = isTranslationEnabled,
+                isLanguageLoading = isLanguageLoading,
+                languages = languages,
+                onGroupClick = { viewModel.loadMessagesFromGroup(it) },
+                onSettingsClick = { currentScreen = "settings" },
+                onNewChatClick = { viewModel.newChat() },
+                onCopyClick = { index ->
+                    val textToCopy = when {
+                        viewModel.getIsTranslationEnabled() -> {
+                            viewModel.chatList.getOrNull(index)?.translatedText
+                        }
+                        else -> {
+                            viewModel.chatList.getOrNull(index)?.englishText
+                        }
+                    } ?: ""
+                    clipboardManager.setText(AnnotatedString(textToCopy))
+                },
+                onDeleteClick = { viewModel.deleteMessage(it) },
+                onClearChatClick = { viewModel.clearBoxes() },
+                onTranslateClick = { viewModel.setShowBottomSheet(true) },
+                onMenuClick = { /* Handled inside drawer state toggling */ },
+                onDragEnd = { viewModel.expandToFullScreen() },
+                onQuestionChange = { viewModel.setQuestion(it) },
+                onStopSpeaking = { viewModel.stopTextToSpeech() },
+                onStartListening = { onResult, onPartialResult ->
+                    viewModel.startSpeechToText(onResult, onPartialResult)
+                },
+                onProcessQuestion = { fm, kc, isVoice ->
+                    viewModel.processQuestion(fm, kc, isVoice)
+                },
+                onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
+                onLanguageSelected = { viewModel.onItemSelected(it) },
+                onDismissBottomSheet = { viewModel.setShowBottomSheet(false) },
+                onBackPressed = { /* Handled in parent context back handler */ }
+            )
+        }
     }
 }
 
@@ -170,8 +215,6 @@ fun ChatScreenContent(
     isTranslationEnabled: Boolean,
     isLanguageLoading: Boolean,
     languages: List<Pair<String, String>>,
-    youtubeKey: String,
-    chatKey: String,
     onGroupClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit,
@@ -188,7 +231,6 @@ fun ChatScreenContent(
     onTranslationEnabledChange: (Boolean) -> Unit,
     onLanguageSelected: (String) -> Unit,
     onDismissBottomSheet: () -> Unit,
-    onSaveSettings: (String, String) -> Unit,
     onBackPressed: () -> Unit,
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
@@ -196,7 +238,6 @@ fun ChatScreenContent(
     val clipboardManager = LocalClipboardManager.current
     var clearShowDialog by remember { mutableStateOf(false) }
     var deleteShowDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -218,7 +259,7 @@ fun ChatScreenContent(
                         scope.launch { drawerState.close() }
                     },
                     onSettingsClick = {
-                        showSettingsDialog = true
+                        onSettingsClick()
                         scope.launch { drawerState.close() }
                     },
                     onNewChatClick = {
@@ -378,17 +419,7 @@ fun ChatScreenContent(
         )
     }
 
-    if (showSettingsDialog) {
-        SettingsDialog(
-            initialYoutubeKey = youtubeKey,
-            initialChatKey = chatKey,
-            onDismiss = { showSettingsDialog = false },
-            onSave = { ytKey, chKey ->
-                onSaveSettings(ytKey, chKey)
-                showSettingsDialog = false
-            },
-        )
-    }
+    // SettingsDialog removed
 
     BackHandler(enabled = selectedItemIndex != null) {
         selectedItemIndex = null
@@ -425,8 +456,6 @@ fun ChatScreenContentPreview() {
             isTranslationEnabled = false,
             isLanguageLoading = false,
             languages = listOf("English" to "en", "French" to "fr"),
-            youtubeKey = "",
-            chatKey = "",
             onGroupClick = {},
             onSettingsClick = {},
             onNewChatClick = {},
@@ -443,7 +472,6 @@ fun ChatScreenContentPreview() {
             onTranslationEnabledChange = {},
             onLanguageSelected = {},
             onDismissBottomSheet = {},
-            onSaveSettings = { _, _ -> },
             onBackPressed = {}
         )
     }

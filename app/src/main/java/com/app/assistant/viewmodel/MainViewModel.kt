@@ -545,31 +545,7 @@ class MainViewModel(
         }
     }
 
-    fun saveKeys(
-        youtubeApiKey: String,
-        chatApiKey: String,
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            settingsRepository.saveKeys(youtubeApiKey, chatApiKey)
-            Log.d("MainViewModel", "API Keys saved securely.")
-        }
-    }
 
-    fun loadYoutubeKey(): String? {
-        var youtubeKey = settingsRepository.getYoutubeApiKey()
-        if (youtubeKey.isNullOrBlank()) {
-            youtubeKey = com.app.assistant.BuildConfig.YOUTUBE_API_KEY
-        }
-        return youtubeKey
-    }
-
-    fun loadChatKey(): String? {
-        var chatKey = settingsRepository.getChatApiKey()
-        if (chatKey.isNullOrBlank()) {
-            chatKey = com.app.assistant.BuildConfig.GROQ_API_KEY
-        }
-        return chatKey
-    }
 
     companion object {
         private var cachedLanguages: List<Pair<String, String>>? = null

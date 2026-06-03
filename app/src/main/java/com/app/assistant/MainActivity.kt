@@ -33,6 +33,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.app.assistant.ui.screen.SetupUI
 import com.app.assistant.viewmodel.MainViewModel
 import com.app.assistant.viewmodel.MainViewModelFactory
+import com.app.assistant.viewmodel.SettingsViewModel
+import com.app.assistant.viewmodel.SettingsViewModelFactory
 import com.app.assistant.viewmodel.UIEvent
 import com.app.assistant.viewmodel.onLocationFailed
 import com.app.assistant.viewmodel.onLocationReceived
@@ -54,6 +56,10 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(application, intent.getBooleanExtra("speak", false))
+    }
+
+    private val settingsViewModel: SettingsViewModel by viewModels {
+        SettingsViewModelFactory(com.app.assistant.repository.SettingsRepository(application))
     }
 
     private lateinit var textToSpeechManager: com.app.assistant.hardware.TextToSpeechManager
@@ -122,7 +128,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            SetupUI(viewModel)
+            SetupUI(viewModel, settingsViewModel)
         }
     }
 

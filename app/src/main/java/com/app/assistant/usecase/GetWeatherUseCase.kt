@@ -1,5 +1,6 @@
 package com.app.assistant.usecase
 
+import com.app.assistant.llm.LlmMessage
 import com.app.assistant.repository.WeatherRepository
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -93,8 +94,8 @@ class GetWeatherUseCase(
                 "the latest weather data provided. No need to mention data or time; just answer naturally in 2 to 3 lines."
 
         val messages = listOf(
-            GroqMessage(role = "system", content = systemContext),
-            GroqMessage(role = "user", content = question + System.lineSeparator() + weatherData)
+            LlmMessage(role = "system", content = systemContext),
+            LlmMessage(role = "user", content = question + System.lineSeparator() + weatherData)
         )
 
         return getAiResponseUseCase.execute(messages)

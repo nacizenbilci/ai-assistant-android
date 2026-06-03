@@ -1,5 +1,6 @@
 package com.app.assistant.usecase
 
+import com.app.assistant.llm.LlmMessage
 import com.app.assistant.model.Conversation
 import com.app.assistant.util.Category
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
@@ -60,12 +61,12 @@ class ProcessChatCommandUseCase(
         systemContext: String,
         chatHistory: List<Conversation>
     ): String? {
-        val messages = mutableListOf<GroqMessage>()
-        messages.add(GroqMessage(role = "system", content = systemContext))
+        val messages = mutableListOf<LlmMessage>()
+        messages.add(LlmMessage(role = "system", content = systemContext))
 
         for (item in chatHistory) {
             val role = if (item.isMe) "user" else "assistant"
-            messages.add(GroqMessage(role = role, content = item.englishText))
+            messages.add(LlmMessage(role = role, content = item.englishText))
         }
 
         return getAiResponseUseCase.execute(messages)
