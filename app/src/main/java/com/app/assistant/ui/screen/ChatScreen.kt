@@ -1,4 +1,4 @@
-package com.app.assistant.ui.screen
+﻿package com.app.assistant.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -122,6 +122,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
 
         if (currentScreen == "settings") {
             SettingsScreen(
+                settingsViewModel = settingsViewModel,
                 initialYoutubeKey = youtubeKey,
                 initialChatKey = chatKey,
                 initialProvider = llmProvider,

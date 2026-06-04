@@ -2,6 +2,7 @@ package com.app.assistant.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,12 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +37,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,19 +46,21 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
 import com.app.assistant.llm.LlmProvider
-import com.app.assistant.ui.theme.AssistantTheme
+import com.app.assistant.viewmodel.SettingsViewModel
+import com.app.assistant.viewmodel.VerificationState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    settingsViewModel: SettingsViewModel,
     initialYoutubeKey: String,
     initialChatKey: String,
     initialProvider: LlmProvider,
@@ -79,7 +90,10 @@ fun SettingsScreen(
     var customUserRole by rememberSaveable { mutableStateOf(initialCustomUserRole) }
     var customAssistantRole by rememberSaveable { mutableStateOf(initialCustomAssistantRole) }
 
+    var hasChanged by rememberSaveable { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
+
+    val verificationState by settingsViewModel.verificationState.collectAsState()
 
     val context = LocalContext.current
     val versionName = remember(context) {
@@ -89,6 +103,10 @@ fun SettingsScreen(
         } catch (e: Exception) {
             "1.0.0"
         }
+    }
+
+    LaunchedEffect(Unit) {
+        settingsViewModel.resetVerificationState()
     }
 
     BackHandler(enabled = true) {
@@ -152,6 +170,7 @@ fun SettingsScreen(
                                     customAssistantRole
                                 )
                             },
+                            enabled = !hasChanged || verificationState is VerificationState.Success,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(stringResource(id = R.string.save))
@@ -220,19 +239,23 @@ fun SettingsScreen(
                                 DropdownMenuItem(
                                     text = { Text(p.displayName) },
                                     onClick = {
-                                        provider = p
-                                        if (p != LlmProvider.CUSTOM) {
-                                            model = p.defaultModel
-                                        } else {
-                                            model = p.defaultModel
-                                            if (customUrl.isBlank()) customUrl = p.config.url
-                                            if (customHeaders.isBlank()) customHeaders = "{\"Authorization\": \"Bearer {{API_KEY}}\", \"Content-Type\": \"application/json\"}"
-                                            if (customResponsePath.isBlank()) customResponsePath = p.config.responsePath
-                                            if (customRequestTemplate.isBlank()) customRequestTemplate = p.config.requestTemplate
-                                            if (customMessageFormat.isBlank()) customMessageFormat = p.config.messageFormat
-                                            if (customSystemRole.isBlank()) customSystemRole = p.config.systemRole ?: "system"
-                                            if (customUserRole.isBlank()) customUserRole = p.config.userRole
-                                            if (customAssistantRole.isBlank()) customAssistantRole = p.config.assistantRole
+                                        if (provider != p) {
+                                            provider = p
+                                            hasChanged = true
+                                            settingsViewModel.resetVerificationState()
+                                            if (p != LlmProvider.CUSTOM) {
+                                                model = p.defaultModel
+                                            } else {
+                                                model = p.defaultModel
+                                                if (customUrl.isBlank()) customUrl = p.config.url
+                                                if (customHeaders.isBlank()) customHeaders = "{\"Authorization\": \"Bearer {{API_KEY}}\", \"Content-Type\": \"application/json\"}"
+                                                if (customResponsePath.isBlank()) customResponsePath = p.config.responsePath
+                                                if (customRequestTemplate.isBlank()) customRequestTemplate = p.config.requestTemplate
+                                                if (customMessageFormat.isBlank()) customMessageFormat = p.config.messageFormat
+                                                if (customSystemRole.isBlank()) customSystemRole = p.config.systemRole ?: "system"
+                                                if (customUserRole.isBlank()) customUserRole = p.config.userRole
+                                                if (customAssistantRole.isBlank()) customAssistantRole = p.config.assistantRole
+                                            }
                                         }
                                         expanded = false
                                     }
@@ -245,7 +268,11 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = model,
-                        onValueChange = { model = it },
+                        onValueChange = { 
+                            model = it
+                            hasChanged = true
+                            settingsViewModel.resetVerificationState()
+                        },
                         label = { Text(stringResource(id = R.string.llm_model)) },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -254,10 +281,37 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = apiKey2,
-                        onValueChange = { apiKey2 = it },
+                        onValueChange = { 
+                            apiKey2 = it
+                            hasChanged = true
+                            settingsViewModel.resetVerificationState()
+                        },
                         label = { Text(stringResource(id = R.string.chat_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Verification Section
+                    VerifySection(
+                        verificationState = verificationState,
+                        onVerify = {
+                            settingsViewModel.verifyModelAndSaveCapabilities(
+                                provider = provider,
+                                model = model,
+                                apiKey = apiKey2,
+                                customUrl = customUrl,
+                                customHeaders = customHeaders,
+                                customResponsePath = customResponsePath,
+                                customRequestTemplate = customRequestTemplate,
+                                customMessageFormat = customMessageFormat,
+                                customSystemRole = customSystemRole,
+                                customUserRole = customUserRole,
+                                customAssistantRole = customAssistantRole
+                            )
+                            hasChanged = false
+                        }
                     )
                 }
             }
@@ -281,7 +335,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customUrl,
-                            onValueChange = { customUrl = it },
+                            onValueChange = { 
+                                customUrl = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("API Endpoint URL") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -290,7 +348,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customHeaders,
-                            onValueChange = { customHeaders = it },
+                            onValueChange = { 
+                                customHeaders = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("Custom Headers (JSON)") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -299,7 +361,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customResponsePath,
-                            onValueChange = { customResponsePath = it },
+                            onValueChange = { 
+                                customResponsePath = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("Response Extraction JSON Path") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -308,7 +374,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customRequestTemplate,
-                            onValueChange = { customRequestTemplate = it },
+                            onValueChange = { 
+                                customRequestTemplate = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("Request Body JSON Template") },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -320,7 +390,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customMessageFormat,
-                            onValueChange = { customMessageFormat = it },
+                            onValueChange = { 
+                                customMessageFormat = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("Single Message Format (JSON)") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -329,7 +403,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customSystemRole,
-                            onValueChange = { customSystemRole = it },
+                            onValueChange = { 
+                                customSystemRole = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("System Role Mapping") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -338,7 +416,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customUserRole,
-                            onValueChange = { customUserRole = it },
+                            onValueChange = { 
+                                customUserRole = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("User Role Mapping") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -347,7 +429,11 @@ fun SettingsScreen(
 
                         OutlinedTextField(
                             value = customAssistantRole,
-                            onValueChange = { customAssistantRole = it },
+                            onValueChange = { 
+                                customAssistantRole = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
                             label = { Text("Assistant Role Mapping") },
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -373,37 +459,180 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = apiKey1,
-                        onValueChange = { apiKey1 = it },
+                        onValueChange = { 
+                            apiKey1 = it
+                            hasChanged = true
+                        },
                         label = { Text(stringResource(id = R.string.youtube_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
-
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun SettingsScreenPreview() {
-    AssistantTheme {
-        SettingsScreen(
-            initialYoutubeKey = "AIzaSyFakeKey123",
-            initialChatKey = "gsk_FakeKey456",
-            initialProvider = LlmProvider.GROQ,
-            initialModel = "llama-3.3-70b-versatile",
-            initialCustomUrl = "",
-            initialCustomHeaders = "",
-            initialCustomResponsePath = "",
-            initialCustomRequestTemplate = "",
-            initialCustomMessageFormat = "",
-            initialCustomSystemRole = "",
-            initialCustomUserRole = "",
-            initialCustomAssistantRole = "",
-            onBack = {},
-            onSave = { _, _, _, _, _, _, _, _, _, _, _, _ -> }
+fun VerifySection(
+    verificationState: VerificationState,
+    onVerify: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+    ) {
+        when (verificationState) {
+            is VerificationState.Idle -> {
+                Button(
+                    onClick = onVerify,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Verify & Detect Capabilities")
+                }
+            }
+            is VerificationState.Verifying -> {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Verifying connection and capabilities...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            is VerificationState.Success -> {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Success",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Verification Successful!",
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Detected Model Capabilities:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        CapabilityRow("Text Completion Support", true)
+                        CapabilityRow("Vision / Image Support", verificationState.capabilities.hasImageInput)
+                        CapabilityRow("Audio Support", verificationState.capabilities.hasAudioInput)
+                        CapabilityRow("Video Support", verificationState.capabilities.hasVideoInput)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = onVerify,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Re-Verify Settings")
+                        }
+                    }
+                }
+            }
+            is VerificationState.Error -> {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Failed",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Verification Failed",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = verificationState.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onVerify,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Retry Verification")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CapabilityRow(label: String, supported: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (supported) Icons.Default.Check else Icons.Default.Close,
+            contentDescription = if (supported) "Supported" else "Unsupported",
+            tint = if (supported) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (supported) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
     }
 }

@@ -124,6 +124,7 @@ class SettingsViewModel(
             // 1. Test Text connection
             val isTextOk = ModelCapabilityProber.probeTextConnection(
                 client = okHttpClient,
+                provider = provider,
                 apiKey = apiKey,
                 model = model,
                 config = config

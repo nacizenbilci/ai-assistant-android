@@ -38,7 +38,6 @@ class FlexibleLlmAdapter(
         }
 
         // 3. Serialize Messages
-        // Filter out system message if we use SYSTEM_CONTEXT placeholder in the template
         val hasSystemContextPlaceholder = config.requestTemplate.contains("{{SYSTEM_CONTEXT}}")
         val messagesToSerialize = if (hasSystemContextPlaceholder) {
             messages.filter { it.role != "system" }
@@ -69,10 +68,13 @@ class FlexibleLlmAdapter(
         val messagesJsonArray = serializedMessagesBuilder.toString()
 
         // 4. Resolve Request Body
-        val requestBodyString = config.requestTemplate
+        var requestBodyString = config.requestTemplate
             .replace("{{MODEL}}", model)
             .replace("{{MESSAGES}}", messagesJsonArray)
-            .replace("{{SYSTEM_CONTEXT}}", escapeJsonString(systemContext))
+
+        if (hasSystemContextPlaceholder) {
+            requestBodyString = requestBodyString.replace("{{SYSTEM_CONTEXT}}", escapeJsonString(systemContext))
+        }
 
         val mediaType = config.headers["Content-Type"]?.toMediaTypeOrNull() ?: "application/json".toMediaTypeOrNull()
         val requestBody = requestBodyString.toRequestBody(mediaType)
@@ -84,10 +86,13 @@ class FlexibleLlmAdapter(
             try {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
+                        val errorBody = response.body?.string() ?: ""
+                        Log.e("FlexibleLlmAdapter", "API request failed with code ${response.code}: $errorBody")
                         if (response.code == 401) {
                             return@withContext """{"error_code": 401, "msg": "API key is missing or invalid."}"""
                         }
-                        throw IOException("Unexpected code $response")
+                        val errMsg = extractErrorMessage(errorBody) ?: "API error (HTTP ${response.code})."
+                        return@withContext """{"error_code": ${response.code}, "msg": "$errMsg"}"""
                     }
                     response.body!!.string()
                 }
@@ -100,6 +105,24 @@ class FlexibleLlmAdapter(
         }
 
         return extractResponseContent(rawResponse, config.responsePath)
+    }
+
+    private fun extractErrorMessage(errorBody: String): String? {
+        return try {
+            val element = json.parseToJsonElement(errorBody)
+            if (element is kotlinx.serialization.json.JsonObject) {
+                val errorObj = element["error"]
+                if (errorObj is kotlinx.serialization.json.JsonObject) {
+                    val msg = errorObj["message"]
+                    if (msg is kotlinx.serialization.json.JsonPrimitive) return msg.content
+                }
+                val msg = element["message"] ?: element["error_description"] ?: element["msg"]
+                if (msg is kotlinx.serialization.json.JsonPrimitive) return msg.content
+            }
+            null
+        } catch (e: Exception) {
+            errorBody.take(150)
+        }
     }
 
     private fun extractResponseContent(rawResponse: String, path: String): String? {
@@ -124,7 +147,7 @@ class FlexibleLlmAdapter(
 
     private fun extractValueFromJson(jsonStr: String, path: String): String? {
         return try {
-            val jsonElement = Json.parseToJsonElement(jsonStr)
+            val jsonElement = json.parseToJsonElement(jsonStr)
             val tokens = path.split(Regex("[\\.\\[\\]]+")).filter { it.isNotEmpty() }
             var currentElement = jsonElement
             for (token in tokens) {

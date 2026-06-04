@@ -1,4 +1,4 @@
-package com.app.assistant.repository
+﻿package com.app.assistant.repository
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -109,5 +109,25 @@ class SettingsRepository(
 
     fun setLlmCustomAssistantRole(role: String) {
         sharedPreferences.edit().putString("llm_custom_assistant_role", role).apply()
+    }
+
+    fun getIsImageSupported(): Boolean = sharedPreferences.getBoolean("is_image_supported", false)
+    fun setIsImageSupported(supported: Boolean) {
+        sharedPreferences.edit().putBoolean("is_image_supported", supported).apply()
+    }
+
+    fun getIsAudioSupported(): Boolean = sharedPreferences.getBoolean("is_audio_supported", false)
+    fun setIsAudioSupported(supported: Boolean) {
+        sharedPreferences.edit().putBoolean("is_audio_supported", supported).apply()
+    }
+
+    fun getIsVideoSupported(): Boolean = sharedPreferences.getBoolean("is_video_supported", false)
+    fun setIsVideoSupported(supported: Boolean) {
+        sharedPreferences.edit().putBoolean("is_video_supported", supported).apply()
+    }
+
+    fun getIsModelVerified(): Boolean = sharedPreferences.getBoolean("is_model_verified", false)
+    fun setIsModelVerified(verified: Boolean) {
+        sharedPreferences.edit().putBoolean("is_model_verified", verified).apply()
     }
 }

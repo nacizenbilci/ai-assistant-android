@@ -1,4 +1,4 @@
-package com.app.assistant
+﻿package com.app.assistant
 
 import android.Manifest
 import android.app.KeyguardManager
@@ -59,7 +59,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private val settingsViewModel: SettingsViewModel by viewModels {
-        SettingsViewModelFactory(com.app.assistant.repository.SettingsRepository(application))
+        SettingsViewModelFactory(
+            com.app.assistant.repository.SettingsRepository(application),
+            com.app.assistant.viewmodel.MainViewModelFactory.okHttpClient
+        )
     }
 
     private lateinit var textToSpeechManager: com.app.assistant.hardware.TextToSpeechManager
