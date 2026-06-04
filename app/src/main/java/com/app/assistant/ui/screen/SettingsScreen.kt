@@ -94,6 +94,10 @@ fun SettingsScreen(
     var expanded by remember { mutableStateOf(false) }
 
     val verificationState by settingsViewModel.verificationState.collectAsState()
+    val fetchedModelsMap by settingsViewModel.fetchedModels.collectAsState()
+    val isFetchingModels by settingsViewModel.isFetchingModels.collectAsState()
+    val modelFetchError by settingsViewModel.modelFetchError.collectAsState()
+    var modelDropdownExpanded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val versionName = remember(context) {
@@ -107,6 +111,15 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         settingsViewModel.resetVerificationState()
+        val currentKey = initialChatKey
+        if (currentKey.isNotBlank() || initialProvider == LlmProvider.OLLAMA || initialProvider == LlmProvider.OPEN_ROUTER) {
+            settingsViewModel.fetchModelsForProvider(
+                provider = initialProvider,
+                apiKey = currentKey,
+                customUrl = initialCustomUrl,
+                customHeaders = initialCustomHeaders
+            )
+        }
     }
 
     BackHandler(enabled = true) {
@@ -245,6 +258,10 @@ fun SettingsScreen(
                                             settingsViewModel.resetVerificationState()
                                             if (p != LlmProvider.CUSTOM) {
                                                 model = p.defaultModel
+                                                val currentKey = apiKey2
+                                                if (currentKey.isNotBlank() || p == LlmProvider.OLLAMA || p == LlmProvider.OPEN_ROUTER) {
+                                                    settingsViewModel.fetchModelsForProvider(p, currentKey)
+                                                }
                                             } else {
                                                 model = p.defaultModel
                                                 if (customUrl.isBlank()) customUrl = p.config.url
@@ -266,16 +283,106 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = { 
-                            model = it
-                            hasChanged = true
-                            settingsViewModel.resetVerificationState()
-                        },
-                        label = { Text(stringResource(id = R.string.llm_model)) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    val modelsList = fetchedModelsMap[provider] ?: provider.suggestedModels
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = { 
+                                model = it
+                                hasChanged = true
+                                settingsViewModel.resetVerificationState()
+                            },
+                            label = { Text(stringResource(id = R.string.llm_model)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            supportingText = if (!modelFetchError.isNullOrBlank()) {
+                                { Text(modelFetchError ?: "", color = MaterialTheme.colorScheme.error) }
+                            } else null,
+                            trailingIcon = {
+                                IconButton(onClick = { modelDropdownExpanded = !modelDropdownExpanded }) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_arrow_drop_down),
+                                        contentDescription = "Show suggested models"
+                                    )
+                                }
+                            }
+                        )
+                        DropdownMenu(
+                            expanded = modelDropdownExpanded,
+                            onDismissRequest = { modelDropdownExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isFetchingModels) {
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text("Fetching models...")
+                                        }
+                                    },
+                                    onClick = {}
+                                )
+                            } else {
+                                if (provider != LlmProvider.CUSTOM) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_restart),
+                                                    contentDescription = "Fetch latest",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text("Fetch latest models from API")
+                                            }
+                                        },
+                                        onClick = {
+                                            settingsViewModel.fetchModelsForProvider(
+                                                provider = provider,
+                                                apiKey = apiKey2,
+                                                customUrl = customUrl,
+                                                customHeaders = customHeaders
+                                            )
+                                        }
+                                    )
+                                    if (modelsList.isNotEmpty()) {
+                                        androidx.compose.material3.HorizontalDivider(
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                if (modelsList.isNotEmpty()) {
+                                    modelsList.forEach { suggested ->
+                                        DropdownMenuItem(
+                                            text = { Text(suggested) },
+                                            onClick = {
+                                                model = suggested
+                                                hasChanged = true
+                                                settingsViewModel.resetVerificationState()
+                                                modelDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                } else if (provider == LlmProvider.CUSTOM) {
+                                    DropdownMenuItem(
+                                        text = { Text("No suggested models. Please enter your model name.") },
+                                        onClick = { modelDropdownExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 

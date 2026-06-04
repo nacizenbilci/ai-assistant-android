@@ -7,6 +7,11 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
+
 
 object ModelCapabilityProber {
 
@@ -212,6 +217,130 @@ object ModelCapabilityProber {
         } catch (e: Exception) {
             Log.e("ModelCapabilityProber", "Vision test failed", e)
             false
+        }
+    }
+
+    suspend fun fetchAvailableModels(
+        client: OkHttpClient,
+        provider: LlmProvider,
+        apiKey: String,
+        customUrl: String = "",
+        customHeaders: String = ""
+    ): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val url = when (provider) {
+                LlmProvider.GROQ -> "https://api.groq.com/openai/v1/models"
+                LlmProvider.OPENAI -> "https://api.openai.com/v1/models"
+                LlmProvider.OPEN_ROUTER -> "https://openrouter.ai/api/v1/models"
+                LlmProvider.DEEPSEEK -> "https://api.deepseek.com/v1/models"
+                LlmProvider.OLLAMA -> {
+                    val configUrl = provider.config.url
+                    if (configUrl.endsWith("/api/chat")) {
+                        configUrl.substringBeforeLast("/api/chat") + "/api/tags"
+                    } else {
+                        "http://10.0.2.2:11434/api/tags"
+                    }
+                }
+                LlmProvider.GEMINI -> "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
+                LlmProvider.ANTHROPIC -> "https://api.anthropic.com/v1/models"
+                LlmProvider.CUSTOM -> {
+                    if (customUrl.isBlank()) return@withContext emptyList<String>()
+                    if (customUrl.endsWith("/chat/completions")) {
+                        customUrl.substringBeforeLast("/chat/completions") + "/models"
+                    } else if (customUrl.endsWith("/v1/chat/completions")) {
+                        customUrl.substringBeforeLast("/v1/chat/completions") + "/v1/models"
+                    } else {
+                        null
+                    }
+                }
+            } ?: return@withContext emptyList<String>()
+
+            val requestBuilder = Request.Builder().url(url).get()
+            
+            when (provider) {
+                LlmProvider.GROQ, LlmProvider.OPENAI, LlmProvider.OPEN_ROUTER, LlmProvider.DEEPSEEK -> {
+                    requestBuilder.addHeader("Authorization", "Bearer $apiKey")
+                    requestBuilder.addHeader("Content-Type", "application/json")
+                }
+                LlmProvider.ANTHROPIC -> {
+                    requestBuilder.addHeader("x-api-key", apiKey)
+                    requestBuilder.addHeader("anthropic-version", "2023-06-01")
+                    requestBuilder.addHeader("content-type", "application/json")
+                }
+                LlmProvider.CUSTOM -> {
+                    if (customHeaders.isNotBlank()) {
+                        try {
+                            val parsed = parseHeadersJson(customHeaders)
+                            for ((k, v) in parsed) {
+                                requestBuilder.addHeader(k, v.replace("{{API_KEY}}", apiKey))
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ModelCapabilityProber", "Failed to parse custom headers", e)
+                        }
+                    }
+                }
+                else -> {}
+            }
+
+            val request = requestBuilder.build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e("ModelCapabilityProber", "Model fetch response not successful: ${response.code}")
+                    return@withContext emptyList<String>()
+                }
+                val bodyString = response.body?.string() ?: return@withContext emptyList<String>()
+                
+                val element = Json.parseToJsonElement(bodyString)
+                val modelsList = mutableListOf<String>()
+
+                when (provider) {
+                    LlmProvider.OLLAMA -> {
+                        val modelsArray = element.jsonObject["models"]?.jsonArray
+                        modelsArray?.forEach { modelObj ->
+                            modelObj.jsonObject["name"]?.jsonPrimitive?.content?.let { name ->
+                                modelsList.add(name)
+                            }
+                        }
+                    }
+                    LlmProvider.GEMINI -> {
+                        val modelsArray = element.jsonObject["models"]?.jsonArray
+                        modelsArray?.forEach { modelObj ->
+                            modelObj.jsonObject["name"]?.jsonPrimitive?.content?.let { name ->
+                                val cleanedName = if (name.startsWith("models/")) name.substringAfter("models/") else name
+                                modelsList.add(cleanedName)
+                            }
+                        }
+                    }
+                    else -> {
+                        val dataArray = element.jsonObject["data"]?.jsonArray
+                        dataArray?.forEach { modelObj ->
+                            modelObj.jsonObject["id"]?.jsonPrimitive?.content?.let { id ->
+                                modelsList.add(id)
+                            }
+                        }
+                    }
+                }
+                
+                modelsList.distinct().sorted()
+            }
+        } catch (e: Exception) {
+            Log.e("ModelCapabilityProber", "Failed to fetch models", e)
+            emptyList()
+        }
+    }
+
+    private fun parseHeadersJson(jsonStr: String): Map<String, String> {
+        return try {
+            val element = Json.parseToJsonElement(jsonStr)
+            if (element is kotlinx.serialization.json.JsonObject) {
+                element.mapValues { (_, value) ->
+                    if (value is kotlinx.serialization.json.JsonPrimitive) value.content else value.toString()
+                }
+            } else {
+                emptyMap()
+            }
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 }

@@ -4,12 +4,19 @@ enum class LlmProvider(
     val displayName: String,
     val defaultUrl: String,
     val defaultModel: String,
+    val suggestedModels: List<String>,
     val config: LlmConfig
 ) {
     GROQ(
         displayName = "Groq",
         defaultUrl = "https://api.groq.com/openai/v1/chat/completions",
         defaultModel = "llama-3.3-70b-versatile",
+        suggestedModels = listOf(
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it"
+        ),
         config = LlmConfig(
             url = "https://api.groq.com/openai/v1/chat/completions",
             headers = mapOf(
@@ -35,6 +42,12 @@ enum class LlmProvider(
         displayName = "OpenAI",
         defaultUrl = "https://api.openai.com/v1/chat/completions",
         defaultModel = "gpt-4o",
+        suggestedModels = listOf(
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo"
+        ),
         config = LlmConfig(
             url = "https://api.openai.com/v1/chat/completions",
             headers = mapOf(
@@ -59,6 +72,12 @@ enum class LlmProvider(
         displayName = "OpenRouter",
         defaultUrl = "https://openrouter.ai/api/v1/chat/completions",
         defaultModel = "meta-llama/llama-3-8b-instruct:free",
+        suggestedModels = listOf(
+            "meta-llama/llama-3-8b-instruct:free",
+            "google/gemini-2.0-flash-exp:free",
+            "deepseek/deepseek-chat",
+            "mistralai/mistral-7b-instruct:free"
+        ),
         config = LlmConfig(
             url = "https://openrouter.ai/api/v1/chat/completions",
             headers = mapOf(
@@ -82,6 +101,10 @@ enum class LlmProvider(
         displayName = "DeepSeek",
         defaultUrl = "https://api.deepseek.com/chat/completions",
         defaultModel = "deepseek-chat",
+        suggestedModels = listOf(
+            "deepseek-chat",
+            "deepseek-coder"
+        ),
         config = LlmConfig(
             url = "https://api.deepseek.com/chat/completions",
             headers = mapOf(
@@ -106,6 +129,13 @@ enum class LlmProvider(
         displayName = "Ollama (Local)",
         defaultUrl = "http://10.0.2.2:11434/api/chat",
         defaultModel = "llama3",
+        suggestedModels = listOf(
+            "llama3",
+            "llama3.1",
+            "mistral",
+            "gemma2",
+            "phi3"
+        ),
         config = LlmConfig(
             url = "http://10.0.2.2:11434/api/chat",
             headers = mapOf(
@@ -129,6 +159,13 @@ enum class LlmProvider(
         displayName = "Google Gemini",
         defaultUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
         defaultModel = "gemini-1.5-flash",
+        suggestedModels = listOf(
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.0-pro"
+        ),
         config = LlmConfig(
             url = "https://generativelanguage.googleapis.com/v1beta/models/{{MODEL}}:generateContent?key={{API_KEY}}",
             headers = mapOf(
@@ -157,6 +194,13 @@ enum class LlmProvider(
         displayName = "Anthropic Claude",
         defaultUrl = "https://api.anthropic.com/v1/messages",
         defaultModel = "claude-3-5-sonnet-20240620",
+        suggestedModels = listOf(
+            "claude-3-5-sonnet-latest",
+            "claude-3-5-haiku-latest",
+            "claude-3-opus-latest",
+            "claude-3-5-sonnet-20240620",
+            "claude-3-5-haiku-20241022"
+        ),
         config = LlmConfig(
             url = "https://api.anthropic.com/v1/messages",
             headers = mapOf(
@@ -183,6 +227,7 @@ enum class LlmProvider(
         displayName = "Custom Config",
         defaultUrl = "https://api.example.com/v1/chat/completions",
         defaultModel = "custom-model",
+        suggestedModels = emptyList(),
         config = LlmConfig(
             url = "https://api.example.com/v1/chat/completions",
             headers = mapOf(

@@ -29,6 +29,15 @@ class SettingsViewModel(
     private val _verificationState = MutableStateFlow<VerificationState>(VerificationState.Idle)
     val verificationState: StateFlow<VerificationState> = _verificationState.asStateFlow()
 
+    private val _fetchedModels = MutableStateFlow<Map<LlmProvider, List<String>>>(emptyMap())
+    val fetchedModels: StateFlow<Map<LlmProvider, List<String>>> = _fetchedModels.asStateFlow()
+
+    private val _isFetchingModels = MutableStateFlow(false)
+    val isFetchingModels: StateFlow<Boolean> = _isFetchingModels.asStateFlow()
+
+    private val _modelFetchError = MutableStateFlow<String?>(null)
+    val modelFetchError: StateFlow<String?> = _modelFetchError.asStateFlow()
+
     fun resetVerificationState() {
         _verificationState.value = VerificationState.Idle
     }
@@ -161,8 +170,51 @@ class SettingsViewModel(
             settingsRepository.setIsModelVerified(true)
 
             _verificationState.value = VerificationState.Success(capabilities)
+
+            // Auto-fetch models on successful connection verification
+            fetchModelsForProvider(
+                provider = provider,
+                apiKey = apiKey,
+                customUrl = customUrl,
+                customHeaders = customHeaders
+            )
         }
     }
+
+    fun fetchModelsForProvider(
+        provider: LlmProvider,
+        apiKey: String,
+        customUrl: String = "",
+        customHeaders: String = ""
+    ) {
+        viewModelScope.launch {
+            if (apiKey.isBlank() && provider != LlmProvider.OLLAMA && provider != LlmProvider.OPEN_ROUTER) {
+                _modelFetchError.value = "API Key is required to fetch models."
+                return@launch
+            }
+            _isFetchingModels.value = true
+            _modelFetchError.value = null
+            try {
+                val models = ModelCapabilityProber.fetchAvailableModels(
+                    client = okHttpClient,
+                    provider = provider,
+                    apiKey = apiKey,
+                    customUrl = customUrl,
+                    customHeaders = customHeaders
+                )
+                if (models.isNotEmpty()) {
+                    _fetchedModels.value = _fetchedModels.value + (provider to models)
+                } else {
+                    _modelFetchError.value = "No models returned from API."
+                }
+            } catch (e: Exception) {
+                _modelFetchError.value = "Failed to fetch models: ${e.message}"
+            } finally {
+                _isFetchingModels.value = false
+            }
+        }
+    }
+
 
     private fun parseHeadersJson(jsonStr: String): Map<String, String> {
         return try {
