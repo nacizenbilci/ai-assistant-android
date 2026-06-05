@@ -1,4 +1,4 @@
-﻿package com.app.assistant.ui.screen
+package com.app.assistant.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
@@ -170,14 +170,8 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 onSettingsClick = { currentScreen = "settings" },
                 onNewChatClick = { viewModel.newChat() },
                 onCopyClick = { index ->
-                    val textToCopy = when {
-                        viewModel.getIsTranslationEnabled() -> {
-                            viewModel.chatList.getOrNull(index)?.translatedText
-                        }
-                        else -> {
-                            viewModel.chatList.getOrNull(index)?.englishText
-                        }
-                    } ?: ""
+                    val conversation = viewModel.chatList.getOrNull(index)
+                    val textToCopy = conversation?.text ?: ""
                     clipboardManager.setText(AnnotatedString(textToCopy))
                 },
                 onDeleteClick = { viewModel.deleteMessage(it) },
@@ -440,13 +434,11 @@ fun ChatScreenContentPreview() {
             ),
             chatList = listOf(
                 Conversation(
-                    englishText = "Hi! How can I configure my API keys?",
-                    translatedText = "Salut! Comment puis-je configurer mes clés API?",
+                    text = "Hi! How can I configure my API keys?",
                     isMe = true
                 ),
                 Conversation(
-                    englishText = "You can configure them by opening settings in the side drawer menu.",
-                    translatedText = "Vous pouvez les configurer en ouvrant les paramètres.",
+                    text = "You can configure them by opening settings in the side drawer menu.",
                     isMe = false
                 )
             ),

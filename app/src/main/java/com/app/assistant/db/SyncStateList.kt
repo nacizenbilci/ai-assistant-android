@@ -15,7 +15,7 @@ class SyncStateList(
 ) : MutableList<Conversation> by stateList {
     override fun add(element: Conversation): Boolean {
         val result = stateList.add(element)
-        if (result && !element.isLoading) {
+        if (result && !element.isLoading && !element.isStreaming) {
             scope.launch(Dispatchers.IO) {
                 repository.addMessage(element)
             }
@@ -37,8 +37,14 @@ class SyncStateList(
     ): Conversation {
         val oldElement = stateList[index]
         stateList[index] = element
-        scope.launch(Dispatchers.IO) {
-            repository.updateMessage(oldElement, element)
+        if (!element.isLoading && !element.isStreaming) {
+            scope.launch(Dispatchers.IO) {
+                if (oldElement.isLoading || oldElement.isStreaming) {
+                    repository.addMessage(element)
+                } else {
+                    repository.updateMessage(oldElement, element)
+                }
+            }
         }
         return oldElement
     }

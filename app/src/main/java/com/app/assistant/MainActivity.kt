@@ -1,4 +1,4 @@
-﻿package com.app.assistant
+package com.app.assistant
 
 import android.Manifest
 import android.app.KeyguardManager
@@ -146,8 +146,6 @@ class MainActivity : ComponentActivity() {
         }
 
         speechRecognizerManager.startListening(
-            languageCode = viewModel.getActiveLanguageCode(),
-            isTranslationEnabled = viewModel.getIsTranslationEnabled(),
             listener = object : com.app.assistant.hardware.SpeechRecognizerManager.SpeechListener {
                 override fun onReadyForSpeech() {}
 

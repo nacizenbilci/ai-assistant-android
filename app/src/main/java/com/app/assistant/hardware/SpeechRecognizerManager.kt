@@ -49,8 +49,6 @@ class SpeechRecognizerManager(
     }
 
     fun startListening(
-        languageCode: String?,
-        isTranslationEnabled: Boolean,
         listener: SpeechListener
     ) {
         try {
@@ -68,12 +66,7 @@ class SpeechRecognizerManager(
             val speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                if (isTranslationEnabled && !languageCode.isNullOrEmpty()) {
-                    val localeCode = com.app.assistant.util.LocaleUtils.getLocaleCode(languageCode)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeCode)
-                } else {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                }
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
             }
 
             recognizer.setRecognitionListener(object : RecognitionListener {

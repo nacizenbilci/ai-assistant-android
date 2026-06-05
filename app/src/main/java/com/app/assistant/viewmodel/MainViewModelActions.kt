@@ -18,7 +18,7 @@ fun MainViewModel.callContact(
     category: Category,
 ) {
     if (chatList.isNotEmpty()) {
-        val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+        val prompt = chatList.find { it.id == itemId }?.text ?: return
         viewModelScope.launch {
             callContactUseCase.execute(
                 prompt = prompt,
@@ -53,7 +53,7 @@ fun MainViewModel.playSong(
     speak: Boolean,
     category: Category,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         playSongUseCase.execute(
             prompt = prompt,
@@ -87,7 +87,7 @@ fun MainViewModel.navigate(
     speak: Boolean,
     category: Category,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         navigateUseCase.execute(
             prompt = prompt,
@@ -117,7 +117,7 @@ fun MainViewModel.fetchWeather(
     speak: Boolean,
     category: Category,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         getWeatherUseCase.execute(
             prompt = prompt,
@@ -206,7 +206,7 @@ fun MainViewModel.setAlarm(
     speak: Boolean,
     category: Category,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         setAlarmUseCase.execute(
             prompt = prompt,
@@ -241,7 +241,7 @@ fun MainViewModel.handleAlarmLockState(
     speak: Boolean,
     state: LockState.LockAlarm,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         setAlarmUseCase.execute(
             prompt = prompt,
@@ -268,7 +268,7 @@ fun MainViewModel.setReminder(
     speak: Boolean,
     category: Category,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         setReminderUseCase.execute(
             prompt = prompt,
@@ -293,7 +293,7 @@ fun MainViewModel.handleReminderLockState(
     speak: Boolean,
     state: LockState.LockReminder,
 ) {
-    val prompt = chatList.find { it.id == itemId }?.englishText ?: return
+    val prompt = chatList.find { it.id == itemId }?.text ?: return
     viewModelScope.launch {
         setReminderUseCase.execute(
             prompt = prompt,
@@ -319,8 +319,5 @@ fun MainViewModel.callAI(
     speak: Boolean,
     category: Category,
 ) {
-    viewModelScope.launch {
-        val response = processChatCommandUseCase.getAiChatResponse(MAIN_CONTEXT, chatList.toList())
-        processResponse(response, loadingItemId, speak, category = category)
-    }
+    this.callAI(loadingItemId, speak, category)
 }

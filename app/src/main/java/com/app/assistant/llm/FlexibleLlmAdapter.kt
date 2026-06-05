@@ -3,6 +3,9 @@ package com.app.assistant.llm
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -23,12 +26,10 @@ class FlexibleLlmAdapter(
         systemContext: String,
         messages: List<LlmMessage>
     ): String? {
-        // 1. Resolve URL
         val url = config.url
             .replace("{{API_KEY}}", apiKey)
             .replace("{{MODEL}}", model)
 
-        // 2. Resolve Headers
         val requestBuilder = Request.Builder().url(url)
         for ((key, value) in config.headers) {
             val resolvedValue = value
@@ -37,45 +38,7 @@ class FlexibleLlmAdapter(
             requestBuilder.addHeader(key, resolvedValue)
         }
 
-        // 3. Serialize Messages
-        val hasSystemContextPlaceholder = config.requestTemplate.contains("{{SYSTEM_CONTEXT}}")
-        val messagesToSerialize = if (hasSystemContextPlaceholder) {
-            messages.filter { it.role != "system" }
-        } else {
-            messages
-        }
-
-        val serializedMessagesBuilder = StringBuilder()
-        serializedMessagesBuilder.append("[")
-        messagesToSerialize.forEachIndexed { index, msg ->
-            val roleValue = when (msg.role) {
-                "system" -> config.systemRole ?: "system"
-                "user" -> config.userRole
-                "assistant" -> config.assistantRole
-                else -> msg.role
-            }
-            val escapedContent = escapeJsonString(msg.content)
-            val msgJson = config.messageFormat
-                .replace("{{ROLE}}", roleValue)
-                .replace("{{CONTENT}}", escapedContent)
-            
-            serializedMessagesBuilder.append(msgJson)
-            if (index < messagesToSerialize.size - 1) {
-                serializedMessagesBuilder.append(",")
-            }
-        }
-        serializedMessagesBuilder.append("]")
-        val messagesJsonArray = serializedMessagesBuilder.toString()
-
-        // 4. Resolve Request Body
-        var requestBodyString = config.requestTemplate
-            .replace("{{MODEL}}", model)
-            .replace("{{MESSAGES}}", messagesJsonArray)
-
-        if (hasSystemContextPlaceholder) {
-            requestBodyString = requestBodyString.replace("{{SYSTEM_CONTEXT}}", escapeJsonString(systemContext))
-        }
-
+        val requestBodyString = buildRequestBodyString(systemContext, messages, isStream = false)
         val mediaType = config.headers["Content-Type"]?.toMediaTypeOrNull() ?: "application/json".toMediaTypeOrNull()
         val requestBody = requestBodyString.toRequestBody(mediaType)
 
@@ -107,6 +70,157 @@ class FlexibleLlmAdapter(
         return extractResponseContent(rawResponse, config.responsePath)
     }
 
+    override fun generateResponseStream(
+        systemContext: String,
+        messages: List<LlmMessage>
+    ): Flow<String> = flow {
+        var url = config.url
+            .replace("{{API_KEY}}", apiKey)
+            .replace("{{MODEL}}", model)
+
+        if (url.contains(":generateContent")) {
+            url = url.replace(":generateContent", ":streamGenerateContent")
+        }
+
+        val requestBuilder = Request.Builder().url(url)
+        for ((key, value) in config.headers) {
+            val resolvedValue = value
+                .replace("{{API_KEY}}", apiKey)
+                .replace("{{MODEL}}", model)
+            requestBuilder.addHeader(key, resolvedValue)
+        }
+
+        val requestBodyString = buildRequestBodyString(systemContext, messages, isStream = true)
+        val mediaType = config.headers["Content-Type"]?.toMediaTypeOrNull() ?: "application/json".toMediaTypeOrNull()
+        val requestBody = requestBodyString.toRequestBody(mediaType)
+
+        requestBuilder.post(requestBody)
+        val request = requestBuilder.build()
+
+        val response = try {
+            client.newCall(request).execute()
+        } catch (e: UnknownHostException) {
+            null
+        } catch (e: Exception) {
+            null
+        }
+
+        if (response == null) {
+            emit("Seems this device is offline or LLM server is unreachable.")
+            return@flow
+        }
+
+        if (!response.isSuccessful) {
+            val errorBody = response.body?.string() ?: ""
+            Log.e("FlexibleLlmAdapter", "API streaming request failed with code ${response.code}: $errorBody")
+            val errMsg = extractErrorMessage(errorBody) ?: "API error (HTTP ${response.code})."
+            emit("Error: $errMsg")
+            response.close()
+            return@flow
+        }
+
+        val responseBody = response.body
+        if (responseBody == null) {
+            emit("Error: Empty response body")
+            response.close()
+            return@flow
+        }
+
+        responseBody.byteStream().bufferedReader().use { reader ->
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                val currentLine = line ?: break
+                if (currentLine.startsWith("data: ")) {
+                    val dataContent = currentLine.substring(6).trim()
+                    if (dataContent == "[DONE]") {
+                        break
+                    }
+                    if (dataContent.isNotEmpty()) {
+                        val chunkText = extractChunkContent(dataContent, config.responsePath)
+                        if (chunkText != null) {
+                            emit(chunkText)
+                        }
+                    }
+                } else {
+                    var cleanedLine = currentLine.trim()
+                    if (cleanedLine.endsWith(",")) {
+                        cleanedLine = cleanedLine.substring(0, cleanedLine.length - 1).trim()
+                    }
+                    if (cleanedLine.startsWith("{") && cleanedLine.endsWith("}")) {
+                        val chunkText = extractChunkContent(cleanedLine, config.responsePath)
+                        if (chunkText != null) {
+                            emit(chunkText)
+                        }
+                    }
+                }
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private fun buildRequestBodyString(systemContext: String, messages: List<LlmMessage>, isStream: Boolean): String {
+        val hasSystemContextPlaceholder = config.requestTemplate.contains("{{SYSTEM_CONTEXT}}")
+        val messagesToSerialize = if (hasSystemContextPlaceholder) {
+            messages.filter { it.role != "system" }
+        } else {
+            messages
+        }
+
+        val serializedMessagesBuilder = StringBuilder()
+        serializedMessagesBuilder.append("[")
+        messagesToSerialize.forEachIndexed { index, msg ->
+            val roleValue = when (msg.role) {
+                "system" -> config.systemRole ?: "system"
+                "user" -> config.userRole
+                "assistant" -> config.assistantRole
+                else -> msg.role
+            }
+            val escapedContent = escapeJsonString(msg.content)
+            val msgJson = config.messageFormat
+                .replace("{{ROLE}}", roleValue)
+                .replace("{{CONTENT}}", escapedContent)
+            
+            serializedMessagesBuilder.append(msgJson)
+            if (index < messagesToSerialize.size - 1) {
+                serializedMessagesBuilder.append(",")
+            }
+        }
+        serializedMessagesBuilder.append("]")
+        val messagesJsonArray = serializedMessagesBuilder.toString()
+
+        var requestBodyString = config.requestTemplate
+            .replace("{{MODEL}}", model)
+            .replace("{{MESSAGES}}", messagesJsonArray)
+
+        if (hasSystemContextPlaceholder) {
+            requestBodyString = requestBodyString.replace("{{SYSTEM_CONTEXT}}", escapeJsonString(systemContext))
+        }
+
+        if (isStream) {
+            if (requestBodyString.contains("\"stream\": false")) {
+                requestBodyString = requestBodyString.replace("\"stream\": false", "\"stream\": true")
+            } else if (!requestBodyString.contains("\"stream\"")) {
+                requestBodyString = requestBodyString.replaceFirst("{", "{\n  \"stream\": true,\n")
+            }
+        }
+        return requestBodyString
+    }
+
+    private fun extractChunkContent(jsonStr: String, path: String): String? {
+        var extracted = extractValueFromJson(jsonStr, path)
+        if (extracted != null) return extracted
+
+        if (path == "choices[0].message.content") {
+            extracted = extractValueFromJson(jsonStr, "choices[0].delta.content")
+            if (extracted != null) return extracted
+        }
+        
+        for (fallbackPath in listOf("choices[0].delta.content", "message.content", "candidates[0].content.parts[0].text")) {
+            extracted = extractValueFromJson(jsonStr, fallbackPath)
+            if (extracted != null) return extracted
+        }
+        return null
+    }
+
     private fun extractErrorMessage(errorBody: String): String? {
         return try {
             val element = json.parseToJsonElement(errorBody)
@@ -133,12 +247,7 @@ class FlexibleLlmAdapter(
             }
 
             val extracted = extractValueFromJson(rawResponse, path) ?: return null
-
-            var content = extracted
-            val thinkTagRegex = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)
-            content = content.replace(thinkTagRegex, "")
-            content = content.replace("<think>", "").replace("</think>", "")
-            return content.trim()
+            return extracted.trim()
         } catch (e: Exception) {
             Log.e("FlexibleLlmAdapter", "Error extracting LLM response", e)
             return null

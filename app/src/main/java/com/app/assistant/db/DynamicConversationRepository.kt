@@ -35,17 +35,15 @@ class DynamicConversationRepository(
     suspend fun addMessage(conversation: Conversation) {
         withContext(Dispatchers.IO) {
             if (currentGroupId == -1L) {
-                currentGroupId = startNewChat(conversation.englishText.takeIf { it.isNotEmpty() } ?: conversation.translatedText)
+                currentGroupId = startNewChat(conversation.text)
             }
 
             val iv = EncryptionUtil.generateIV()
-            val (encryptedEnglish, _) = EncryptionUtil.encrypt(conversation.englishText, iv)
-            val (encryptedTranslated, _) = EncryptionUtil.encrypt(conversation.translatedText, iv)
+            val (encryptedText, _) = EncryptionUtil.encrypt(conversation.text, iv)
 
             val messageEntity = MessageEntity(
                 id = conversation.id,
-                englishText = encryptedEnglish,
-                translatedText = encryptedTranslated,
+                text = encryptedText,
                 isMe = conversation.isMe,
                 category = conversation.category,
                 contentURL = conversation.contentURL,
@@ -69,13 +67,11 @@ class DynamicConversationRepository(
     ) {
         withContext(Dispatchers.IO) {
             val iv = EncryptionUtil.generateIV()
-            val (encryptedEnglish, _) = EncryptionUtil.encrypt(newConversation.englishText, iv)
-            val (encryptedTranslated, _) = EncryptionUtil.encrypt(newConversation.translatedText, iv)
+            val (encryptedText, _) = EncryptionUtil.encrypt(newConversation.text, iv)
 
             val messageEntity = MessageEntity(
                 id = newConversation.id,
-                englishText = encryptedEnglish,
-                translatedText = encryptedTranslated,
+                text = encryptedText,
                 isMe = newConversation.isMe,
                 category = newConversation.category,
                 contentURL = newConversation.contentURL,
@@ -107,13 +103,11 @@ class DynamicConversationRepository(
     suspend fun loadMessagesForGroup(groupId: Long): MutableList<Conversation> {
         return withContext(Dispatchers.IO) {
             dao.getMessagesForGroup(groupId).map { entity ->
-                val decryptedEnglish = EncryptionUtil.decrypt(entity.englishText, entity.iv)
-                val decryptedTranslated = EncryptionUtil.decrypt(entity.translatedText, entity.iv)
+                val decryptedText = EncryptionUtil.decrypt(entity.text, entity.iv)
 
                 Conversation(
                     id = entity.id,
-                    englishText = decryptedEnglish,
-                    translatedText = decryptedTranslated,
+                    text = decryptedText,
                     isMe = entity.isMe,
                     isLoading = false,
                     category = entity.category,

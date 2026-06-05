@@ -1,4 +1,4 @@
-﻿package com.app.assistant.usecase
+package com.app.assistant.usecase
 
 import com.app.assistant.llm.LlmMessage
 import com.app.assistant.model.Conversation
@@ -67,10 +67,26 @@ class ProcessChatCommandUseCase(
         for (item in chatHistory) {
             if (item.isLoading) continue
             val role = if (item.isMe) "user" else "assistant"
-            messages.add(LlmMessage(role = role, content = item.englishText))
+            messages.add(LlmMessage(role = role, content = item.text))
         }
 
         return getAiResponseUseCase.execute(messages)
+    }
+
+    fun getAiChatResponseStream(
+        systemContext: String,
+        chatHistory: List<Conversation>
+    ): kotlinx.coroutines.flow.Flow<String> {
+        val messages = mutableListOf<LlmMessage>()
+        messages.add(LlmMessage(role = "system", content = systemContext))
+
+        for (item in chatHistory) {
+            if (item.isLoading) continue
+            val role = if (item.isMe) "user" else "assistant"
+            messages.add(LlmMessage(role = role, content = item.text))
+        }
+
+        return getAiResponseUseCase.executeStream(messages)
     }
 
     companion object {

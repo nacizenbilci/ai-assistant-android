@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import java.lang.reflect.Modifier
@@ -273,11 +274,7 @@ class MainViewModel(
 
         viewModelScope.launch {
             val itemId: Long
-            val newItem: Conversation = if (getIsTranslationEnabled()) {
-                Conversation(englishText = "", translatedText = originalQuestion, isMe = true)
-            } else {
-                Conversation(englishText = originalQuestion, translatedText = "", isMe = true)
-            }
+            val newItem = Conversation(text = originalQuestion, isMe = true)
 
             chatList.add(newItem)
             if (_isCustomUIHalfPage.value) {
@@ -286,19 +283,13 @@ class MainViewModel(
 
             itemId = newItem.id
 
-            val loadingItem = Conversation(englishText = "", translatedText = "", isMe = false, isLoading = true)
+            val loadingItem = Conversation(text = "", isMe = false, isLoading = true)
             chatList.add(loadingItem)
             val loadingItemId = loadingItem.id
 
-            val translatedQuestionInEnglish = if (getIsTranslationEnabled()) {
-                translatorManager.translateToEnglishSuspend(originalQuestion) ?: originalQuestion
-            } else {
-                originalQuestion
-            }
-
-            val processedQuestion = processChatCommandUseCase.cleanAndPunctuate(translatedQuestionInEnglish)
+            val processedQuestion = processChatCommandUseCase.cleanAndPunctuate(originalQuestion)
             chatList.indexOfFirst { it.id == itemId }.takeIf { it != -1 }?.let { index ->
-                val updatedItem = chatList[index].copy(englishText = processedQuestion)
+                val updatedItem = chatList[index].copy(text = processedQuestion)
                 chatList.set(index, updatedItem)
             }
 
@@ -380,23 +371,78 @@ class MainViewModel(
         }
     }
 
-    private fun callAI(
+    internal fun callAI(
         loadingItemId: Long,
         speak: Boolean,
         category: Category,
     ) {
         viewModelScope.launch {
-            val response = processChatCommandUseCase.getAiChatResponse(MAIN_CONTEXT, chatList.toList())
-            processResponse(response, loadingItemId, speak, category = category)
+            var fullResponse = ""
+            var hasStarted = false
+            
+            try {
+                processChatCommandUseCase.getAiChatResponseStream(MAIN_CONTEXT, chatList.toList())
+                    .collect { chunk ->
+                        if (!hasStarted) {
+                            hasStarted = true
+                            val index = chatList.indexOfFirst { it.id == loadingItemId }
+                            if (index != -1) {
+                                val item = chatList[index].copy(
+                                    text = "",
+                                    isMe = false,
+                                    isLoading = false,
+                                    isStreaming = true,
+                                    category = category.name
+                                )
+                                chatList.set(index, item)
+                            }
+                        }
+                        fullResponse += chunk
+                        val index = chatList.indexOfFirst { it.id == loadingItemId }
+                        if (index != -1) {
+                            val item = chatList[index].copy(
+                                text = fullResponse,
+                                isMe = false,
+                                isLoading = false,
+                                isStreaming = true,
+                                category = category.name
+                            )
+                            chatList.set(index, item)
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Streaming error", e)
+                fullResponse = "Error occurred while streaming response."
+            }
+
+            val index = chatList.indexOfFirst { it.id == loadingItemId }
+            if (index != -1) {
+                val item = chatList[index].copy(
+                    text = fullResponse,
+                    isMe = false,
+                    isLoading = false,
+                    isStreaming = false,
+                    category = category.name
+                )
+                chatList.set(index, item)
+            } else {
+                addConversationItem(fullResponse, false, category)
+            }
+
+            if (chatList.size <= 2) {
+                loadGroup()
+            }
+
+            if (speak) {
+                val conversationTemp = Conversation(text = fullResponse, isMe = false)
+                val answerToSpeak = com.app.assistant.util.MarkdownUtils.markdownToPlainText(conversationTemp.getActualAnswer())
+                if (answerToSpeak.isNotBlank()) {
+                    speakResponse(answerToSpeak)
+                }
+            }
         }
     }
 
-    private suspend fun TranslatorManager.translateToEnglishSuspend(text: String): String? =
-        suspendCoroutine { continuation ->
-            translateToEnglish(text) { translatedText ->
-                continuation.resume(translatedText)
-            }
-        }
     internal fun processResponse(
         response: String?,
         loadingItemId: Long,
@@ -406,44 +452,30 @@ class MainViewModel(
         navigationURI: URI = URI(""),
     ) {
         response?.let {
-            val plaintext = com.app.assistant.util.MarkdownUtils.markdownToPlainText(it)
-
-            if (getIsTranslationEnabled()) {
-                translatorManager.translateFromEnglish(plaintext) { translatedText ->
-                    val finalText = translatedText ?: plaintext
-                    val index = chatList.indexOfFirst { item -> item.id == loadingItemId }
-                    if (index != -1) {
-                        chatList.removeAt(index)
-                    }
-                    addConversationItem(plaintext, finalText, false, category, contentURL, navigationURI)
-                    if (speak) {
-                        speakResponse(finalText)
-                    }
-                }
-            } else {
-                val index = chatList.indexOfFirst { item -> item.id == loadingItemId }
-                if (index != -1) {
-                    chatList.removeAt(index)
-                }
-                addConversationItem(response, "", false, category, contentURL, navigationURI)
-                if (speak) {
-                    speakResponse(plaintext)
+            val index = chatList.indexOfFirst { item -> item.id == loadingItemId }
+            if (index != -1) {
+                chatList.removeAt(index)
+            }
+            addConversationItem(response, false, category, contentURL, navigationURI)
+            if (speak) {
+                val conversationTemp = Conversation(text = response, isMe = false)
+                val answerToSpeak = com.app.assistant.util.MarkdownUtils.markdownToPlainText(conversationTemp.getActualAnswer())
+                if (answerToSpeak.isNotBlank()) {
+                    speakResponse(answerToSpeak)
                 }
             }
         }
     }
 
     internal fun addConversationItem(
-        englishText: String,
-        translatedText: String,
+        text: String,
         isUser: Boolean,
         category: Category,
         contentURL: String = "",
         navigationURI: URI = URI(""),
     ) {
         val conversation = Conversation(
-            englishText = englishText,
-            translatedText = translatedText,
+            text = text,
             isMe = isUser,
             category = category.name,
             contentURL = contentURL,

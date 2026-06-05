@@ -129,13 +129,11 @@ fun MyLayoutPreview() {
             isCustomUI = false,
             chatList = listOf(
                 Conversation(
-                    englishText = "What is the weather today?",
-                    translatedText = "Quelle est la météo aujourd'hui?",
+                    text = "What is the weather today?",
                     isMe = true
                 ),
                 Conversation(
-                    englishText = "The weather is sunny at 22°C.",
-                    translatedText = "Il fait beau à 22°C.",
+                    text = "The weather is sunny at 22°C.",
                     isMe = false
                 )
             ),

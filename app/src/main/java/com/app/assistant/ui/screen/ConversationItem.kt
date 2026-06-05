@@ -43,6 +43,16 @@ import com.app.assistant.util.Category
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.sp
 import com.app.assistant.ui.theme.AssistantTheme
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -93,44 +103,44 @@ fun ConversationItem(
                     LoadingDots() // Show loading animation when isLoading is true
                 } else {
                     if (conversation.isMe) {
-                        OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                        OtherCard(conversation, onLongClick, index)
                     } else {
                         when (conversation.category) {
                             Category.CALL.name -> {
-                                MakeCall(uriHandler, conversation, isTranslateEnabled)
+                                MakeCall(uriHandler, conversation)
                             }
 
                             Category.OTHER.name -> {
-                                OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                                OtherCard(conversation, onLongClick, index)
                             }
 
                             Category.SETTINGS.name -> {
                                 // TODO
-                                OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                                OtherCard(conversation, onLongClick, index)
                             }
 
                             Category.SONGS.name -> {
-                                PlaySong(uriHandler, conversation, isTranslateEnabled)
+                                PlaySong(uriHandler, conversation)
                             }
 
                             Category.NAVIGATION.name -> {
-                                StartNavigation(uriHandler, conversation, isTranslateEnabled)
+                                StartNavigation(uriHandler, conversation)
                             }
 
                             Category.WEATHER.name -> {
-                                ShowWeather(uriHandler, conversation, isTranslateEnabled)
+                                ShowWeather(uriHandler, conversation)
                             }
 
                             Category.REMINDER.name -> {
-                                OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                                OtherCard(conversation, onLongClick, index)
                             }
 
                             Category.ALARM.name -> {
-                                OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                                OtherCard(conversation, onLongClick, index)
                             }
 
                             else -> {
-                                OtherCard(conversation, onLongClick, index, isTranslateEnabled)
+                                OtherCard(conversation, onLongClick, index)
                             }
                         }
                     }
@@ -162,7 +172,6 @@ fun ConversationItem(
 private fun StartNavigation(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean,
 ) {
     Row(
         modifier =
@@ -192,7 +201,7 @@ private fun StartNavigation(
             modifier =
                 Modifier
                     .align(alignment = Alignment.CenterVertically),
-            markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
+            markdown = conversation.text,
         )
     }
 }
@@ -201,7 +210,6 @@ private fun StartNavigation(
 private fun PlaySong(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean,
 ) {
     AsyncImage(
         modifier =
@@ -210,7 +218,7 @@ private fun PlaySong(
                     uriHandler.openUri(conversation.navigationURI.toString())
                 },
         model = conversation.contentURL,
-        contentDescription = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
+        contentDescription = conversation.text,
     )
 }
 
@@ -218,7 +226,6 @@ private fun PlaySong(
 private fun MakeCall(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean,
 ) {
     Row(
         modifier =
@@ -248,7 +255,7 @@ private fun MakeCall(
             modifier =
                 Modifier
                     .align(alignment = Alignment.CenterVertically),
-            markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
+            markdown = conversation.text,
         )
     }
 }
@@ -257,14 +264,13 @@ private fun MakeCall(
 private fun ShowWeather(
     uriHandler: UriHandler,
     conversation: Conversation,
-    isTranslateEnabled: Boolean,
 ) {
     MarkdownText(
         modifier =
             Modifier
                 .padding(16.dp)
                 .clickable { uriHandler.openUri(conversation.navigationURI.toString()) },
-        markdown = if (isTranslateEnabled) conversation.translatedText else conversation.englishText,
+        markdown = conversation.text,
     )
 }
 
@@ -273,26 +279,94 @@ private fun OtherCard(
     conversation: Conversation,
     onLongClick: (Int) -> Unit,
     index: Int,
-    isTranslateEnabled: Boolean,
 ) {
-    MarkdownText(
-        markdown =
-            if (isTranslateEnabled && conversation.translatedText.isNotBlank()) {
-                conversation.translatedText
+    val thinkingText = conversation.getThinkingProcess()
+    val answerText = conversation.getActualAnswer()
+
+    Column(
+        modifier = Modifier
+            .padding(16.dp, 8.dp)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        onLongClick(index)
+                    },
+                )
+            }
+    ) {
+        if (thinkingText != null) {
+            var isExpanded by remember { mutableStateOf(true) }
+            
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isExpanded = !isExpanded },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🧠",
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Thinking Process",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = if (isExpanded) {
+                                Icons.Default.KeyboardArrowUp
+                            } else {
+                                Icons.Default.KeyboardArrowDown
+                            },
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isExpanded) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = thinkingText,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (answerText.isNotEmpty() || conversation.isStreaming) {
+            val displayAnswer = if (conversation.isStreaming) {
+                "$answerText ▮"
             } else {
-                conversation.englishText
-            },
-        modifier =
-            Modifier
-                .padding(16.dp, 8.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = {
-                            onLongClick(index)
-                        },
-                    )
-                },
-    )
+                answerText
+            }
+
+            MarkdownText(
+                markdown = displayAnswer,
+                modifier = Modifier
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true)
@@ -302,8 +376,7 @@ fun UserConversationItemPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             ConversationItem(
                 conversation = Conversation(
-                    englishText = "Hello! Can you help me?",
-                    translatedText = "Bonjour! Pouvez-vous m'aider?",
+                    text = "Hello! Can you help me?",
                     isMe = true,
                     category = Category.OTHER.name
                 ),
@@ -323,8 +396,7 @@ fun AiConversationItemPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             ConversationItem(
                 conversation = Conversation(
-                    englishText = "Sure! I can help you set an alarm or make a call.",
-                    translatedText = "Bien sûr! Je peux vous aider.",
+                    text = "Sure! I can help you set an alarm or make a call.",
                     isMe = false,
                     category = Category.OTHER.name
                 ),
@@ -344,8 +416,7 @@ fun LoadingConversationItemPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             ConversationItem(
                 conversation = Conversation(
-                    englishText = "",
-                    translatedText = "",
+                    text = "",
                     isMe = false,
                     isLoading = true
                 ),
@@ -365,8 +436,7 @@ fun WeatherConversationItemPreview() {
         Column(modifier = Modifier.padding(16.dp)) {
             ConversationItem(
                 conversation = Conversation(
-                    englishText = "Today's weather is sunny, 25°C.",
-                    translatedText = "La météo d'aujourd'hui est ensoleillée, 25°C.",
+                    text = "Today's weather is sunny, 25°C.",
                     isMe = false,
                     category = Category.WEATHER.name
                 ),

@@ -23,11 +23,8 @@ data class MessageEntity(
     @PrimaryKey
     val id: Long,
 
-    @ColumnInfo(name = "englishText")
-    val englishText: String,
-
-    @ColumnInfo(name = "translatedText")
-    val translatedText: String,
+    @ColumnInfo(name = "text")
+    val text: String,
 
     @ColumnInfo(name = "isMe")
     val isMe: Boolean,
