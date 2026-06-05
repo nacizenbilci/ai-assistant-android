@@ -19,11 +19,12 @@ object ModelCapabilityProber {
         val model = modelName.lowercase()
         return when (provider) {
             LlmProvider.GEMINI -> {
-                val isMultimodal = model.contains("gemini-1.5") || model.contains("gemini-2.0") || model.contains("gemini-pro")
+                val isMultimodal = model.contains("gemini-1.5") || model.contains("gemini-2.0") || model.contains("gemini-pro") || model.contains("gemini-2.5")
                 ModelCapabilities(
                     hasImageInput = isMultimodal || model.contains("vision"),
                     hasAudioInput = isMultimodal,
-                    hasVideoInput = isMultimodal
+                    hasVideoInput = isMultimodal,
+                    hasDocumentInput = isMultimodal
                 )
             }
             LlmProvider.OPENAI -> {
@@ -32,7 +33,8 @@ object ModelCapabilityProber {
                 ModelCapabilities(
                     hasImageInput = hasVision,
                     hasAudioInput = hasAudio,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = false
                 )
             }
             LlmProvider.ANTHROPIC -> {
@@ -40,14 +42,16 @@ object ModelCapabilityProber {
                 ModelCapabilities(
                     hasImageInput = supportsVision,
                     hasAudioInput = false,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = supportsVision
                 )
             }
             LlmProvider.GROQ -> {
                 ModelCapabilities(
                     hasImageInput = model.contains("vision") || model.contains("scout"),
                     hasAudioInput = false,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = false
                 )
             }
             LlmProvider.OLLAMA -> {
@@ -55,31 +59,36 @@ object ModelCapabilityProber {
                 ModelCapabilities(
                     hasImageInput = isMultimodal,
                     hasAudioInput = false,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = false
                 )
             }
             LlmProvider.DEEPSEEK -> {
                 ModelCapabilities(
                     hasImageInput = model.contains("vl"),
                     hasAudioInput = false,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = false
                 )
             }
             LlmProvider.OPEN_ROUTER -> {
                 val hasVision = model.contains("vision") || model.contains("llava") || model.contains("gpt-4o") || model.contains("claude-3") || model.contains("gemini")
                 val hasAudio = model.contains("gemini") || model.contains("audio")
                 val hasVideo = model.contains("gemini")
+                val hasDoc = model.contains("gemini") || model.contains("claude-3")
                 ModelCapabilities(
                     hasImageInput = hasVision,
                     hasAudioInput = hasAudio,
-                    hasVideoInput = hasVideo
+                    hasVideoInput = hasVideo,
+                    hasDocumentInput = hasDoc
                 )
             }
             LlmProvider.CUSTOM -> {
                 ModelCapabilities(
                     hasImageInput = false,
                     hasAudioInput = false,
-                    hasVideoInput = false
+                    hasVideoInput = false,
+                    hasDocumentInput = false
                 )
             }
         }

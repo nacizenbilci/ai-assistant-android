@@ -42,7 +42,7 @@ class MainViewModelFactory(
             val getWeatherUseCase = GetWeatherUseCase(permissionChecker, weatherRepo, getAiResponseUseCase)
             val setAlarmUseCase = SetAlarmUseCase(resourceProvider)
             val setReminderUseCase = SetReminderUseCase(resourceProvider)
-            val processChatCommandUseCase = ProcessChatCommandUseCase(getAiResponseUseCase)
+            val processChatCommandUseCase = ProcessChatCommandUseCase(getAiResponseUseCase, settingsRepo)
 
             @Suppress("UNCHECKED_CAST")
             return MainViewModel(

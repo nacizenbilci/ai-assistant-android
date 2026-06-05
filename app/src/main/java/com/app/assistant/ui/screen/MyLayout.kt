@@ -25,6 +25,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -43,6 +60,13 @@ fun MyLayout(
     onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
     onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
     isTranslateEnabled: Boolean,
+    selectedAttachments: List<com.app.assistant.model.Attachment> = emptyList(),
+    onRemoveAttachment: (com.app.assistant.model.Attachment) -> Unit = {},
+    onAttachClick: (String) -> Unit = {},
+    isImageSupported: Boolean = false,
+    isAudioSupported: Boolean = false,
+    isVideoSupported: Boolean = false,
+    isDocumentSupported: Boolean = false,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -96,6 +120,68 @@ fun MyLayout(
             }
         }
 
+        var isDismissed by remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
+            mutableStateOf(false)
+        }
+
+        val showWarning = remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
+            chatList.any { conversation ->
+                conversation.attachments.any { att ->
+                    val isTextDoc = att.mimeType.startsWith("text/") || att.mimeType == "application/json"
+                    if (isTextDoc) {
+                        false
+                    } else {
+                        when {
+                            att.mimeType.startsWith("image/") -> !isImageSupported
+                            att.mimeType.startsWith("audio/") -> !isAudioSupported
+                            att.mimeType.startsWith("video/") -> !isVideoSupported
+                            att.mimeType.startsWith("application/pdf") -> !isDocumentSupported
+                            else -> true
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showWarning && !isDismissed) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Warning",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Current model does not support some media in this chat. Incompatible past attachments will be ignored by the LLM.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = { isDismissed = true },
+                    modifier = Modifier.size(20.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss warning",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+
         if (keyboardController != null) {
             UserInputField(
                 focusManager = focusManager,
@@ -107,6 +193,13 @@ fun MyLayout(
                 onStopSpeaking = onStopSpeaking,
                 onStartListening = onStartListening,
                 onProcessQuestion = onProcessQuestion,
+                selectedAttachments = selectedAttachments,
+                onRemoveAttachment = onRemoveAttachment,
+                onAttachClick = onAttachClick,
+                isImageSupported = isImageSupported,
+                isAudioSupported = isAudioSupported,
+                isVideoSupported = isVideoSupported,
+                isDocumentSupported = isDocumentSupported,
             )
         }
     }

@@ -111,6 +111,29 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
 
         var currentScreen by remember { mutableStateOf("chat") }
 
+        val selectedAttachments by viewModel.selectedAttachments.collectAsState()
+        val isImageSupported = remember(currentScreen) { viewModel.settingsRepository.getIsImageSupported() }
+        val isAudioSupported = remember(currentScreen) { viewModel.settingsRepository.getIsAudioSupported() }
+        val isVideoSupported = remember(currentScreen) { viewModel.settingsRepository.getIsVideoSupported() }
+        val isDocumentSupported = remember(currentScreen) { viewModel.settingsRepository.getIsDocumentSupported() }
+
+        val pickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        ) { uri ->
+            uri?.let { viewModel.addSelectedAttachment(it) }
+        }
+
+        var tempCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+        val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.TakePicture()
+        ) { success ->
+            if (success) {
+                tempCameraUri?.let { uri ->
+                    viewModel.addSelectedAttachment(uri)
+                }
+            }
+        }
+
         val context = LocalContext.current
         LaunchedEffect(Unit) {
             viewModel.showToastEvent.collectLatest { message: String ->
@@ -190,7 +213,29 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
                 onLanguageSelected = { viewModel.onItemSelected(it) },
                 onDismissBottomSheet = { viewModel.setShowBottomSheet(false) },
-                onBackPressed = { /* Handled in parent context back handler */ }
+                onBackPressed = { /* Handled in parent context back handler */ },
+                selectedAttachments = selectedAttachments,
+                onRemoveAttachment = { viewModel.removeSelectedAttachment(it) },
+                onAttachClick = { type ->
+                    if (type == "camera") {
+                        try {
+                            val file = java.io.File(context.cacheDir, "camera_capture_${System.currentTimeMillis()}.jpg")
+                            val authority = "${context.packageName}.fileprovider"
+                            val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+                            tempCameraUri = uri
+                            cameraLauncher.launch(uri)
+                        } catch (e: Exception) {
+                            android.util.Log.e("ChatScreen", "Failed to launch camera", e)
+                            Toast.makeText(context, "Failed to launch camera", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        pickerLauncher.launch(type)
+                    }
+                },
+                isImageSupported = isImageSupported,
+                isAudioSupported = isAudioSupported,
+                isVideoSupported = isVideoSupported,
+                isDocumentSupported = isDocumentSupported
             )
         }
     }
@@ -227,6 +272,13 @@ fun ChatScreenContent(
     onLanguageSelected: (String) -> Unit,
     onDismissBottomSheet: () -> Unit,
     onBackPressed: () -> Unit,
+    selectedAttachments: List<com.app.assistant.model.Attachment> = emptyList(),
+    onRemoveAttachment: (com.app.assistant.model.Attachment) -> Unit = {},
+    onAttachClick: (String) -> Unit = {},
+    isImageSupported: Boolean = false,
+    isAudioSupported: Boolean = false,
+    isVideoSupported: Boolean = false,
+    isDocumentSupported: Boolean = false,
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -332,6 +384,13 @@ fun ChatScreenContent(
                     onStartListening = onStartListening,
                     onProcessQuestion = onProcessQuestion,
                     isTranslateEnabled = isTranslationEnabled,
+                    selectedAttachments = selectedAttachments,
+                    onRemoveAttachment = onRemoveAttachment,
+                    onAttachClick = onAttachClick,
+                    isImageSupported = isImageSupported,
+                    isAudioSupported = isAudioSupported,
+                    isVideoSupported = isVideoSupported,
+                    isDocumentSupported = isDocumentSupported,
                 )
             }
         }

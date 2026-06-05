@@ -51,7 +51,8 @@ class GetAiResponseUseCase(
             client = client,
             apiKey = apiKey ?: "",
             model = model,
-            config = config
+            config = config,
+            provider = provider
         )
 
         val systemContext = messages.find { it.role == "system" }?.content ?: ""
@@ -92,7 +93,8 @@ class GetAiResponseUseCase(
             client = client,
             apiKey = apiKey ?: "",
             model = model,
-            config = config
+            config = config,
+            provider = provider
         )
 
         val systemContext = messages.find { it.role == "system" }?.content ?: ""

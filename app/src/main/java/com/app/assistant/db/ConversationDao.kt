@@ -31,4 +31,13 @@ interface ConversationDao {
 
     @Query("SELECT * FROM messages WHERE group_id = :groupId ORDER BY id ASC")
     suspend fun getMessagesForGroup(groupId: Long): List<MessageEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttachment(attachment: AttachmentEntity)
+
+    @Query("SELECT * FROM attachments WHERE message_id = :messageId ORDER BY id ASC")
+    suspend fun getAttachmentsForMessage(messageId: Long): List<AttachmentEntity>
+
+    @Query("DELETE FROM attachments WHERE message_id = :messageId")
+    suspend fun deleteAttachmentsForMessage(messageId: Long)
 }

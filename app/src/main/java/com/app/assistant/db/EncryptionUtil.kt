@@ -75,6 +75,35 @@ object EncryptionUtil {
         }
     }
 
+    // Encrypt a file byte array using IV
+    fun encryptFile(inputBytes: ByteArray, ivString: String): ByteArray {
+        if (inputBytes.isEmpty()) return ByteArray(0)
+        return try {
+            val iv = Base64.decode(ivString, Base64.DEFAULT)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val spec = GCMParameterSpec(TAG_LENGTH_BIT, iv)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec)
+            cipher.doFinal(inputBytes)
+        } catch (e: Exception) {
+            inputBytes
+        }
+    }
+
+    // Decrypt a file byte array using IV
+    fun decryptFile(encryptedBytes: ByteArray, ivString: String): ByteArray {
+        if (encryptedBytes.isEmpty() || ivString.isEmpty()) return encryptedBytes
+        return try {
+            val iv = Base64.decode(ivString, Base64.DEFAULT)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val spec = GCMParameterSpec(TAG_LENGTH_BIT, iv)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+            cipher.doFinal(encryptedBytes)
+        } catch (e: Exception) {
+            encryptedBytes
+        }
+    }
+
+
     // Retrieve or create a persistent AES key in Android KeyStore
     private fun getOrCreateSecretKey(): SecretKey {
         return try {

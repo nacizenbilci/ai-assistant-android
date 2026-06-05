@@ -154,19 +154,22 @@ class SettingsViewModel(
             )
 
             // 3. Audio/Video checks (currently Gemini 1.5/2.0 is the main provider that supports audio/video input natively in the API)
-            val hasAudio = provider == LlmProvider.GEMINI && (model.contains("1.5") || model.contains("2.0"))
-            val hasVideo = provider == LlmProvider.GEMINI && (model.contains("1.5") || model.contains("2.0"))
+            val hasAudio = provider == LlmProvider.GEMINI && (model.contains("1.5") || model.contains("2.0") || model.contains("2.5"))
+            val hasVideo = provider == LlmProvider.GEMINI && (model.contains("1.5") || model.contains("2.0") || model.contains("2.5"))
+            val hasDoc = (provider == LlmProvider.GEMINI && (model.contains("1.5") || model.contains("2.0") || model.contains("2.5"))) || (provider == LlmProvider.ANTHROPIC && model.contains("claude-3"))
 
             val capabilities = ModelCapabilities(
                 hasImageInput = isVisionOk,
                 hasAudioInput = hasAudio,
-                hasVideoInput = hasVideo
+                hasVideoInput = hasVideo,
+                hasDocumentInput = hasDoc
             )
 
             // Save detected capabilities in repository
             settingsRepository.setIsImageSupported(isVisionOk)
             settingsRepository.setIsAudioSupported(hasAudio)
             settingsRepository.setIsVideoSupported(hasVideo)
+            settingsRepository.setIsDocumentSupported(hasDoc)
             settingsRepository.setIsModelVerified(true)
 
             _verificationState.value = VerificationState.Success(capabilities)

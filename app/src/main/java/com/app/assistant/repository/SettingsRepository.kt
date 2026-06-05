@@ -1,4 +1,4 @@
-﻿package com.app.assistant.repository
+package com.app.assistant.repository
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -124,6 +124,11 @@ class SettingsRepository(
     fun getIsVideoSupported(): Boolean = sharedPreferences.getBoolean("is_video_supported", false)
     fun setIsVideoSupported(supported: Boolean) {
         sharedPreferences.edit().putBoolean("is_video_supported", supported).apply()
+    }
+
+    fun getIsDocumentSupported(): Boolean = sharedPreferences.getBoolean("is_document_supported", false)
+    fun setIsDocumentSupported(supported: Boolean) {
+        sharedPreferences.edit().putBoolean("is_document_supported", supported).apply()
     }
 
     fun getIsModelVerified(): Boolean = sharedPreferences.getBoolean("is_model_verified", false)

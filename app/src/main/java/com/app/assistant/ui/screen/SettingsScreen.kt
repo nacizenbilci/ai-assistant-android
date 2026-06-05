@@ -664,6 +664,7 @@ fun VerifySection(
                         CapabilityRow("Vision / Image Support", verificationState.capabilities.hasImageInput)
                         CapabilityRow("Audio Support", verificationState.capabilities.hasAudioInput)
                         CapabilityRow("Video Support", verificationState.capabilities.hasVideoInput)
+                        CapabilityRow("Document Support (PDF/TXT)", verificationState.capabilities.hasDocumentInput)
 
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(

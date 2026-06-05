@@ -18,7 +18,8 @@ class FlexibleLlmAdapter(
     private val client: OkHttpClient,
     private val apiKey: String,
     private val model: String,
-    private val config: LlmConfig
+    private val config: LlmConfig,
+    private val provider: LlmProvider
 ) : LlmAdapter {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -174,10 +175,14 @@ class FlexibleLlmAdapter(
                 "assistant" -> config.assistantRole
                 else -> msg.role
             }
-            val escapedContent = escapeJsonString(msg.content)
-            val msgJson = config.messageFormat
-                .replace("{{ROLE}}", roleValue)
-                .replace("{{CONTENT}}", escapedContent)
+            val msgJson = if (msg.attachments.isNullOrEmpty()) {
+                val escapedContent = escapeJsonString(msg.content)
+                config.messageFormat
+                    .replace("{{ROLE}}", roleValue)
+                    .replace("{{CONTENT}}", escapedContent)
+            } else {
+                buildMultimodalMessageJson(roleValue, msg.content, msg.attachments, provider)
+            }
             
             serializedMessagesBuilder.append(msgJson)
             if (index < messagesToSerialize.size - 1) {
@@ -203,6 +208,46 @@ class FlexibleLlmAdapter(
             }
         }
         return requestBodyString
+    }
+
+    private fun buildMultimodalMessageJson(
+        role: String,
+        content: String,
+        attachments: List<LlmAttachment>,
+        provider: LlmProvider
+    ): String {
+        return when (provider) {
+            LlmProvider.GEMINI -> {
+                val parts = mutableListOf<String>()
+                parts.add("{\"text\": \"${escapeJsonString(content)}\"}")
+                attachments.forEach { att ->
+                    parts.add("{\"inlineData\": {\"mimeType\": \"${att.mimeType}\", \"data\": \"${att.base64Data}\"}}")
+                }
+                "{\"role\": \"$role\", \"parts\": [${parts.joinToString(",")}]}"
+            }
+            LlmProvider.ANTHROPIC -> {
+                val contentArray = mutableListOf<String>()
+                contentArray.add("{\"type\": \"text\", \"text\": \"${escapeJsonString(content)}\"}")
+                attachments.forEach { att ->
+                    if (att.mimeType.startsWith("image/")) {
+                        contentArray.add("{\"type\": \"image\", \"source\": {\"type\": \"base64\", \"media_type\": \"${att.mimeType}\", \"data\": \"${att.base64Data}\"}}")
+                    } else if (att.mimeType == "application/pdf") {
+                        contentArray.add("{\"type\": \"document\", \"source\": {\"type\": \"base64\", \"media_type\": \"${att.mimeType}\", \"data\": \"${att.base64Data}\"}}")
+                    }
+                }
+                "{\"role\": \"$role\", \"content\": [${contentArray.joinToString(",")}]}"
+            }
+            else -> { // OpenAI, Groq, Ollama, DeepSeek, OpenRouter, Custom
+                val contentArray = mutableListOf<String>()
+                contentArray.add("{\"type\": \"text\", \"text\": \"${escapeJsonString(content)}\"}")
+                attachments.forEach { att ->
+                    if (att.mimeType.startsWith("image/")) {
+                        contentArray.add("{\"type\": \"image_url\", \"image_url\": {\"url\": \"data:${att.mimeType};base64,${att.base64Data}\"}}")
+                    }
+                }
+                "{\"role\": \"$role\", \"content\": [${contentArray.joinToString(",")}]}"
+            }
+        }
     }
 
     private fun extractChunkContent(jsonStr: String, path: String): String? {

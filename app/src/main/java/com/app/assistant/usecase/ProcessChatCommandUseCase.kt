@@ -2,12 +2,19 @@ package com.app.assistant.usecase
 
 import com.app.assistant.llm.LlmMessage
 import com.app.assistant.model.Conversation
+import com.app.assistant.repository.SettingsRepository
 import com.app.assistant.util.Category
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.collect
 import java.util.Locale
 
 class ProcessChatCommandUseCase(
-    private val getAiResponseUseCase: GetAiResponseUseCase
+    private val getAiResponseUseCase: GetAiResponseUseCase,
+    private val settingsRepository: SettingsRepository
 ) {
     fun cleanAndPunctuate(input: String): String {
         val trimmedInput = input.trim()
@@ -60,33 +67,68 @@ class ProcessChatCommandUseCase(
     suspend fun getAiChatResponse(
         systemContext: String,
         chatHistory: List<Conversation>
-    ): String? {
-        val messages = mutableListOf<LlmMessage>()
-        messages.add(LlmMessage(role = "system", content = systemContext))
-
-        for (item in chatHistory) {
-            if (item.isLoading) continue
-            val role = if (item.isMe) "user" else "assistant"
-            messages.add(LlmMessage(role = role, content = item.text))
-        }
-
-        return getAiResponseUseCase.execute(messages)
+    ): String? = withContext(Dispatchers.IO) {
+        val messages = mapConversationsToLlmMessages(systemContext, chatHistory)
+        getAiResponseUseCase.execute(messages)
     }
 
     fun getAiChatResponseStream(
         systemContext: String,
         chatHistory: List<Conversation>
-    ): kotlinx.coroutines.flow.Flow<String> {
+    ): kotlinx.coroutines.flow.Flow<String> = flow {
+        val messages = withContext(Dispatchers.IO) {
+            mapConversationsToLlmMessages(systemContext, chatHistory)
+        }
+        getAiResponseUseCase.executeStream(messages).collect {
+            emit(it)
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private fun mapConversationsToLlmMessages(
+        systemContext: String,
+        chatHistory: List<Conversation>
+    ): List<LlmMessage> {
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContext))
 
         for (item in chatHistory) {
             if (item.isLoading) continue
             val role = if (item.isMe) "user" else "assistant"
-            messages.add(LlmMessage(role = role, content = item.text))
+            val llmAttachments = if (item.attachments.isNotEmpty()) {
+                val filtered = item.attachments.filter { att ->
+                    if (att.mimeType.startsWith("text/") || att.mimeType == "application/json") {
+                        false
+                    } else {
+                        when {
+                            att.mimeType.startsWith("image/") -> settingsRepository.getIsImageSupported()
+                            att.mimeType.startsWith("audio/") -> settingsRepository.getIsAudioSupported()
+                            att.mimeType.startsWith("video/") -> settingsRepository.getIsVideoSupported()
+                            att.mimeType.startsWith("application/pdf") -> settingsRepository.getIsDocumentSupported()
+                            else -> false
+                        }
+                    }
+                }
+                if (filtered.isNotEmpty()) {
+                    filtered.map { att ->
+                        val file = java.io.File(att.filePath)
+                        val base64 = if (file.exists()) {
+                            val encryptedBytes = file.readBytes()
+                            val decryptedBytes = com.app.assistant.db.EncryptionUtil.decryptFile(encryptedBytes, att.iv)
+                            android.util.Base64.encodeToString(decryptedBytes, android.util.Base64.NO_WRAP)
+                        } else {
+                            ""
+                        }
+                        com.app.assistant.llm.LlmAttachment(
+                            base64Data = base64,
+                            mimeType = att.mimeType,
+                            fileName = att.fileName
+                        )
+                    }
+                } else null
+            } else null
+            messages.add(LlmMessage(role = role, content = item.text, attachments = llmAttachments))
         }
-
-        return getAiResponseUseCase.executeStream(messages)
+        return messages
     }
 
     companion object {

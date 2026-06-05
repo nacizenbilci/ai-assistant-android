@@ -11,6 +11,7 @@ import com.app.assistant.db.DynamicConversationRepository
 import com.app.assistant.db.SyncStateList
 import com.app.assistant.model.Conversation
 import com.app.assistant.model.Group
+import com.app.assistant.model.Attachment
 import com.app.assistant.repository.SettingsRepository
 import com.app.assistant.translation.TranslatorManager
 import com.app.assistant.usecase.CallContactUseCase
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.lang.reflect.Modifier
 import java.net.URI
 import kotlin.coroutines.resume
@@ -56,6 +58,190 @@ class MainViewModel(
 ) : AndroidViewModel(application) {
     private val _question = MutableStateFlow("")
     val question: StateFlow<String> = _question.asStateFlow()
+
+    private val _selectedAttachments = MutableStateFlow<List<Attachment>>(emptyList())
+    val selectedAttachments: StateFlow<List<Attachment>> = _selectedAttachments.asStateFlow()
+
+    private fun compressImageIfNeeded(context: android.content.Context, uri: android.net.Uri): ByteArray? {
+        val mimeType = context.contentResolver.getType(uri) ?: return null
+        if (!mimeType.startsWith("image/")) {
+            return null
+        }
+        try {
+            // First read EXIF rotation
+            var rotation = 0
+            try {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    val exif = android.media.ExifInterface(stream)
+                    val orientation = exif.getAttributeInt(
+                        android.media.ExifInterface.TAG_ORIENTATION,
+                        android.media.ExifInterface.ORIENTATION_NORMAL
+                    )
+                    rotation = when (orientation) {
+                        android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                        android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                        android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                        else -> 0
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to parse EXIF orientation", e)
+            }
+
+            // Decode dimensions only
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream, null, options)
+            }
+
+            val width = options.outWidth
+            val height = options.outHeight
+            if (width <= 0 || height <= 0) return null
+
+            // Calculate sample size (approximate scaling down during decode)
+            val maxDim = 1200
+            var inSampleSize = 1
+            if (width > maxDim || height > maxDim) {
+                val halfWidth = width / 2
+                val halfHeight = height / 2
+                while ((halfWidth / inSampleSize) >= maxDim || (halfHeight / inSampleSize) >= maxDim) {
+                    inSampleSize *= 2
+                }
+            }
+
+            // Decode full image with sample size
+            val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+            }
+            val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: return null
+
+            // Precise scaling to max 1200px
+            val currentWidth = bitmap.width
+            val currentHeight = bitmap.height
+            val scaledBitmap = if (currentWidth > maxDim || currentHeight > maxDim) {
+                val ratio = currentWidth.toFloat() / currentHeight.toFloat()
+                val (newWidth, newHeight) = if (currentWidth > currentHeight) {
+                    maxDim to (maxDim / ratio).toInt()
+                } else {
+                    (maxDim * ratio).toInt() to maxDim
+                }
+                android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true).also {
+                    if (it != bitmap) {
+                        bitmap.recycle()
+                    }
+                }
+            } else {
+                bitmap
+            }
+
+            // Correct EXIF rotation
+            val rotatedBitmap = if (rotation != 0) {
+                val matrix = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                android.graphics.Bitmap.createBitmap(
+                    scaledBitmap, 0, 0, scaledBitmap.width, scaledBitmap.height, matrix, true
+                ).also {
+                    if (it != scaledBitmap) {
+                        scaledBitmap.recycle()
+                    }
+                }
+            } else {
+                scaledBitmap
+            }
+
+            // Compress to JPEG 80%
+            val outputStream = java.io.ByteArrayOutputStream()
+            rotatedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+            val compressedBytes = outputStream.toByteArray()
+            rotatedBitmap.recycle()
+            return compressedBytes
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Error compressing image", e)
+            return null
+        }
+    }
+
+    fun addSelectedAttachment(uri: android.net.Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>().applicationContext
+            val contentResolver = context.contentResolver
+            var fileName = "file_${System.currentTimeMillis()}"
+            var mimeType = contentResolver.getType(uri) ?: "*/*"
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1 && cursor.moveToFirst()) {
+                    fileName = cursor.getString(nameIndex)
+                }
+            }
+            try {
+                val isImage = mimeType.startsWith("image/") || 
+                              fileName.endsWith(".jpg", ignoreCase = true) || 
+                              fileName.endsWith(".jpeg", ignoreCase = true) || 
+                              fileName.endsWith(".png", ignoreCase = true) || 
+                              fileName.endsWith(".webp", ignoreCase = true)
+
+                var fileBytes: ByteArray? = null
+                if (isImage) {
+                    fileBytes = compressImageIfNeeded(context, uri)
+                    if (fileBytes != null) {
+                        mimeType = "image/jpeg"
+                        if (!fileName.lowercase().endsWith(".jpg") && !fileName.lowercase().endsWith(".jpeg")) {
+                            val dotIndex = fileName.lastIndexOf('.')
+                            fileName = if (dotIndex != -1) {
+                                "${fileName.substring(0, dotIndex)}.jpg"
+                            } else {
+                                "$fileName.jpg"
+                            }
+                        }
+                    }
+                }
+
+                if (fileBytes == null) {
+                    val inputStream = contentResolver.openInputStream(uri) ?: return@launch
+                    fileBytes = inputStream.readBytes()
+                    inputStream.close()
+                }
+
+                val iv = com.app.assistant.db.EncryptionUtil.generateIV()
+                val encryptedBytes = com.app.assistant.db.EncryptionUtil.encryptFile(fileBytes, iv)
+
+                val attachmentsDir = java.io.File(context.filesDir, "attachments")
+                if (!attachmentsDir.exists()) {
+                    attachmentsDir.mkdirs()
+                }
+
+                val targetFile = java.io.File(attachmentsDir, "file_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}.enc")
+                targetFile.writeBytes(encryptedBytes)
+
+                val attachment = Attachment(
+                    filePath = targetFile.absolutePath,
+                    mimeType = mimeType,
+                    fileName = fileName,
+                    iv = iv
+                )
+                _selectedAttachments.value = _selectedAttachments.value + attachment
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to add attachment", e)
+            }
+        }
+    }
+
+    fun removeSelectedAttachment(attachment: Attachment) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val file = java.io.File(attachment.filePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            _selectedAttachments.value = _selectedAttachments.value - attachment
+        }
+    }
 
     fun setQuestion(text: String) {
         _question.value = text
@@ -268,13 +454,37 @@ class MainViewModel(
         speak: Boolean = false,
     ) {
         val originalQuestion = question.value
+        val currentAttachments = _selectedAttachments.value
+        _selectedAttachments.value = emptyList()
+
         focusManager?.clearFocus()
         keyboardController?.hide()
         setQuestion("")
 
         viewModelScope.launch {
             val itemId: Long
-            val newItem = Conversation(text = originalQuestion, isMe = true)
+            val processedQuestion = processChatCommandUseCase.cleanAndPunctuate(originalQuestion)
+            val finalQuestionText = withContext(Dispatchers.IO) {
+                val finalQuestionBuilder = java.lang.StringBuilder(processedQuestion)
+                currentAttachments.forEach { att ->
+                    if (att.mimeType.startsWith("text/") || att.mimeType == "application/json") {
+                        try {
+                            val file = java.io.File(att.filePath)
+                            if (file.exists()) {
+                                val encryptedBytes = file.readBytes()
+                                val decryptedBytes = com.app.assistant.db.EncryptionUtil.decryptFile(encryptedBytes, att.iv)
+                                val textContent = String(decryptedBytes, Charsets.UTF_8)
+                                finalQuestionBuilder.append("\n\n[Attached File: ${att.fileName}]\n---\n$textContent\n---\n")
+                            }
+                        } catch (e: java.lang.Exception) {
+                            Log.e("MainViewModel", "Failed to extract text file content", e)
+                        }
+                    }
+                }
+                finalQuestionBuilder.toString()
+            }
+
+            val newItem = Conversation(text = finalQuestionText, isMe = true, attachments = currentAttachments)
 
             chatList.add(newItem)
             if (_isCustomUIHalfPage.value) {
@@ -286,12 +496,6 @@ class MainViewModel(
             val loadingItem = Conversation(text = "", isMe = false, isLoading = true)
             chatList.add(loadingItem)
             val loadingItemId = loadingItem.id
-
-            val processedQuestion = processChatCommandUseCase.cleanAndPunctuate(originalQuestion)
-            chatList.indexOfFirst { it.id == itemId }.takeIf { it != -1 }?.let { index ->
-                val updatedItem = chatList[index].copy(text = processedQuestion)
-                chatList.set(index, updatedItem)
-            }
 
             if (lockState != LockState.None && processChatCommandUseCase.isNegativeOrNotRequired(processedQuestion)) {
                 lockState = LockState.None
