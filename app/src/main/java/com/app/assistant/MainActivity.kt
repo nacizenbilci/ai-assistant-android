@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private lateinit var textToSpeechManager: com.app.assistant.hardware.TextToSpeechManager
-    private lateinit var speechRecognizerManager: com.app.assistant.hardware.SpeechRecognizerManager
+    private lateinit var speechRecognizerManager: com.app.assistant.speech.SpeechRecognizerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,7 +76,8 @@ class MainActivity : ComponentActivity() {
         textToSpeechManager = com.app.assistant.hardware.TextToSpeechManager(this) { isSpeaking ->
             viewModel.setSpeaking(isSpeaking)
         }
-        speechRecognizerManager = com.app.assistant.hardware.SpeechRecognizerManager(this, lifecycleScope)
+        speechRecognizerManager = com.app.assistant.speech.SpeechRecognizerManager(this, lifecycleScope)
+        speechRecognizerManager.preLoadModelAsync()
 
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -146,7 +147,7 @@ class MainActivity : ComponentActivity() {
         }
 
         speechRecognizerManager.startListening(
-            listener = object : com.app.assistant.hardware.SpeechRecognizerManager.SpeechListener {
+            listener = object : com.app.assistant.speech.SpeechRecognizerManager.SpeechListener {
                 override fun onReadyForSpeech() {}
 
                 override fun onBeginningOfSpeech() {

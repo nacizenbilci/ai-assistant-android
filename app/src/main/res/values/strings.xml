@@ -172,4 +172,27 @@
         <item>That didn’t go through. Could you retry?</item>
         <item>An error popped up. Let’s try that again.</item>
     </string-array>
+
+    <!-- Speech to Text Settings -->
+    <string name="stt_settings_title">Speech to Text Settings</string>
+    <string name="parakeet_model_title">NVIDIA Parakeet Offline Model</string>
+    <string name="parakeet_model_desc">The NVIDIA Parakeet TDT 0.6B v2 model is highly accurate but heavy (~660 MB). Downloading and using it will take time and storage.</string>
+    <string name="status_installed">Status: Installed (~660 MB)</string>
+    <string name="delete_model">Delete Model</string>
+    <string name="status_not_downloaded">Status: Not Downloaded</string>
+    <string name="download_model">Download Model</string>
+    <string name="downloading_progress">Downloading… %1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="download_completed">Download Completed!</string>
+    <string name="download_failed_with_msg">Download Failed: %1$s</string>
+    <string name="clear">Clear</string>
+    <string name="retry">Retry</string>
+    <string name="use_native_stt">Use Native STT (Fast)</string>
+    <string name="native_stt_desc">Uses the built-in system speech recognition. Fast and lightweight.</string>
+    <string name="use_parakeet_stt">Use Only Parakeet Model (Offline)</string>
+    <string name="parakeet_stt_desc_enabled">Highly accurate, offline-first. May have a brief cold start time when opening the microphone.</string>
+    <string name="parakeet_stt_desc_disabled">Highly accurate, offline-first. Requires downloading the model first.</string>
+    <string name="use_hybrid_stt">Use Hybrid Approach (Smart Switching)</string>
+    <string name="hybrid_stt_desc_enabled">Starts with Native STT instantly, loads Parakeet in the background, and switches automatically once loaded.</string>
+    <string name="hybrid_stt_desc_disabled">Starts with Native STT, loads Parakeet in background, and switches automatically once loaded. Requires model download.</string>
+    <string name="content_desc_installed">Installed</string>
 </resources>

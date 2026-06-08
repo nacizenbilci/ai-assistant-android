@@ -6,7 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
 class SettingsRepository(
-    context: Context,
+    val context: Context,
 ) {
     private val sharedPreferences: SharedPreferences =
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -134,5 +134,31 @@ class SettingsRepository(
     fun getIsModelVerified(): Boolean = sharedPreferences.getBoolean("is_model_verified", false)
     fun setIsModelVerified(verified: Boolean) {
         sharedPreferences.edit().putBoolean("is_model_verified", verified).apply()
+    }
+
+    fun getSttMode(): com.app.assistant.speech.SttMode {
+        val modeStr = sharedPreferences.getString("stt_mode", null)
+        if (modeStr != null) {
+            return try {
+                com.app.assistant.speech.SttMode.valueOf(modeStr)
+            } catch (e: Exception) {
+                com.app.assistant.speech.SttMode.NATIVE
+            }
+        }
+        return if (getUseLocalWhisper()) {
+            com.app.assistant.speech.SttMode.PARAKEET
+        } else {
+            com.app.assistant.speech.SttMode.NATIVE
+        }
+    }
+
+    fun setSttMode(mode: com.app.assistant.speech.SttMode) {
+        sharedPreferences.edit().putString("stt_mode", mode.name).apply()
+        setUseLocalWhisper(mode == com.app.assistant.speech.SttMode.PARAKEET)
+    }
+
+    fun getUseLocalWhisper(): Boolean = sharedPreferences.getBoolean("use_local_whisper", false)
+    fun setUseLocalWhisper(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean("use_local_whisper", enabled).apply()
     }
 }

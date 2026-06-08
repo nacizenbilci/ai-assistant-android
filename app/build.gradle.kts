@@ -123,6 +123,9 @@ dependencies {
 
     //MediaPipe library
     implementation(libs.mediapipe.tasks.text)
+
+    // Sherpa ONNX Offline STT
+    implementation(files("libs/sherpa-onnx-1.13.2.aar"))
 }
 
 configurations.all {

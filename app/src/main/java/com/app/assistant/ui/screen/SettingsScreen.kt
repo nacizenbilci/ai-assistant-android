@@ -57,6 +57,11 @@ import com.app.assistant.llm.LlmProvider
 import com.app.assistant.viewmodel.SettingsViewModel
 import com.app.assistant.viewmodel.VerificationState
 
+import androidx.compose.material3.Switch
+import androidx.compose.material3.RadioButton
+import com.app.assistant.speech.SttMode
+import com.app.assistant.viewmodel.DownloadState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -73,13 +78,15 @@ fun SettingsScreen(
     initialCustomSystemRole: String,
     initialCustomUserRole: String,
     initialCustomAssistantRole: String,
+    initialSttMode: SttMode,
     onBack: () -> Unit,
-    onSave: (String, String, LlmProvider, String, String, String, String, String, String, String, String, String) -> Unit,
+    onSave: (String, String, LlmProvider, String, String, String, String, String, String, String, String, String, com.app.assistant.speech.SttMode) -> Unit,
 ) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
     var provider by rememberSaveable { mutableStateOf(initialProvider) }
     var model by rememberSaveable { mutableStateOf(initialModel) }
+    var sttMode by rememberSaveable { mutableStateOf(initialSttMode) }
     
     var customUrl by rememberSaveable { mutableStateOf(initialCustomUrl) }
     var customHeaders by rememberSaveable { mutableStateOf(initialCustomHeaders) }
@@ -91,12 +98,19 @@ fun SettingsScreen(
     var customAssistantRole by rememberSaveable { mutableStateOf(initialCustomAssistantRole) }
 
     var hasChanged by rememberSaveable { mutableStateOf(false) }
+    val isLlmChanged = apiKey2 != initialChatKey || provider != initialProvider || model != initialModel ||
+            customUrl != initialCustomUrl || customHeaders != initialCustomHeaders || 
+            customResponsePath != initialCustomResponsePath || customRequestTemplate != initialCustomRequestTemplate ||
+            customMessageFormat != initialCustomMessageFormat || customSystemRole != initialCustomSystemRole ||
+            customUserRole != initialCustomUserRole || customAssistantRole != initialCustomAssistantRole
     var expanded by remember { mutableStateOf(false) }
 
     val verificationState by settingsViewModel.verificationState.collectAsState()
     val fetchedModelsMap by settingsViewModel.fetchedModels.collectAsState()
     val isFetchingModels by settingsViewModel.isFetchingModels.collectAsState()
     val modelFetchError by settingsViewModel.modelFetchError.collectAsState()
+    val isModelInstalled by settingsViewModel.isModelInstalled.collectAsState()
+    val modelDownloadState by settingsViewModel.modelDownloadState.collectAsState()
     var modelDropdownExpanded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -180,10 +194,11 @@ fun SettingsScreen(
                                     customMessageFormat,
                                     customSystemRole,
                                     customUserRole,
-                                    customAssistantRole
+                                    customAssistantRole,
+                                    sttMode
                                 )
                             },
-                            enabled = !hasChanged || verificationState is VerificationState.Success,
+                            enabled = !isLlmChanged || verificationState is VerificationState.Success,
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(stringResource(id = R.string.save))
@@ -563,7 +578,7 @@ fun SettingsScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-
+ 
                     OutlinedTextField(
                         value = apiKey1,
                         onValueChange = { 
@@ -574,6 +589,321 @@ fun SettingsScreen(
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+            }
+
+            // CARD 4: SPEECH TO TEXT SETTINGS
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.stt_settings_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Model Information & Warning Card
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = stringResource(id = R.string.parakeet_model_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(id = R.string.parakeet_model_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Download Status & Control Section
+                            val isInstalled = isModelInstalled
+                            val downloadState = modelDownloadState
+
+                            when (downloadState) {
+                                is DownloadState.Idle -> {
+                                    if (isInstalled) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = stringResource(id = R.string.content_desc_installed),
+                                                    tint = Color(0xFF4CAF50),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = stringResource(id = R.string.status_installed),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF4CAF50)
+                                                )
+                                            }
+                                            Button(
+                                                onClick = { settingsViewModel.deleteModel() },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(stringResource(id = R.string.delete_model), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    } else {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(id = R.string.status_not_downloaded),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                            )
+                                            Button(
+                                                onClick = { settingsViewModel.startModelDownload() },
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(stringResource(id = R.string.download_model), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                                is DownloadState.Downloading -> {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val progressPercent = (downloadState.progress * 100).toInt()
+                                            val downloadedMb = (downloadState.currentBytes.toDouble() / (1024 * 1024)).toInt()
+                                            val totalMb = (downloadState.totalBytes.toDouble() / (1024 * 1024)).toInt()
+                                            Text(
+                                                text = stringResource(id = R.string.downloading_progress, progressPercent, downloadedMb, totalMb),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            OutlinedButton(
+                                                onClick = { settingsViewModel.cancelModelDownload() },
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(stringResource(id = R.string.cancel), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        androidx.compose.material3.LinearProgressIndicator(
+                                            progress = { downloadState.progress },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
+                                is DownloadState.Completed -> {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = stringResource(id = R.string.download_completed),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF4CAF50),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Button(
+                                            onClick = { settingsViewModel.deleteModel() },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(stringResource(id = R.string.delete_model), style = MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
+                                }
+                                is DownloadState.Error -> {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = stringResource(id = R.string.download_failed_with_msg, downloadState.message),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { settingsViewModel.deleteModel() },
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(stringResource(id = R.string.clear), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Button(
+                                                onClick = { settingsViewModel.startModelDownload() },
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text(stringResource(id = R.string.retry), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // RadioButton selections for STT options
+                    val isInstalled = isModelInstalled
+                    
+                    // Option 1: Native STT
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                sttMode = SttMode.NATIVE
+                                hasChanged = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = sttMode == SttMode.NATIVE,
+                            onClick = {
+                                sttMode = SttMode.NATIVE
+                                hasChanged = true
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = stringResource(id = R.string.use_native_stt),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = stringResource(id = R.string.native_stt_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Option 2: Parakeet STT (Only enabled if downloaded)
+                    val isParakeetEnabled = isInstalled
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = isParakeetEnabled) {
+                                sttMode = SttMode.PARAKEET
+                                hasChanged = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = sttMode == SttMode.PARAKEET,
+                            enabled = isParakeetEnabled,
+                            onClick = {
+                                sttMode = SttMode.PARAKEET
+                                hasChanged = true
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = stringResource(id = R.string.use_parakeet_stt),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isParakeetEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = if (isParakeetEnabled) {
+                                    stringResource(id = R.string.parakeet_stt_desc_enabled)
+                                } else {
+                                    stringResource(id = R.string.parakeet_stt_desc_disabled)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isParakeetEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    // Option 3: Hybrid STT (Only enabled if downloaded)
+                    val isHybridEnabled = isInstalled
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = isHybridEnabled) {
+                                sttMode = SttMode.HYBRID
+                                hasChanged = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = sttMode == SttMode.HYBRID,
+                            enabled = isHybridEnabled,
+                            onClick = {
+                                sttMode = SttMode.HYBRID
+                                hasChanged = true
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = stringResource(id = R.string.use_hybrid_stt),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isHybridEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = if (isHybridEnabled) {
+                                    stringResource(id = R.string.hybrid_stt_desc_enabled)
+                                } else {
+                                    stringResource(id = R.string.hybrid_stt_desc_disabled)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isHybridEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    // Automatically revert selection to NATIVE if model is not installed but current selected is parakeet/hybrid
+                    LaunchedEffect(isInstalled) {
+                        if (!isInstalled && (sttMode == SttMode.PARAKEET || sttMode == SttMode.HYBRID)) {
+                            sttMode = SttMode.NATIVE
+                            hasChanged = true
+                        }
+                    }
                 }
             }
         }

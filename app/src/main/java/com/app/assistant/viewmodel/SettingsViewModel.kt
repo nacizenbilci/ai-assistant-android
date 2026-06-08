@@ -13,6 +13,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import kotlinx.coroutines.Dispatchers
+
+sealed class DownloadState {
+    object Idle : DownloadState()
+    data class Downloading(val progress: Float, val currentBytes: Long, val totalBytes: Long) : DownloadState()
+    object Completed : DownloadState()
+    data class Error(val message: String) : DownloadState()
+}
 
 sealed class VerificationState {
     object Idle : VerificationState()
@@ -25,6 +33,14 @@ class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val okHttpClient: OkHttpClient
 ) : ViewModel() {
+
+    private val modelManager = com.app.assistant.speech.SpeechModelManager(settingsRepository.context)
+
+    private val _modelDownloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+    val modelDownloadState: StateFlow<DownloadState> = _modelDownloadState.asStateFlow()
+
+    private val _isModelInstalled = MutableStateFlow(modelManager.isModelDownloaded())
+    val isModelInstalled: StateFlow<Boolean> = _isModelInstalled.asStateFlow()
 
     private val _verificationState = MutableStateFlow<VerificationState>(VerificationState.Idle)
     val verificationState: StateFlow<VerificationState> = _verificationState.asStateFlow()
@@ -71,6 +87,49 @@ class SettingsViewModel(
     fun loadLlmCustomSystemRole(): String = settingsRepository.getLlmCustomSystemRole()
     fun loadLlmCustomUserRole(): String = settingsRepository.getLlmCustomUserRole()
     fun loadLlmCustomAssistantRole(): String = settingsRepository.getLlmCustomAssistantRole()
+    fun loadUseLocalWhisper(): Boolean = settingsRepository.getUseLocalWhisper()
+    fun loadSttMode(): com.app.assistant.speech.SttMode = settingsRepository.getSttMode()
+
+    fun deleteModel() {
+        viewModelScope.launch(Dispatchers.IO) {
+            modelManager.deleteLocalModel()
+            _isModelInstalled.value = false
+            val currentMode = settingsRepository.getSttMode()
+            if (currentMode != com.app.assistant.speech.SttMode.NATIVE) {
+                settingsRepository.setSttMode(com.app.assistant.speech.SttMode.NATIVE)
+            }
+            _modelDownloadState.value = DownloadState.Idle
+        }
+    }
+
+    fun cancelModelDownload() {
+        modelManager.cancelDownload()
+        _modelDownloadState.value = DownloadState.Idle
+    }
+
+    fun startModelDownload() {
+        viewModelScope.launch {
+            _modelDownloadState.value = DownloadState.Downloading(0f, 0L, modelManager.totalSizeBytes)
+            modelManager.downloadModel(
+                client = okHttpClient,
+                onProgress = { downloadedBytes, totalBytes ->
+                    val progress = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
+                    _modelDownloadState.value = DownloadState.Downloading(progress, downloadedBytes, totalBytes)
+                },
+                onComplete = { success, errorMsg ->
+                    viewModelScope.launch {
+                        if (success) {
+                            _modelDownloadState.value = DownloadState.Completed
+                            _isModelInstalled.value = true
+                        } else {
+                            _modelDownloadState.value = DownloadState.Error(errorMsg ?: "Unknown download error")
+                            _isModelInstalled.value = modelManager.isModelDownloaded()
+                        }
+                    }
+                }
+            )
+        }
+    }
 
     fun saveSettings(
         youtubeApiKey: String,
@@ -84,7 +143,8 @@ class SettingsViewModel(
         customMessageFormat: String,
         customSystemRole: String,
         customUserRole: String,
-        customAssistantRole: String
+        customAssistantRole: String,
+        sttMode: com.app.assistant.speech.SttMode
     ) {
         settingsRepository.saveKeys(youtubeApiKey, chatApiKey)
         settingsRepository.setLlmProvider(provider.name)
@@ -97,6 +157,7 @@ class SettingsViewModel(
         settingsRepository.setLlmCustomSystemRole(customSystemRole)
         settingsRepository.setLlmCustomUserRole(customUserRole)
         settingsRepository.setLlmCustomAssistantRole(customAssistantRole)
+        settingsRepository.setSttMode(sttMode)
     }
 
     fun verifyModelAndSaveCapabilities(

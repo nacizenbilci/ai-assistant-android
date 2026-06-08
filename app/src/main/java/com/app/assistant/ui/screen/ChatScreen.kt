@@ -108,6 +108,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         var llmCustomSystemRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomSystemRole()) }
         var llmCustomUserRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomUserRole()) }
         var llmCustomAssistantRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomAssistantRole()) }
+        var sttMode by remember { mutableStateOf(settingsViewModel.loadSttMode()) }
 
         var currentScreen by remember { mutableStateOf("chat") }
 
@@ -158,9 +159,10 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 initialCustomSystemRole = llmCustomSystemRole,
                 initialCustomUserRole = llmCustomUserRole,
                 initialCustomAssistantRole = llmCustomAssistantRole,
+                initialSttMode = sttMode,
                 onBack = { currentScreen = "chat" },
-                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole ->
-                    settingsViewModel.saveSettings(ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole)
+                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal ->
+                    settingsViewModel.saveSettings(ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal)
                     youtubeKey = ytKey
                     chatKey = chKey
                     llmProvider = providerVal
@@ -173,6 +175,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                     llmCustomSystemRole = cSystemRole
                     llmCustomUserRole = cUserRole
                     llmCustomAssistantRole = cAssistantRole
+                    sttMode = sttModeVal
                     currentScreen = "chat"
                 }
             )
