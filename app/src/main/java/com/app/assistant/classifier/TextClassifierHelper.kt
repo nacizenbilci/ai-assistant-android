@@ -60,7 +60,9 @@ class TextClassifierHelper(
             // classify the input text.
             var inferenceTime = SystemClock.uptimeMillis()
 
-            val results = textClassifier.classify(text)
+            // Remove all punctuation before classifying
+            val cleanedText = text.replace(Regex("[.,?!]"), "")
+            val results = textClassifier.classify(cleanedText)
 
             inferenceTime = SystemClock.uptimeMillis() - inferenceTime
 

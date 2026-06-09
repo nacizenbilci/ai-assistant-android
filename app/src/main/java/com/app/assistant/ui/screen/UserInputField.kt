@@ -77,7 +77,7 @@ fun UserInputField(
     question: String,
     onQuestionChange: (String) -> Unit,
     onStopSpeaking: () -> Unit,
-    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onStartListening: () -> Unit,
     onProcessQuestion: (androidx.compose.ui.focus.FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     selectedAttachments: List<Attachment> = emptyList(),
@@ -248,17 +248,7 @@ fun UserInputField(
                             }
                         } else {
                             IconButton(onClick = {
-                                onStartListening(
-                                    { recognizedText ->
-                                        onQuestionChange(recognizedText)
-                                        if (recognizedText.isNotEmpty()) {
-                                            onProcessQuestion(focusManager, keyboardController, true)
-                                        }
-                                    },
-                                    { recognizedText ->
-                                        onQuestionChange(recognizedText)
-                                    },
-                                )
+                                onStartListening()
                             }) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_mic),
@@ -435,7 +425,7 @@ fun UserInputFieldIdlePreview() {
                 question = "",
                 onQuestionChange = {},
                 onStopSpeaking = {},
-                onStartListening = { _, _ -> },
+                onStartListening = {},
                 onProcessQuestion = { _, _, _ -> },
                 isImageSupported = true
             )

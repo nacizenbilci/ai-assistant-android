@@ -35,6 +35,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -294,12 +297,8 @@ class MainViewModel(
     val groupList: StateFlow<List<Group>> = _groupList.asStateFlow()
 
     // UI Event flow
-    internal val _uiEvent = MutableSharedFlow<UIEvent>()
-    val uiEvent: SharedFlow<UIEvent> = _uiEvent.asSharedFlow()
-
-    // Callback properties for SpeechToText
-    var speechResultCallback: ((String) -> Unit)? = null
-    var speechPartialResultCallback: ((String) -> Unit)? = null
+    internal val _uiEvent = Channel<UIEvent>(Channel.BUFFERED)
+    val uiEvent: Flow<UIEvent> = _uiEvent.receiveAsFlow()
 
     // Classifier
     private lateinit var classifierHelper: TextClassifierHelper
@@ -418,7 +417,7 @@ class MainViewModel(
 
     fun stopTextToSpeech() {
         viewModelScope.launch {
-            _uiEvent.emit(UIEvent.StopSpeaking)
+            _uiEvent.send(UIEvent.StopSpeaking)
         }
         _isSpeaking.value = false
     }
@@ -693,7 +692,7 @@ class MainViewModel(
 
     internal fun speakResponse(plaintext: String) {
         viewModelScope.launch {
-            _uiEvent.emit(UIEvent.SpeakText(plaintext))
+            _uiEvent.send(UIEvent.SpeakText(plaintext))
         }
     }
 
@@ -719,29 +718,21 @@ class MainViewModel(
         }
     }
 
-    private fun startSpeechRecognition() {
+    fun startSpeechRecognition() {
         viewModelScope.launch {
-            _uiEvent.emit(UIEvent.StartSpeechRecognition)
-        }
-    }
-
-    fun startSpeechToText(
-        onResult: (String) -> Unit,
-        onPartialResult: (String) -> Unit,
-    ) {
-        speechResultCallback = onResult
-        speechPartialResultCallback = onPartialResult
-        viewModelScope.launch {
-            _uiEvent.emit(UIEvent.StartSpeechRecognition)
+            _uiEvent.send(UIEvent.StartSpeechRecognition)
         }
     }
 
     fun onSpeechRecognized(recognizedText: String) {
-        speechResultCallback?.invoke(recognizedText)
+        _question.value = recognizedText
+        if (recognizedText.isNotBlank()) {
+            processQuestion(speak = true)
+        }
     }
 
     fun onSpeechPartialResult(recognizedText: String) {
-        speechPartialResultCallback?.invoke(recognizedText)
+        _question.value = recognizedText
     }
 
     fun onItemSelected(selectedLanguageCode: String) {

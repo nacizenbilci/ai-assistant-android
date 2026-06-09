@@ -177,94 +177,15 @@ class SpeechRecognizerManager(
     }
 
     private fun startHybridTransitionListening(listener: SpeechListener) {
-        isInHybridTransition = true
+        isInHybridTransition = false
         hybridPrefixText = ""
 
-        val hybridNativeListener = object : SpeechListener {
-            override fun onReadyForSpeech() {
-                listener.onReadyForSpeech()
-            }
-
-            override fun onBeginningOfSpeech() {
-                listener.onBeginningOfSpeech()
-            }
-
-            override fun onEndOfSpeech() {
-                if (!isInHybridTransition) {
-                    listener.onEndOfSpeech()
-                }
-            }
-
-            override fun onError(errorCode: Int) {
-                if (!isInHybridTransition) {
-                    listener.onError(errorCode)
-                }
-            }
-
-            override fun onResults(recognizedText: String) {
-                if (isInHybridTransition) {
-                    hybridPrefixText = recognizedText.trim()
-                } else {
-                    listener.onResults(recognizedText)
-                }
-            }
-
-            override fun onPartialResults(recognizedText: String) {
-                listener.onPartialResults(recognizedText)
-            }
-        }
-
         // Start native listening first
-        startNativeListening(hybridNativeListener)
+        startNativeListening(listener)
 
-        // Load Parakeet in background and switch once ready
+        // Load Parakeet in background so it is ready for the next call
         scope.launch(Dispatchers.IO) {
             initParakeetAndVad()
-            withContext(Dispatchers.Main) {
-                if (isListening && isInHybridTransition && offlineRecognizer != null && vad != null) {
-                    Log.i("SpeechRecognizerManager", "Hybrid Switch: Parakeet loaded. Switching from Native STT.")
-                    
-                    // Stop native SpeechRecognizer cleanly
-                    cleanupSpeechRecognizer()
-                    isInHybridTransition = false
-
-                    // Start Parakeet with a wrapped listener to prepend any recognized text
-                    val hybridParakeetListener = object : SpeechListener {
-                        override fun onReadyForSpeech() {}
-                        override fun onBeginningOfSpeech() {}
-                        
-                        override fun onEndOfSpeech() {
-                            listener.onEndOfSpeech()
-                        }
-
-                        override fun onError(errorCode: Int) {
-                            listener.onError(errorCode)
-                        }
-
-                        override fun onResults(recognizedText: String) {
-                            val finalResult = if (hybridPrefixText.isNotEmpty()) {
-                                "$hybridPrefixText $recognizedText"
-                            } else {
-                                recognizedText
-                            }
-                            listener.onResults(finalResult.trim())
-                        }
-
-                        override fun onPartialResults(recognizedText: String) {
-                            val finalResult = if (hybridPrefixText.isNotEmpty()) {
-                                "$hybridPrefixText $recognizedText"
-                            } else {
-                                recognizedText
-                            }
-                            listener.onPartialResults(finalResult.trim())
-                        }
-                    }
-
-                    startLocalParakeetListeningInternal(hybridParakeetListener)
-                } else {
-                    isInHybridTransition = false
-                }
-            }
         }
     }
 

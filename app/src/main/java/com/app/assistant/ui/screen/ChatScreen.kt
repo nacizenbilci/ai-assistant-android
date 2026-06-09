@@ -207,8 +207,8 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 onDragEnd = { viewModel.expandToFullScreen() },
                 onQuestionChange = { viewModel.setQuestion(it) },
                 onStopSpeaking = { viewModel.stopTextToSpeech() },
-                onStartListening = { onResult, onPartialResult ->
-                    viewModel.startSpeechToText(onResult, onPartialResult)
+                onStartListening = {
+                    viewModel.startSpeechRecognition()
                 },
                 onProcessQuestion = { fm, kc, isVoice ->
                     viewModel.processQuestion(fm, kc, isVoice)
@@ -269,7 +269,7 @@ fun ChatScreenContent(
     onDragEnd: () -> Unit,
     onQuestionChange: (String) -> Unit,
     onStopSpeaking: () -> Unit,
-    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onStartListening: () -> Unit,
     onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
     onTranslationEnabledChange: (Boolean) -> Unit,
     onLanguageSelected: (String) -> Unit,
@@ -522,7 +522,7 @@ fun ChatScreenContentPreview() {
             onDragEnd = {},
             onQuestionChange = {},
             onStopSpeaking = {},
-            onStartListening = { _, _ -> },
+            onStartListening = {},
             onProcessQuestion = { _, _, _ -> },
             onTranslationEnabledChange = {},
             onLanguageSelected = {},

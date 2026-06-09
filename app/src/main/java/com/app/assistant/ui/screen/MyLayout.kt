@@ -57,7 +57,7 @@ fun MyLayout(
     question: String,
     onQuestionChange: (String) -> Unit,
     onStopSpeaking: () -> Unit,
-    onStartListening: (onResult: (String) -> Unit, onPartialResult: (String) -> Unit) -> Unit,
+    onStartListening: () -> Unit,
     onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
     isTranslateEnabled: Boolean,
     selectedAttachments: List<com.app.assistant.model.Attachment> = emptyList(),
@@ -235,7 +235,7 @@ fun MyLayoutPreview() {
             question = "",
             onQuestionChange = {},
             onStopSpeaking = {},
-            onStartListening = { _, _ -> },
+            onStartListening = {},
             onProcessQuestion = { _, _, _ -> },
             isTranslateEnabled = false
         )

@@ -23,11 +23,11 @@ fun MainViewModel.callContact(
             callContactUseCase.execute(
                 prompt = prompt,
                 onPermissionRequest = { permissions ->
-                    _uiEvent.emit(UIEvent.RequestPermissions(permissions, 102))
+                    _uiEvent.send(UIEvent.RequestPermissions(permissions, 102))
                     processResponse(getRandomResponse(ResponseStrings.permissionContactsCall(getApplication())), loadingItemId, speak, Category.OTHER)
                 },
                 onIntentTriggered = { action ->
-                    _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                    _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
                 },
                 onSuccess = { name, dialUri ->
                     processResponse(
@@ -58,7 +58,7 @@ fun MainViewModel.playSong(
         playSongUseCase.execute(
             prompt = prompt,
             onIntentTriggered = { action ->
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
             },
             onSuccess = { songName, videoId, thumbnailUrl, videoUri ->
                 processResponse(
@@ -92,7 +92,7 @@ fun MainViewModel.navigate(
         navigateUseCase.execute(
             prompt = prompt,
             onIntentTriggered = { action ->
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
             },
             onSuccess = { location, navigationUri ->
                 processResponse(
@@ -122,11 +122,11 @@ fun MainViewModel.fetchWeather(
         getWeatherUseCase.execute(
             prompt = prompt,
             onPermissionRequest = { permissions ->
-                _uiEvent.emit(UIEvent.RequestPermissions(permissions, 103))
+                _uiEvent.send(UIEvent.RequestPermissions(permissions, 103))
                 processResponse(getRandomResponse(ResponseStrings.permissionLocation(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onLocationRequest = {
-                _uiEvent.emit(
+                _uiEvent.send(
                     UIEvent.GetLocationForWeather(
                         itemId,
                         loadingItemId,
@@ -220,7 +220,7 @@ fun MainViewModel.setAlarm(
                 )
             },
             onSuccess = { action ->
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
                 processResponse(
                     getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())),
                     loadingItemId,
@@ -251,7 +251,7 @@ fun MainViewModel.handleAlarmLockState(
             },
             onSuccess = { action ->
                 lockState = LockState.None
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.alarmSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
@@ -277,7 +277,7 @@ fun MainViewModel.setReminder(
                 processResponse(getRandomResponse(ResponseStrings.promptForTime(getApplication())), loadingItemId, speak, Category.OTHER)
             },
             onSuccess = { action ->
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, category)
             },
             onFailure = { errorMsg ->
@@ -304,7 +304,7 @@ fun MainViewModel.handleReminderLockState(
             },
             onSuccess = { action ->
                 lockState = LockState.None
-                _uiEvent.emit(UIEvent.StartIntent(action.toIntent()))
+                _uiEvent.send(UIEvent.StartIntent(action.toIntent()))
                 processResponse(getRandomResponse(ResponseStrings.reminderSetSuccess(getApplication())), loadingItemId, speak, Category.ALARM)
             },
             onFailure = { errorMsg ->
