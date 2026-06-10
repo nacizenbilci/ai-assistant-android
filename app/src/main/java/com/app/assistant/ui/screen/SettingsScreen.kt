@@ -839,7 +839,7 @@ fun SettingsScreenContent(
                     SettingsSectionHeader(
                         title = "Text-to-Speech Settings",
                         description = "Configure how the assistant speaks back to you",
-                        icon = R.drawable.ic_translate
+                        icon = R.drawable.ic_speaker
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 

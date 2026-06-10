@@ -30,7 +30,6 @@ class SpeechRecognizerManager(
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var speechRecognizer: SpeechRecognizer? = null
-    private var originalRingerMode: Int = AudioManager.RINGER_MODE_NORMAL
     private var isListening = false
 
     private var vad: com.k2fsa.sherpa.onnx.Vad? = null
@@ -214,11 +213,6 @@ class SpeechRecognizerManager(
             audioManager.isBluetoothScoOn = true
             audioManager.startBluetoothSco()
 
-            originalRingerMode = audioManager.ringerMode
-            if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-            }
-
             val sampleRate = 16000
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
@@ -322,7 +316,6 @@ class SpeechRecognizerManager(
                     isListening = false
                     withContext(Dispatchers.Main) {
                         listener.onEndOfSpeech()
-                        restoreRingerMode()
                         stopBluetoothSco()
                     }
                 }
@@ -342,8 +335,6 @@ class SpeechRecognizerManager(
             audioManager.isBluetoothScoOn = true
             audioManager.startBluetoothSco()
 
-            originalRingerMode = audioManager.ringerMode
-
             val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
             speechRecognizer = recognizer
 
@@ -355,9 +346,6 @@ class SpeechRecognizerManager(
 
             recognizer.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(bundle: Bundle?) {
-                    if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-                        audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                    }
                     listener.onReadyForSpeech()
                 }
 
@@ -373,13 +361,11 @@ class SpeechRecognizerManager(
                 override fun onEndOfSpeech() {
                     isListening = false
                     listener.onEndOfSpeech()
-                    restoreRingerMode()
                 }
 
                 override fun onError(errorCode: Int) {
                     isListening = false
                     listener.onError(errorCode)
-                    restoreRingerMode()
                     stopBluetoothSco()
                 }
 
@@ -406,14 +392,7 @@ class SpeechRecognizerManager(
         }
     }
 
-    private fun restoreRingerMode() {
-        if (originalRingerMode == AudioManager.RINGER_MODE_NORMAL) {
-            scope.launch {
-                delay(800)
-                audioManager.ringerMode = originalRingerMode
-            }
-        }
-    }
+
 
     private fun stopBluetoothSco() {
         try {

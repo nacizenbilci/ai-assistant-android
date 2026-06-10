@@ -159,9 +159,8 @@ fun UserInputField(
                     unfocusedIndicatorColor = Color.Transparent,
                     disabledIndicatorColor = Color.Transparent,
                 ),
-                leadingIcon = {
-                    val showAttachmentButton = isImageSupported || isAudioSupported || isVideoSupported || isDocumentSupported
-                    if (showAttachmentButton && !isSpeaking) {
+                leadingIcon = if ((isImageSupported || isAudioSupported || isVideoSupported || isDocumentSupported) && !isSpeaking) {
+                    {
                         var menuExpanded by remember { mutableStateOf(false) }
                         Box {
                             IconButton(onClick = { menuExpanded = true }) {
@@ -229,7 +228,7 @@ fun UserInputField(
                             }
                         }
                     }
-                },
+                } else null,
                 trailingIcon = {
                     Row(
                         horizontalArrangement = Arrangement.End,
