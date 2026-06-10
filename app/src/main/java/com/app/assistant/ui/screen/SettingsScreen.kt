@@ -18,6 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -63,6 +68,8 @@ import com.app.assistant.speech.SttMode
 import com.app.assistant.viewmodel.DownloadState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.tooling.preview.Preview
+import com.app.assistant.ui.theme.AssistantTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +96,101 @@ fun SettingsScreen(
         com.app.assistant.tts.TtsMode
     ) -> Unit,
 ) {
+    val isTtsInstalled by settingsViewModel.isTtsModelInstalled.collectAsState()
+    val verificationState by settingsViewModel.verificationState.collectAsState()
+    val fetchedModelsMap by settingsViewModel.fetchedModels.collectAsState()
+    val isFetchingModels by settingsViewModel.isFetchingModels.collectAsState()
+    val modelFetchError by settingsViewModel.modelFetchError.collectAsState()
+    val isModelInstalled by settingsViewModel.isModelInstalled.collectAsState()
+    val modelDownloadState by settingsViewModel.modelDownloadState.collectAsState()
+    val ttsDownloadState by settingsViewModel.ttsModelDownloadState.collectAsState()
+
+    SettingsScreenContent(
+        initialYoutubeKey = initialYoutubeKey,
+        initialChatKey = initialChatKey,
+        initialProvider = initialProvider,
+        initialModel = initialModel,
+        initialCustomUrl = initialCustomUrl,
+        initialCustomHeaders = initialCustomHeaders,
+        initialCustomResponsePath = initialCustomResponsePath,
+        initialCustomRequestTemplate = initialCustomRequestTemplate,
+        initialCustomMessageFormat = initialCustomMessageFormat,
+        initialCustomSystemRole = initialCustomSystemRole,
+        initialCustomUserRole = initialCustomUserRole,
+        initialCustomAssistantRole = initialCustomAssistantRole,
+        initialSttMode = initialSttMode,
+        initialTtsMode = initialTtsMode,
+        isTtsInstalled = isTtsInstalled,
+        verificationState = verificationState,
+        fetchedModelsMap = fetchedModelsMap,
+        isFetchingModels = isFetchingModels,
+        modelFetchError = modelFetchError,
+        isModelInstalled = isModelInstalled,
+        modelDownloadState = modelDownloadState,
+        ttsDownloadState = ttsDownloadState,
+        onBack = onBack,
+        onSave = onSave,
+        onResetVerificationState = { settingsViewModel.resetVerificationState() },
+        onFetchModelsForProvider = { provider, key, url, headers ->
+            settingsViewModel.fetchModelsForProvider(provider, key, url, headers)
+        },
+        onVerifyModelAndSaveCapabilities = { provider, modelName, key, url, headers, respPath, reqTempl, msgFormat, sysRole, userRole, assRole ->
+            settingsViewModel.verifyModelAndSaveCapabilities(
+                provider, modelName, key, url, headers, respPath, reqTempl, msgFormat, sysRole, userRole, assRole
+            )
+        },
+        onStartModelDownload = { settingsViewModel.startModelDownload() },
+        onDeleteModel = { settingsViewModel.deleteModel() },
+        onCancelModelDownload = { settingsViewModel.cancelModelDownload() },
+        onStartTtsModelDownload = { settingsViewModel.startTtsModelDownload() },
+        onDeleteTtsModel = { settingsViewModel.deleteTtsModel() },
+        onCancelTtsModelDownload = { settingsViewModel.cancelTtsModelDownload() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreenContent(
+    initialYoutubeKey: String,
+    initialChatKey: String,
+    initialProvider: LlmProvider,
+    initialModel: String,
+    initialCustomUrl: String,
+    initialCustomHeaders: String,
+    initialCustomResponsePath: String,
+    initialCustomRequestTemplate: String,
+    initialCustomMessageFormat: String,
+    initialCustomSystemRole: String,
+    initialCustomUserRole: String,
+    initialCustomAssistantRole: String,
+    initialSttMode: SttMode,
+    initialTtsMode: com.app.assistant.tts.TtsMode,
+    isTtsInstalled: Boolean,
+    verificationState: VerificationState,
+    fetchedModelsMap: Map<LlmProvider, List<String>>,
+    isFetchingModels: Boolean,
+    modelFetchError: String?,
+    isModelInstalled: Boolean,
+    modelDownloadState: DownloadState,
+    ttsDownloadState: DownloadState,
+    onBack: () -> Unit,
+    onSave: (
+        String, String, LlmProvider, String, String, String, String, String, String, String, String, String,
+        com.app.assistant.speech.SttMode,
+        com.app.assistant.tts.TtsMode
+    ) -> Unit,
+    onResetVerificationState: () -> Unit,
+    onFetchModelsForProvider: (LlmProvider, String, String, String) -> Unit,
+    onVerifyModelAndSaveCapabilities: (
+        LlmProvider, String, String, String, String, String, String, String, String, String, String
+    ) -> Unit,
+    onStartModelDownload: () -> Unit,
+    onDeleteModel: () -> Unit,
+    onCancelModelDownload: () -> Unit,
+    onStartTtsModelDownload: () -> Unit,
+    onDeleteTtsModel: () -> Unit,
+    onCancelTtsModelDownload: () -> Unit
+) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
     var provider by rememberSaveable { mutableStateOf(initialProvider) }
@@ -110,7 +212,6 @@ fun SettingsScreen(
 
 
 
-    val isTtsInstalled by settingsViewModel.isTtsModelInstalled.collectAsState()
     LaunchedEffect(isTtsInstalled) {
         if (ttsMode == com.app.assistant.tts.TtsMode.OFFLINE) {
             if (!isTtsInstalled) {
@@ -127,12 +228,6 @@ fun SettingsScreen(
             customUserRole != initialCustomUserRole || customAssistantRole != initialCustomAssistantRole
     var expanded by remember { mutableStateOf(false) }
 
-    val verificationState by settingsViewModel.verificationState.collectAsState()
-    val fetchedModelsMap by settingsViewModel.fetchedModels.collectAsState()
-    val isFetchingModels by settingsViewModel.isFetchingModels.collectAsState()
-    val modelFetchError by settingsViewModel.modelFetchError.collectAsState()
-    val isModelInstalled by settingsViewModel.isModelInstalled.collectAsState()
-    val modelDownloadState by settingsViewModel.modelDownloadState.collectAsState()
     var modelDropdownExpanded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -146,14 +241,14 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) {
-        settingsViewModel.resetVerificationState()
+        onResetVerificationState()
         val currentKey = initialChatKey
         if (currentKey.isNotBlank() || initialProvider == LlmProvider.OLLAMA || initialProvider == LlmProvider.OPEN_ROUTER) {
-            settingsViewModel.fetchModelsForProvider(
-                provider = initialProvider,
-                apiKey = currentKey,
-                customUrl = initialCustomUrl,
-                customHeaders = initialCustomHeaders
+            onFetchModelsForProvider(
+                initialProvider,
+                currentKey,
+                initialCustomUrl,
+                initialCustomHeaders
             )
         }
     }
@@ -165,12 +260,19 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(id = R.string.settings_title), fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        text = stringResource(id = R.string.settings_title),
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleLarge
+                    ) 
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_back),
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 },
@@ -183,7 +285,8 @@ fun SettingsScreen(
         bottomBar = {
             Surface(
                 tonalElevation = 3.dp,
-                shadowElevation = 8.dp
+                shadowElevation = 8.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -197,9 +300,17 @@ fun SettingsScreen(
                     ) {
                         OutlinedButton(
                             onClick = onBack,
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
                         ) {
-                            Text(stringResource(id = R.string.cancel))
+                            Text(
+                                text = stringResource(id = R.string.cancel),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Button(
@@ -222,14 +333,22 @@ fun SettingsScreen(
                                 )
                             },
                             enabled = !isLlmChanged || verificationState is VerificationState.Success,
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
                         ) {
-                            Text(stringResource(id = R.string.save))
+                            Text(
+                                text = stringResource(id = R.string.save),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                     Text(
                         text = stringResource(id = R.string.app_version, versionName),
                         style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
@@ -251,16 +370,20 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "AI Model Provider",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                    SettingsSectionHeader(
+                        title = "AI Model Provider",
+                        description = "Configure the main language model for chat",
+                        icon = R.drawable.ic_settings
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Box(modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
@@ -268,6 +391,7 @@ fun SettingsScreen(
                             onValueChange = {},
                             readOnly = true,
                             label = { Text(stringResource(id = R.string.llm_provider)) },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                             trailingIcon = {
                                 Icon(
@@ -290,17 +414,17 @@ fun SettingsScreen(
                                 DropdownMenuItem(
                                     text = { Text(p.displayName) },
                                     onClick = {
-                                        if (provider != p) {
-                                            provider = p
-                                            hasChanged = true
-                                            settingsViewModel.resetVerificationState()
-                                            if (p != LlmProvider.CUSTOM) {
-                                                model = p.defaultModel
-                                                val currentKey = apiKey2
-                                                if (currentKey.isNotBlank() || p == LlmProvider.OLLAMA || p == LlmProvider.OPEN_ROUTER) {
-                                                    settingsViewModel.fetchModelsForProvider(p, currentKey)
-                                                }
-                                            } else {
+                                         if (provider != p) {
+                                             provider = p
+                                             hasChanged = true
+                                             onResetVerificationState()
+                                             if (p != LlmProvider.CUSTOM) {
+                                                 model = p.defaultModel
+                                                 val currentKey = apiKey2
+                                                 if (currentKey.isNotBlank() || p == LlmProvider.OLLAMA || p == LlmProvider.OPEN_ROUTER) {
+                                                     onFetchModelsForProvider(p, currentKey, "", "")
+                                                 }
+                                             } else {
                                                 model = p.defaultModel
                                                 if (customUrl.isBlank()) customUrl = p.config.url
                                                 if (customHeaders.isBlank()) customHeaders = "{\"Authorization\": \"Bearer {{API_KEY}}\", \"Content-Type\": \"application/json\"}"
@@ -329,12 +453,13 @@ fun SettingsScreen(
                             onValueChange = { 
                                 model = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text(stringResource(id = R.string.llm_model)) },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                             supportingText = if (!modelFetchError.isNullOrBlank()) {
-                                { Text(modelFetchError ?: "", color = MaterialTheme.colorScheme.error) }
+                                { Text(modelFetchError, color = MaterialTheme.colorScheme.error) }
                             } else null,
                             trailingIcon = {
                                 IconButton(onClick = { modelDropdownExpanded = !modelDropdownExpanded }) {
@@ -385,11 +510,11 @@ fun SettingsScreen(
                                             }
                                         },
                                         onClick = {
-                                            settingsViewModel.fetchModelsForProvider(
-                                                provider = provider,
-                                                apiKey = apiKey2,
-                                                customUrl = customUrl,
-                                                customHeaders = customHeaders
+                                            onFetchModelsForProvider(
+                                                provider,
+                                                apiKey2,
+                                                customUrl,
+                                                customHeaders
                                             )
                                         }
                                     )
@@ -407,7 +532,7 @@ fun SettingsScreen(
                                             onClick = {
                                                 model = suggested
                                                 hasChanged = true
-                                                settingsViewModel.resetVerificationState()
+                                                onResetVerificationState()
                                                 modelDropdownExpanded = false
                                             }
                                         )
@@ -429,10 +554,11 @@ fun SettingsScreen(
                         onValueChange = { 
                             apiKey2 = it
                             hasChanged = true
-                            settingsViewModel.resetVerificationState()
+                            onResetVerificationState()
                         },
                         label = { Text(stringResource(id = R.string.chat_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -442,18 +568,18 @@ fun SettingsScreen(
                     VerifySection(
                         verificationState = verificationState,
                         onVerify = {
-                            settingsViewModel.verifyModelAndSaveCapabilities(
-                                provider = provider,
-                                model = model,
-                                apiKey = apiKey2,
-                                customUrl = customUrl,
-                                customHeaders = customHeaders,
-                                customResponsePath = customResponsePath,
-                                customRequestTemplate = customRequestTemplate,
-                                customMessageFormat = customMessageFormat,
-                                customSystemRole = customSystemRole,
-                                customUserRole = customUserRole,
-                                customAssistantRole = customAssistantRole
+                            onVerifyModelAndSaveCapabilities(
+                                provider,
+                                model,
+                                apiKey2,
+                                customUrl,
+                                customHeaders,
+                                customResponsePath,
+                                customRequestTemplate,
+                                customMessageFormat,
+                                customSystemRole,
+                                customUserRole,
+                                customAssistantRole
                             )
                             hasChanged = false
                         }
@@ -467,25 +593,30 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Custom Endpoint Configuration",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
+                        SettingsSectionHeader(
+                            title = "Custom Endpoint Configuration",
+                            description = "Define custom API mappings and endpoints",
+                            icon = R.drawable.ic_settings
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         OutlinedTextField(
                             value = customUrl,
                             onValueChange = { 
                                 customUrl = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("API Endpoint URL") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -496,9 +627,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customHeaders = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("Custom Headers (JSON)") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -509,9 +641,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customResponsePath = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("Response Extraction JSON Path") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -522,9 +655,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customRequestTemplate = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("Request Body JSON Template") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp),
@@ -538,9 +672,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customMessageFormat = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("Single Message Format (JSON)") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -551,9 +686,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customSystemRole = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("System Role Mapping") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -564,9 +700,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customUserRole = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("User Role Mapping") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -577,9 +714,10 @@ fun SettingsScreen(
                             onValueChange = { 
                                 customAssistantRole = it
                                 hasChanged = true
-                                settingsViewModel.resetVerificationState()
+                                onResetVerificationState()
                             },
                             label = { Text("Assistant Role Mapping") },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -591,16 +729,20 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Integrations",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                    SettingsSectionHeader(
+                        title = "Integrations",
+                        description = "Manage credentials for third-party integrations",
+                        icon = R.drawable.ic_settings
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
  
                     OutlinedTextField(
                         value = apiKey1,
@@ -610,6 +752,7 @@ fun SettingsScreen(
                         },
                         label = { Text(stringResource(id = R.string.youtube_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -620,305 +763,85 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(id = R.string.stt_settings_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                    SettingsSectionHeader(
+                        title = stringResource(id = R.string.stt_settings_title),
+                        description = "Configure how the assistant listens to your speech",
+                        icon = R.drawable.ic_mic
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Model Information & Warning Card
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(id = R.string.parakeet_model_title),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(id = R.string.parakeet_model_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Download Status & Control Section
-                            val isInstalled = isModelInstalled
-                            val downloadState = modelDownloadState
-
-                            when (downloadState) {
-                                is DownloadState.Idle -> {
-                                    if (isInstalled) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = stringResource(id = R.string.content_desc_installed),
-                                                    tint = Color(0xFF4CAF50),
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = stringResource(id = R.string.status_installed),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = Color(0xFF4CAF50)
-                                                )
-                                            }
-                                            Button(
-                                                onClick = { settingsViewModel.deleteModel() },
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.error
-                                                ),
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(stringResource(id = R.string.delete_model), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    } else {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = stringResource(id = R.string.status_not_downloaded),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                            )
-                                            Button(
-                                                onClick = { settingsViewModel.startModelDownload() },
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(stringResource(id = R.string.download_model), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
-                                }
-                                is DownloadState.Downloading -> {
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val progressPercent = (downloadState.progress * 100).toInt()
-                                            val downloadedMb = (downloadState.currentBytes.toDouble() / (1024 * 1024)).toInt()
-                                            val totalMb = (downloadState.totalBytes.toDouble() / (1024 * 1024)).toInt()
-                                            Text(
-                                                text = stringResource(id = R.string.downloading_progress, progressPercent, downloadedMb, totalMb),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            OutlinedButton(
-                                                onClick = { settingsViewModel.cancelModelDownload() },
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(stringResource(id = R.string.cancel), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        androidx.compose.material3.LinearProgressIndicator(
-                                            progress = { downloadState.progress },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                }
-                                is DownloadState.Completed -> {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = stringResource(id = R.string.download_completed),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF4CAF50),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Button(
-                                            onClick = { settingsViewModel.deleteModel() },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.error
-                                            ),
-                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                            modifier = Modifier.height(32.dp)
-                                        ) {
-                                            Text(stringResource(id = R.string.delete_model), style = MaterialTheme.typography.labelMedium)
-                                        }
-                                    }
-                                }
-                                is DownloadState.Error -> {
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Text(
-                                            text = stringResource(id = R.string.download_failed_with_msg, downloadState.message),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.End
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = { settingsViewModel.deleteModel() },
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(stringResource(id = R.string.clear), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Button(
-                                                onClick = { settingsViewModel.startModelDownload() },
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text(stringResource(id = R.string.retry), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // RadioButton selections for STT options
                     val isInstalled = isModelInstalled
-                    
+                    val downloadState = modelDownloadState
+
                     // Option 1: Native STT
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                sttMode = SttMode.NATIVE
-                                hasChanged = true
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = sttMode == SttMode.NATIVE,
-                            onClick = {
-                                sttMode = SttMode.NATIVE
-                                hasChanged = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = stringResource(id = R.string.use_native_stt),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = stringResource(id = R.string.native_stt_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    SelectableOptionCard(
+                        selected = sttMode == SttMode.NATIVE,
+                        onClick = {
+                            sttMode = SttMode.NATIVE
+                            hasChanged = true
+                        },
+                        title = stringResource(id = R.string.use_native_stt),
+                        description = stringResource(id = R.string.native_stt_desc)
+                    )
 
                     // Option 2: Parakeet STT (Only enabled if downloaded)
-                    val isParakeetEnabled = isInstalled
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = isParakeetEnabled) {
-                                sttMode = SttMode.PARAKEET
-                                hasChanged = true
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = sttMode == SttMode.PARAKEET,
-                            enabled = isParakeetEnabled,
-                            onClick = {
-                                sttMode = SttMode.PARAKEET
-                                hasChanged = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = stringResource(id = R.string.use_parakeet_stt),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isParakeetEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                text = if (isParakeetEnabled) {
-                                    stringResource(id = R.string.parakeet_stt_desc_enabled)
-                                } else {
-                                    stringResource(id = R.string.parakeet_stt_desc_disabled)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isParakeetEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
+                    SelectableOptionCard(
+                        selected = sttMode == SttMode.PARAKEET,
+                        enabled = isInstalled,
+                        onClick = {
+                            sttMode = SttMode.PARAKEET
+                            hasChanged = true
+                        },
+                        title = stringResource(id = R.string.use_parakeet_stt),
+                        description = if (isInstalled) {
+                            stringResource(id = R.string.parakeet_stt_desc_enabled)
+                        } else {
+                            stringResource(id = R.string.parakeet_stt_desc_disabled)
                         }
-                    }
+                    )
 
                     // Option 3: Hybrid STT (Only enabled if downloaded)
-                    val isHybridEnabled = isInstalled
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = isHybridEnabled) {
-                                sttMode = SttMode.HYBRID
-                                hasChanged = true
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = sttMode == SttMode.HYBRID,
-                            enabled = isHybridEnabled,
-                            onClick = {
-                                sttMode = SttMode.HYBRID
-                                hasChanged = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = stringResource(id = R.string.use_hybrid_stt),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isHybridEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                text = if (isHybridEnabled) {
-                                    stringResource(id = R.string.hybrid_stt_desc_enabled)
-                                } else {
-                                    stringResource(id = R.string.hybrid_stt_desc_disabled)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isHybridEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
+                    SelectableOptionCard(
+                        selected = sttMode == SttMode.HYBRID,
+                        enabled = isInstalled,
+                        onClick = {
+                            sttMode = SttMode.HYBRID
+                            hasChanged = true
+                        },
+                        title = stringResource(id = R.string.use_hybrid_stt),
+                        description = if (isInstalled) {
+                            stringResource(id = R.string.hybrid_stt_desc_enabled)
+                        } else {
+                            stringResource(id = R.string.hybrid_stt_desc_disabled)
                         }
-                    }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Model Information & Warning Card
+                    ModelDownloadCard(
+                        title = stringResource(id = R.string.parakeet_model_title),
+                        description = stringResource(id = R.string.parakeet_model_desc),
+                        isInstalled = isInstalled,
+                        downloadState = downloadState,
+                        onDownload = onStartModelDownload,
+                        onDelete = onDeleteModel,
+                        onCancel = onCancelModelDownload,
+                        onClear = onDeleteModel,
+                        onRetry = onStartModelDownload,
+                        installedText = stringResource(id = R.string.status_installed),
+                        notDownloadedText = stringResource(id = R.string.status_not_downloaded),
+                        deleteButtonText = stringResource(id = R.string.delete_model),
+                        downloadButtonText = stringResource(id = R.string.download_model)
+                    )
 
                     // Automatically revert selection to NATIVE if model is not installed but current selected is parakeet/hybrid
                     LaunchedEffect(isInstalled) {
@@ -935,266 +858,96 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Text-to-Speech Settings",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
+                    SettingsSectionHeader(
+                        title = "Text-to-Speech Settings",
+                        description = "Configure how the assistant speaks back to you",
+                        icon = R.drawable.ic_translate
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "Using an offline TTS model will require device storage for voice processing.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Option 1: Native TTS
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                ttsMode = com.app.assistant.tts.TtsMode.NATIVE
-                                hasChanged = true
+                    SelectableOptionCard(
+                        selected = ttsMode == com.app.assistant.tts.TtsMode.NATIVE,
+                        onClick = {
+                            ttsMode = com.app.assistant.tts.TtsMode.NATIVE
+                            hasChanged = true
+                        },
+                        title = "Use Native TTS (Fast)",
+                        description = "Uses the built-in system text-to-speech engine.",
+                        trailingContent = {
+                            IconButton(
+                                onClick = {
+                                    try {
+                                        val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Could not open TTS settings",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_settings),
+                                    contentDescription = "Open System TTS Settings",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = ttsMode == com.app.assistant.tts.TtsMode.NATIVE,
-                            onClick = {
-                                ttsMode = com.app.assistant.tts.TtsMode.NATIVE
-                                hasChanged = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Use Native TTS (Fast)",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Uses the built-in system text-to-speech engine.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
-                    }
+                    )
 
                     // Option 2: Offline TTS
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
-                                hasChanged = true
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = ttsMode == com.app.assistant.tts.TtsMode.OFFLINE,
-                            onClick = {
-                                ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
-                                hasChanged = true
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Use Offline TTS Model",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Uses Supertonic/ONNX engine on-device without internet.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    SelectableOptionCard(
+                        selected = ttsMode == com.app.assistant.tts.TtsMode.OFFLINE,
+                        enabled = isTtsInstalled,
+                        onClick = {
+                            ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
+                            hasChanged = true
+                        },
+                        title = "Use Offline TTS Model",
+                        description = if (isTtsInstalled) {
+                            "Uses Supertonic/ONNX engine on-device without internet."
+                        } else {
+                            "Uses Supertonic/ONNX engine on-device without internet. Requires downloading the model first."
                         }
-                    }
+                    )
 
-                    if (ttsMode == com.app.assistant.tts.TtsMode.OFFLINE) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        val ttsDownloadState by settingsViewModel.ttsModelDownloadState.collectAsState()
-
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(
-                                    text = "Supertonic English Model (int8)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Supertonic v3 English int8 model.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                when (val state = ttsDownloadState) {
-                                    is DownloadState.Idle -> {
-                                        if (isTtsInstalled) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = "Installed",
-                                                        tint = Color(0xFF4CAF50),
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(
-                                                        text = "Installed (~66 MB)",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = Color(0xFF4CAF50)
-                                                    )
-                                                }
-                                                Button(
-                                                    onClick = { settingsViewModel.deleteTtsModel() },
-                                                    colors = ButtonDefaults.buttonColors(
-                                                        containerColor = MaterialTheme.colorScheme.error
-                                                    ),
-                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Delete", style = MaterialTheme.typography.labelMedium)
-                                                }
-                                            }
-                                        } else {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = "Status: Not Downloaded",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                                )
-                                                Button(
-                                                    onClick = { settingsViewModel.startTtsModelDownload() },
-                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Download", style = MaterialTheme.typography.labelMedium)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    is DownloadState.Downloading -> {
-                                        Column(modifier = Modifier.fillMaxWidth()) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                val progressPercent = (state.progress * 100).toInt()
-                                                val downloadedMb = (state.currentBytes.toDouble() / (1024 * 1024)).toInt()
-                                                val totalMb = (state.totalBytes.toDouble() / (1024 * 1024)).toInt()
-                                                val progressText = if (totalMb > 0) {
-                                                    "Downloading… $progressPercent% ($downloadedMb MB / $totalMb MB)"
-                                                } else {
-                                                    "Downloading…"
-                                                }
-                                                Text(
-                                                    text = progressText,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                OutlinedButton(
-                                                    onClick = { settingsViewModel.cancelTtsModelDownload() },
-                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Cancel", style = MaterialTheme.typography.labelMedium)
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            androidx.compose.material3.LinearProgressIndicator(
-                                                progress = { state.progress },
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-                                    }
-                                    is DownloadState.Completed -> {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Download Completed!",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color(0xFF4CAF50),
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Button(
-                                                onClick = { settingsViewModel.deleteTtsModel() },
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.error
-                                                ),
-                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(32.dp)
-                                            ) {
-                                                Text("Delete", style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
-                                    is DownloadState.Error -> {
-                                        Column(modifier = Modifier.fillMaxWidth()) {
-                                            Text(
-                                                text = "Download Failed: ${state.message}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.error,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.End
-                                            ) {
-                                                OutlinedButton(
-                                                    onClick = { settingsViewModel.deleteTtsModel() },
-                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Clear", style = MaterialTheme.typography.labelMedium)
-                                                }
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Button(
-                                                    onClick = { settingsViewModel.startTtsModelDownload() },
-                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                                                    modifier = Modifier.height(32.dp)
-                                                ) {
-                                                    Text("Retry", style = MaterialTheme.typography.labelMedium)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    ModelDownloadCard(
+                        title = "Supertonic English Model (int8)",
+                        description = "Supertonic v3 English int8 model.",
+                        isInstalled = isTtsInstalled,
+                        downloadState = ttsDownloadState,
+                        onDownload = onStartTtsModelDownload,
+                        onDelete = onDeleteTtsModel,
+                        onCancel = onCancelTtsModelDownload,
+                        onClear = onDeleteTtsModel,
+                        onRetry = onStartTtsModelDownload,
+                        installedText = "Installed (~66 MB)",
+                        notDownloadedText = "Status: Not Downloaded",
+                        deleteButtonText = "Delete",
+                        downloadButtonText = "Download"
+                    )
                 }
             }
         }
@@ -1215,16 +968,19 @@ fun VerifySection(
             is VerificationState.Idle -> {
                 Button(
                     onClick = onVerify,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Verify & Detect Capabilities")
+                    Text("Verify & Detect Capabilities", fontWeight = FontWeight.Bold)
                 }
             }
             is VerificationState.Verifying -> {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
                     ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -1236,13 +992,14 @@ fun VerifySection(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.5.dp
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = "Verifying connection and capabilities...",
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -1252,6 +1009,8 @@ fun VerifySection(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
                     ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.4f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -1279,20 +1038,26 @@ fun VerifySection(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         
-                        CapabilityRow("Text Completion Support", true)
-                        CapabilityRow("Vision / Image Support", verificationState.capabilities.hasImageInput)
-                        CapabilityRow("Audio Support", verificationState.capabilities.hasAudioInput)
-                        CapabilityRow("Video Support", verificationState.capabilities.hasVideoInput)
-                        CapabilityRow("Document Support (PDF/TXT)", verificationState.capabilities.hasDocumentInput)
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            CapabilityRow("Text Completion Support", true)
+                            CapabilityRow("Vision / Image Support", verificationState.capabilities.hasImageInput)
+                            CapabilityRow("Audio Support", verificationState.capabilities.hasAudioInput)
+                            CapabilityRow("Video Support", verificationState.capabilities.hasVideoInput)
+                            CapabilityRow("Document Support (PDF/TXT)", verificationState.capabilities.hasDocumentInput)
+                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         OutlinedButton(
                             onClick = onVerify,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Re-Verify Settings")
+                            Text("Re-Verify Settings", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1300,8 +1065,10 @@ fun VerifySection(
             is VerificationState.Error -> {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
                     ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -1328,13 +1095,14 @@ fun VerifySection(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = onVerify,
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Retry Verification")
+                            Text("Retry Verification", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1345,23 +1113,481 @@ fun VerifySection(
 
 @Composable
 fun CapabilityRow(label: String, supported: Boolean) {
+    val isDark = isSystemInDarkTheme()
+    val tintColor = if (supported) {
+        if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    }
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = if (supported) Icons.Default.Check else Icons.Default.Close,
             contentDescription = if (supported) "Supported" else "Unsupported",
-            tint = if (supported) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            tint = tintColor,
             modifier = Modifier.size(16.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (supported) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (supported) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+    }
+}
+
+@Composable
+fun SettingsSectionHeader(
+    title: String,
+    description: String? = null,
+    icon: Int? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (icon != null) {
+                Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (description != null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                modifier = Modifier.padding(start = if (icon != null) 32.dp else 0.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun StatusBadge(
+    text: String,
+    isInstalled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val containerColor = if (isInstalled) {
+        if (isDark) Color(0xFF1B5E20).copy(alpha = 0.25f) else Color(0xFFE8F5E9)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    }
+    val contentColor = if (isInstalled) {
+        if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    }
+    val borderColor = if (isInstalled) {
+        if (isDark) Color(0xFF81C784).copy(alpha = 0.3f) else Color(0xFFC8E6C9)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, borderColor),
+        color = containerColor,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isInstalled) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Composable
+fun SelectableOptionCard(
+    selected: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    title: String,
+    description: String,
+    trailingContent: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val alpha = if (enabled) 1.0f else 0.5f
+    
+    val borderStroke = if (selected && enabled) {
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    }
+    
+    val containerColor = if (selected && enabled) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.15f else 0.08f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        border = borderStroke,
+        color = containerColor,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clickable(enabled = enabled) { onClick() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                enabled = enabled,
+                onClick = if (enabled) onClick else null
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+                )
+                if (description.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha * 0.8f)
+                    )
+                }
+            }
+            if (trailingContent != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                trailingContent()
+            }
+        }
+    }
+}
+
+@Composable
+fun ModelDownloadCard(
+    title: String,
+    description: String,
+    isInstalled: Boolean,
+    downloadState: DownloadState,
+    onDownload: () -> Unit,
+    onDelete: () -> Unit,
+    onCancel: () -> Unit,
+    onClear: () -> Unit,
+    onRetry: () -> Unit,
+    installedText: String,
+    notDownloadedText: String,
+    deleteButtonText: String,
+    downloadButtonText: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            when (downloadState) {
+                is DownloadState.Idle -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        StatusBadge(
+                            text = if (isInstalled) installedText else notDownloadedText,
+                            isInstalled = isInstalled
+                        )
+                        if (isInstalled) {
+                            OutlinedButton(
+                                onClick = onDelete,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(deleteButtonText, style = MaterialTheme.typography.labelMedium)
+                            }
+                        } else {
+                            Button(
+                                onClick = onDownload,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text(downloadButtonText, style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+                is DownloadState.Downloading -> {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val progressPercent = (downloadState.progress * 100).toInt()
+                            val downloadedMb = (downloadState.currentBytes.toDouble() / (1024 * 1024)).toInt()
+                            val totalMb = (downloadState.totalBytes.toDouble() / (1024 * 1024)).toInt()
+                            val progressText = if (totalMb > 0) {
+                                "Downloading… $progressPercent% ($downloadedMb MB / $totalMb MB)"
+                            } else {
+                                "Downloading…"
+                            }
+                            Text(
+                                text = progressText,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            IconButton(
+                                onClick = onCancel,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cancel",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { downloadState.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                        )
+                    }
+                }
+                is DownloadState.Completed -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        StatusBadge(
+                            text = "Download Completed!",
+                            isInstalled = true
+                        )
+                        OutlinedButton(
+                            onClick = onDelete,
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(deleteButtonText, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+                is DownloadState.Error -> {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Download Failed: ${downloadState.message}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = onClear,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Clear", style = MaterialTheme.typography.labelMedium)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = onRetry,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Text("Retry", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenContentPreview() {
+    AssistantTheme {
+        SettingsScreenContent(
+            initialYoutubeKey = "AIzaSy...",
+            initialChatKey = "gsk_...",
+            initialProvider = LlmProvider.GROQ,
+            initialModel = LlmProvider.GROQ.defaultModel,
+            initialCustomUrl = "",
+            initialCustomHeaders = "",
+            initialCustomResponsePath = "",
+            initialCustomRequestTemplate = "",
+            initialCustomMessageFormat = "",
+            initialCustomSystemRole = "system",
+            initialCustomUserRole = "user",
+            initialCustomAssistantRole = "assistant",
+            initialSttMode = SttMode.NATIVE,
+            initialTtsMode = com.app.assistant.tts.TtsMode.NATIVE,
+            isTtsInstalled = false,
+            verificationState = VerificationState.Idle,
+            fetchedModelsMap = emptyMap(),
+            isFetchingModels = false,
+            modelFetchError = null,
+            isModelInstalled = false,
+            modelDownloadState = DownloadState.Idle,
+            ttsDownloadState = DownloadState.Idle,
+            onBack = {},
+            onSave = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            onResetVerificationState = {},
+            onFetchModelsForProvider = { _, _, _, _ -> },
+            onVerifyModelAndSaveCapabilities = { _, _, _, _, _, _, _, _, _, _, _ -> },
+            onStartModelDownload = {},
+            onDeleteModel = {},
+            onCancelModelDownload = {},
+            onStartTtsModelDownload = {},
+            onDeleteTtsModel = {},
+            onCancelTtsModelDownload = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenContentCustomPreview() {
+    AssistantTheme {
+        SettingsScreenContent(
+            initialYoutubeKey = "",
+            initialChatKey = "",
+            initialProvider = LlmProvider.CUSTOM,
+            initialModel = "my-custom-model",
+            initialCustomUrl = "https://my-custom-endpoint.com/v1",
+            initialCustomHeaders = "{}",
+            initialCustomResponsePath = "$.choices[0].text",
+            initialCustomRequestTemplate = "{}",
+            initialCustomMessageFormat = "{}",
+            initialCustomSystemRole = "system",
+            initialCustomUserRole = "user",
+            initialCustomAssistantRole = "assistant",
+            initialSttMode = SttMode.PARAKEET,
+            initialTtsMode = com.app.assistant.tts.TtsMode.OFFLINE,
+            isTtsInstalled = true,
+            verificationState = VerificationState.Success(
+                capabilities = com.app.assistant.llm.ModelCapabilities(
+                    hasImageInput = true,
+                    hasAudioInput = false,
+                    hasVideoInput = false,
+                    hasDocumentInput = true
+                )
+            ),
+            fetchedModelsMap = mapOf(LlmProvider.CUSTOM to listOf("my-custom-model", "another-one")),
+            isFetchingModels = false,
+            modelFetchError = null,
+            isModelInstalled = true,
+            modelDownloadState = DownloadState.Idle,
+            ttsDownloadState = DownloadState.Idle,
+            onBack = {},
+            onSave = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
+            onResetVerificationState = {},
+            onFetchModelsForProvider = { _, _, _, _ -> },
+            onVerifyModelAndSaveCapabilities = { _, _, _, _, _, _, _, _, _, _, _ -> },
+            onStartModelDownload = {},
+            onDeleteModel = {},
+            onCancelModelDownload = {},
+            onStartTtsModelDownload = {},
+            onDeleteTtsModel = {},
+            onCancelTtsModelDownload = {}
         )
     }
 }
