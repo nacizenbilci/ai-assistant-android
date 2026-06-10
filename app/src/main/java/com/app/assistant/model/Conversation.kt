@@ -1,9 +1,10 @@
 package com.app.assistant.model
 import com.app.assistant.util.Category
+import com.app.assistant.util.IdGenerator
 import java.net.URI
 
 data class Conversation(
-    var id: Long = System.currentTimeMillis() * 1_000_000 + (System.nanoTime() % 1_000_000),
+    var id: Long = IdGenerator.nextId(),
     var text: String,
     val isMe: Boolean,
     val isLoading: Boolean = false,
