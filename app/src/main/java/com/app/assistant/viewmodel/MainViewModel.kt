@@ -13,7 +13,6 @@ import com.app.assistant.model.Conversation
 import com.app.assistant.model.Group
 import com.app.assistant.model.Attachment
 import com.app.assistant.repository.SettingsRepository
-import com.app.assistant.translation.TranslatorManager
 import com.app.assistant.usecase.CallContactUseCase
 import com.app.assistant.usecase.GetWeatherUseCase
 import com.app.assistant.usecase.NavigateUseCase
@@ -26,7 +25,6 @@ import com.app.assistant.util.Constants.MAIN_CONTEXT
 import com.app.assistant.util.LockState
 import com.app.assistant.classifier.TextClassifierHelper
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
-import com.google.mlkit.nl.translate.TranslateLanguage
 import com.app.assistant.R
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -255,8 +253,6 @@ class MainViewModel(
     }
     var currentGroupId: Long = -1L
         private set
-    var languages: List<Pair<String, String>> = emptyList()
-
     private val _showBottomSheet = MutableStateFlow(false)
     val showBottomSheet: StateFlow<Boolean> = _showBottomSheet.asStateFlow()
 
@@ -267,7 +263,6 @@ class MainViewModel(
     val isLanguageLoading: StateFlow<Boolean> = _isLanguageLoading
     private val _showToastEvent = MutableSharedFlow<String>()
     val showToastEvent = _showToastEvent.asSharedFlow()
-    internal val translatorManager = TranslatorManager()
 
     // For custom ui
     private val _isCustomUI = MutableStateFlow(false)
@@ -277,16 +272,6 @@ class MainViewModel(
     private val _isCustomUIHalfPage = MutableStateFlow(false)
     val isCustomUIHalfPage: StateFlow<Boolean> = _isCustomUIHalfPage
 
-    // MutableStateFlow for isTranslationEnabled
-    private val _isTranslationEnabled = MutableStateFlow(
-        settingsRepository.getIsTranslationEnabled()
-    )
-    val isTranslationEnabled: StateFlow<Boolean> = _isTranslationEnabled
-
-    // MutableStateFlow for activeLanguageCode
-    private val _activeLanguageCode = MutableStateFlow(
-        settingsRepository.getActiveLanguageCode()
-    )
     private var _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking
 
@@ -327,7 +312,29 @@ class MainViewModel(
         }
 
         override fun onError(error: String) {
-            Log.d("Classifier error", "Unable to classify$error")
+            Log.e("Classifier error", "Unable to classify: $error")
+        }
+
+        override fun onError(
+            error: String,
+            itemId: Long,
+            loadingItemId: Long,
+            speak: Boolean
+        ) {
+            Log.e("Classifier error", "Unable to classify: $error")
+            viewModelScope.launch(Dispatchers.Main) {
+                val index = chatList.indexOfFirst { it.id == loadingItemId }
+                if (index != -1) {
+                    val item = chatList[index].copy(
+                        text = "Classification failed to load.",
+                        isMe = false,
+                        isLoading = false,
+                        isStreaming = false,
+                        category = Category.OTHER.name
+                    )
+                    chatList.set(index, item)
+                }
+            }
         }
     }
 
@@ -337,18 +344,10 @@ class MainViewModel(
             _isCustomUIHalfPage.value = true
             _isListening.value = true
         }
-        viewModelScope.launch(Dispatchers.Default) {
-            languages = cachedLanguages ?: synchronized(this) {
-                cachedLanguages ?: getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java).also {
-                    cachedLanguages = it
-                }
-            }
-        }
         if (speak) {
             startSpeechRecognition()
         }
         initializeTextClassifier()
-        initializeTranslator()
         loadGroup()
     }
 
@@ -376,36 +375,12 @@ class MainViewModel(
         }
     }
 
-    private fun initializeTranslator() {
-        if (getIsTranslationEnabled() && getActiveLanguageCode() != "") {
-            setupTranslator(getActiveLanguageCode())
-        }
-    }
-
     private fun initializeTextClassifier() {
         classifierHelper = TextClassifierHelper(
             context = getApplication<Application>().applicationContext,
             listener = listener,
         )
     }
-
-    // Function to update isTranslationEnabled and persist the value
-    fun updateTranslationEnabled(enabled: Boolean) {
-        _isTranslationEnabled.value = enabled
-        settingsRepository.setTranslationEnabled(enabled)
-    }
-
-    // Function to get the current value of isTranslationEnabled
-    fun getIsTranslationEnabled(): Boolean = _isTranslationEnabled.value
-
-    // Function to update activeLanguageCode and persist the value
-    fun updateActiveLanguageCode(languageCode: String) {
-        _activeLanguageCode.value = languageCode
-        settingsRepository.setActiveLanguageCode(languageCode)
-    }
-
-    // Function to get the current value of ActiveLanguageCode
-    fun getActiveLanguageCode(): String = _activeLanguageCode.value
 
     fun setSpeaking(speaking: Boolean) {
         _isSpeaking.value = speaking
@@ -422,28 +397,7 @@ class MainViewModel(
         _isSpeaking.value = false
     }
 
-    private fun getPublicStaticFinalStringsWithNames(clazz: Class<*>): List<Pair<String, String>> {
-        val publicStaticFinalStringsWithNames = mutableListOf<Pair<String, String>>()
-        val fields = clazz.declaredFields
-        for (field in fields) {
-            val modifiers = field.modifiers
-            if (Modifier.isPublic(modifiers) && Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
-                if (field.type == String::class.java) {
-                    try {
-                        val name = field.name
-                        val value = field.get(null) as String
-                        publicStaticFinalStringsWithNames.add(Pair(name, value))
-                    } catch (e: IllegalAccessException) {
-                        e.printStackTrace()
-                    }
-                }
-            }
-        }
-        return publicStaticFinalStringsWithNames
-    }
-
     fun shutdownResources() {
-        translatorManager.closeTranslator()
         classifierHelper.shutDown()
     }
 
@@ -808,31 +762,6 @@ class MainViewModel(
         _question.value = recognizedText
     }
 
-    fun onItemSelected(selectedLanguageCode: String) {
-        _isLanguageLoading.value = true
-        setupTranslator(selectedLanguageCode, true)
-        triggerToast(getApplication<Application>().getString(R.string.downloading_model_toast))
-    }
-
-    private fun setupTranslator(
-        selectedLanguageCode: String,
-        showCompletionToast: Boolean = false,
-    ) {
-        translatorManager.setupTranslators(selectedLanguageCode) { success ->
-            if (success) {
-                updateActiveLanguageCode(selectedLanguageCode)
-                _isLanguageLoading.value = false
-                setShowBottomSheet(false)
-                if (showCompletionToast) {
-                    triggerToast(getApplication<Application>().getString(R.string.download_completed_toast))
-                }
-            } else {
-                _isLanguageLoading.value = false
-                triggerToast(getApplication<Application>().getString(R.string.download_failed_toast))
-            }
-        }
-    }
-
     private fun triggerToast(message: String) {
         viewModelScope.launch {
             _showToastEvent.emit(message)
@@ -848,11 +777,5 @@ class MainViewModel(
     override fun onCleared() {
         super.onCleared()
         shutdownResources()
-    }
-
-
-
-    companion object {
-        private var cachedLanguages: List<Pair<String, String>>? = null
     }
 }

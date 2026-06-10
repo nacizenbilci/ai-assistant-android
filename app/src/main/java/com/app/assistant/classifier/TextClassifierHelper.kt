@@ -17,7 +17,9 @@ class TextClassifierHelper(
     private val executor = ScheduledThreadPoolExecutor(1)
 
     init {
-        initClassifier()
+        executor.execute {
+            initClassifier()
+        }
     }
 
     fun initClassifier() {
@@ -34,16 +36,14 @@ class TextClassifierHelper(
                     .setBaseOptions(baseOptions)
             val options = optionsBuilder.build()
             textClassifier = TextClassifier.createFromOptions(context, options)
-        } catch (e: IllegalStateException) {
+        } catch (e: Exception) {
             listener.onError(
-                "Text classifier failed to initialize. See error logs for " +
-                    "details",
+                "Text classifier failed to initialize. See error logs for details"
             )
             Log.e(
                 TAG,
-                "Text classifier failed to load the task with error: " +
-                    e
-                        .message,
+                "Text classifier failed to load the task with error: " + e.message,
+                e
             )
         }
     }
@@ -56,17 +56,27 @@ class TextClassifierHelper(
         speak: Boolean,
     ) {
         executor.execute {
+            if (!::textClassifier.isInitialized) {
+                listener.onError("Text classifier not initialized", itemId, loadingItemId, speak)
+                return@execute
+            }
+
             // inferenceTime is the amount of time, in milliseconds, that it takes to
             // classify the input text.
             var inferenceTime = SystemClock.uptimeMillis()
 
             // Remove all punctuation before classifying
             val cleanedText = text.replace(Regex("[.,?!]"), "")
-            val results = textClassifier.classify(cleanedText)
+            try {
+                val results = textClassifier.classify(cleanedText)
 
-            inferenceTime = SystemClock.uptimeMillis() - inferenceTime
+                inferenceTime = SystemClock.uptimeMillis() - inferenceTime
 
-            listener.onResult(results, inferenceTime, text, itemId, loadingItemId, speak)
+                listener.onResult(results, inferenceTime, text, itemId, loadingItemId, speak)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error running classification: ${e.message}", e)
+                listener.onError("Classification failed: ${e.message}", itemId, loadingItemId, speak)
+            }
         }
     }
 
@@ -80,6 +90,15 @@ class TextClassifierHelper(
 
     interface TextResultsListener {
         fun onError(error: String)
+
+        fun onError(
+            error: String,
+            itemId: Long,
+            loadingItemId: Long,
+            speak: Boolean
+        ) {
+            onError(error)
+        }
 
         fun onResult(
             results: TextClassifierResult,

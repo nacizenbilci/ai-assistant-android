@@ -85,7 +85,6 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 @Composable
 fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
     AssistantTheme {
-        val showBottomSheet by viewModel.showBottomSheet.collectAsState()
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
         val groupList by viewModel.groupList.collectAsState(initial = emptyList())
@@ -93,23 +92,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         val isSpeaking by viewModel.isSpeaking.collectAsState()
         val isListening by viewModel.isListening.collectAsState()
         val question by viewModel.question.collectAsState()
-        val isTranslationEnabled by viewModel.isTranslationEnabled.collectAsState()
-        val isLanguageLoading by viewModel.isLanguageLoading.collectAsState()
-        val languages = viewModel.languages
-        var youtubeKey by remember { mutableStateOf(settingsViewModel.loadYoutubeKey()) }
-        var chatKey by remember { mutableStateOf(settingsViewModel.loadChatKey()) }
-        var llmProvider by remember { mutableStateOf(settingsViewModel.loadLlmProvider()) }
-        var llmModel by remember { mutableStateOf(settingsViewModel.loadLlmModel()) }
-        var llmCustomUrl by remember { mutableStateOf(settingsViewModel.loadLlmCustomUrl()) }
-        var llmCustomHeaders by remember { mutableStateOf(settingsViewModel.loadLlmCustomHeaders()) }
-        var llmCustomResponsePath by remember { mutableStateOf(settingsViewModel.loadLlmCustomResponsePath()) }
-        var llmCustomRequestTemplate by remember { mutableStateOf(settingsViewModel.loadLlmCustomRequestTemplate()) }
-        var llmCustomMessageFormat by remember { mutableStateOf(settingsViewModel.loadLlmCustomMessageFormat()) }
-        var llmCustomSystemRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomSystemRole()) }
-        var llmCustomUserRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomUserRole()) }
-        var llmCustomAssistantRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomAssistantRole()) }
-        var sttMode by remember { mutableStateOf(settingsViewModel.loadSttMode()) }
-        var ttsMode by remember { mutableStateOf(settingsViewModel.loadTtsMode()) }
+        val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
 
 
         var currentScreen by remember { mutableStateOf("chat") }
@@ -149,41 +132,12 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         if (currentScreen == "settings") {
             SettingsScreen(
                 settingsViewModel = settingsViewModel,
-                initialYoutubeKey = youtubeKey,
-                initialChatKey = chatKey,
-                initialProvider = llmProvider,
-                initialModel = llmModel,
-                initialCustomUrl = llmCustomUrl,
-                initialCustomHeaders = llmCustomHeaders,
-                initialCustomResponsePath = llmCustomResponsePath,
-                initialCustomRequestTemplate = llmCustomRequestTemplate,
-                initialCustomMessageFormat = llmCustomMessageFormat,
-                initialCustomSystemRole = llmCustomSystemRole,
-                initialCustomUserRole = llmCustomUserRole,
-                initialCustomAssistantRole = llmCustomAssistantRole,
-                initialSttMode = sttMode,
-                initialTtsMode = ttsMode,
                 onBack = { currentScreen = "chat" },
-                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal, ttsModeVal ->
-                    settingsViewModel.saveSettings(
-                        ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal,
-                        ttsModeVal
-                    )
-                    youtubeKey = ytKey
-                    chatKey = chKey
-                    llmProvider = providerVal
-                    llmModel = modelVal
-                    llmCustomUrl = cUrl
-                    llmCustomHeaders = cHeaders
-                    llmCustomResponsePath = cPath
-                    llmCustomRequestTemplate = cTemplate
-                    llmCustomMessageFormat = cMsgFormat
-                    llmCustomSystemRole = cSystemRole
-                    llmCustomUserRole = cUserRole
-                    llmCustomAssistantRole = cAssistantRole
-                    sttMode = sttModeVal
-                    ttsMode = ttsModeVal
-                    currentScreen = "chat"
+                onTranslationEnabledChange = { enabled ->
+                    settingsViewModel.updateTranslationEnabled(enabled)
+                },
+                onLanguageSelected = { langCode ->
+                    settingsViewModel.updateActiveLanguageCode(langCode)
                 }
             )
         } else {
@@ -195,10 +149,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 isSpeaking = isSpeaking,
                 isListening = isListening,
                 question = question,
-                showBottomSheet = showBottomSheet,
                 isTranslationEnabled = isTranslationEnabled,
-                isLanguageLoading = isLanguageLoading,
-                languages = languages,
                 onGroupClick = { viewModel.loadMessagesFromGroup(it) },
                 onSettingsClick = { currentScreen = "settings" },
                 onNewChatClick = { viewModel.newChat() },
@@ -209,7 +160,6 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 },
                 onDeleteClick = { viewModel.deleteMessage(it) },
                 onClearChatClick = { viewModel.clearBoxes() },
-                onTranslateClick = { viewModel.setShowBottomSheet(true) },
                 onMenuClick = { /* Handled inside drawer state toggling */ },
                 onDragEnd = { viewModel.expandToFullScreen() },
                 onQuestionChange = { viewModel.setQuestion(it) },
@@ -220,9 +170,6 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 onProcessQuestion = { fm, kc, isVoice ->
                     viewModel.processQuestion(fm, kc, isVoice)
                 },
-                onTranslationEnabledChange = { viewModel.updateTranslationEnabled(it) },
-                onLanguageSelected = { viewModel.onItemSelected(it) },
-                onDismissBottomSheet = { viewModel.setShowBottomSheet(false) },
                 onBackPressed = { /* Handled in parent context back handler */ },
                 selectedAttachments = selectedAttachments,
                 onRemoveAttachment = { viewModel.removeSelectedAttachment(it) },
@@ -261,26 +208,19 @@ fun ChatScreenContent(
     isSpeaking: Boolean,
     isListening: Boolean,
     question: String,
-    showBottomSheet: Boolean,
     isTranslationEnabled: Boolean,
-    isLanguageLoading: Boolean,
-    languages: List<Pair<String, String>>,
     onGroupClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit,
     onCopyClick: (Int) -> Unit,
     onDeleteClick: (Int) -> Unit,
     onClearChatClick: () -> Unit,
-    onTranslateClick: () -> Unit,
     onMenuClick: () -> Unit,
     onDragEnd: () -> Unit,
     onQuestionChange: (String) -> Unit,
     onStopSpeaking: () -> Unit,
     onStartListening: () -> Unit,
     onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
-    onTranslationEnabledChange: (Boolean) -> Unit,
-    onLanguageSelected: (String) -> Unit,
-    onDismissBottomSheet: () -> Unit,
     onBackPressed: () -> Unit,
     selectedAttachments: List<com.app.assistant.model.Attachment> = emptyList(),
     onRemoveAttachment: (com.app.assistant.model.Attachment) -> Unit = {},
@@ -296,7 +236,6 @@ fun ChatScreenContent(
     var clearShowDialog by remember { mutableStateOf(false) }
     var deleteShowDialog by remember { mutableStateOf(false) }
 
-    val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val backPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
@@ -358,7 +297,6 @@ fun ChatScreenContent(
                                 }
                             },
                             onDeleteClick = { deleteShowDialog = true },
-                            onTranslateClick = onTranslateClick,
                             chatListNotEmpty = chatList.isNotEmpty(),
                             onClearChatClick = { clearShowDialog = true },
                             onMenuClick = {
@@ -445,17 +383,7 @@ fun ChatScreenContent(
         }
     }
 
-    if (showBottomSheet) {
-        LanguageSelectionBottomSheet(
-            sheetState = sheetState,
-            languages = languages,
-            isTranslationEnabled = isTranslationEnabled,
-            isLanguageLoading = isLanguageLoading,
-            onTranslationEnabledChange = onTranslationEnabledChange,
-            onLanguageSelected = onLanguageSelected,
-            onDismissRequest = onDismissBottomSheet
-        )
-    }
+    // Translation Bottom Sheet removed (moved to Settings)
 
     if (clearShowDialog) {
         ClearChatDialog(
@@ -514,26 +442,19 @@ fun ChatScreenContentPreview() {
             isSpeaking = false,
             isListening = false,
             question = "",
-            showBottomSheet = false,
             isTranslationEnabled = false,
-            isLanguageLoading = false,
-            languages = listOf("English" to "en", "French" to "fr"),
             onGroupClick = {},
             onSettingsClick = {},
             onNewChatClick = {},
             onCopyClick = {},
             onDeleteClick = {},
             onClearChatClick = {},
-            onTranslateClick = {},
             onMenuClick = {},
             onDragEnd = {},
             onQuestionChange = {},
             onStopSpeaking = {},
             onStartListening = {},
             onProcessQuestion = { _, _, _ -> },
-            onTranslationEnabledChange = {},
-            onLanguageSelected = {},
-            onDismissBottomSheet = {},
             onBackPressed = {}
         )
     }

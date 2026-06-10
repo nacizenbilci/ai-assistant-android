@@ -70,32 +70,35 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
-    initialYoutubeKey: String,
-    initialChatKey: String,
-    initialProvider: LlmProvider,
-    initialModel: String,
-    initialCustomUrl: String,
-    initialCustomHeaders: String,
-    initialCustomResponsePath: String,
-    initialCustomRequestTemplate: String,
-    initialCustomMessageFormat: String,
-    initialCustomSystemRole: String,
-    initialCustomUserRole: String,
-    initialCustomAssistantRole: String,
-    initialSttMode: SttMode,
-    initialTtsMode: com.app.assistant.tts.TtsMode,
     onBack: () -> Unit,
-    onSave: (
-        String, String, LlmProvider, String, String, String, String, String, String, String, String, String,
-        com.app.assistant.speech.SttMode,
-        com.app.assistant.tts.TtsMode
-    ) -> Unit,
+    onTranslationEnabledChange: (Boolean) -> Unit,
+    onLanguageSelected: (String) -> Unit,
 ) {
+    val initialYoutubeKey = remember { settingsViewModel.loadYoutubeKey() }
+    val initialChatKey = remember { settingsViewModel.loadChatKey() }
+    val initialProvider = remember { settingsViewModel.loadLlmProvider() }
+    val initialModel = remember { settingsViewModel.loadLlmModel() }
+    val initialCustomUrl = remember { settingsViewModel.loadLlmCustomUrl() }
+    val initialCustomHeaders = remember { settingsViewModel.loadLlmCustomHeaders() }
+    val initialCustomResponsePath = remember { settingsViewModel.loadLlmCustomResponsePath() }
+    val initialCustomRequestTemplate = remember { settingsViewModel.loadLlmCustomRequestTemplate() }
+    val initialCustomMessageFormat = remember { settingsViewModel.loadLlmCustomMessageFormat() }
+    val initialCustomSystemRole = remember { settingsViewModel.loadLlmCustomSystemRole() }
+    val initialCustomUserRole = remember { settingsViewModel.loadLlmCustomUserRole() }
+    val initialCustomAssistantRole = remember { settingsViewModel.loadLlmCustomAssistantRole() }
+    val initialSttMode = remember { settingsViewModel.loadSttMode() }
+    val initialTtsMode = remember { settingsViewModel.loadTtsMode() }
+
     val isTtsInstalled by settingsViewModel.isTtsModelInstalled.collectAsState()
     val verificationState by settingsViewModel.verificationState.collectAsState()
     val fetchedModelsMap by settingsViewModel.fetchedModels.collectAsState()
@@ -105,7 +108,14 @@ fun SettingsScreen(
     val modelDownloadState by settingsViewModel.modelDownloadState.collectAsState()
     val ttsDownloadState by settingsViewModel.ttsModelDownloadState.collectAsState()
 
+    val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
+    val activeLanguageCode by settingsViewModel.activeLanguageCode.collectAsState()
+    val downloadedTranslationLanguages by settingsViewModel.downloadedTranslationLanguages.collectAsState()
+    val downloadingTranslationLanguages by settingsViewModel.downloadingTranslationLanguages.collectAsState()
+    val translationLanguages = settingsViewModel.translationLanguages
+
     SettingsScreenContent(
+        settingsViewModel = settingsViewModel,
         initialYoutubeKey = initialYoutubeKey,
         initialChatKey = initialChatKey,
         initialProvider = initialProvider,
@@ -128,8 +138,12 @@ fun SettingsScreen(
         isModelInstalled = isModelInstalled,
         modelDownloadState = modelDownloadState,
         ttsDownloadState = ttsDownloadState,
+        isTranslationEnabled = isTranslationEnabled,
+        activeLanguageCode = activeLanguageCode,
+        downloadedTranslationLanguages = downloadedTranslationLanguages,
+        downloadingTranslationLanguages = downloadingTranslationLanguages,
+        translationLanguages = translationLanguages,
         onBack = onBack,
-        onSave = onSave,
         onResetVerificationState = { settingsViewModel.resetVerificationState() },
         onFetchModelsForProvider = { provider, key, url, headers ->
             settingsViewModel.fetchModelsForProvider(provider, key, url, headers)
@@ -144,13 +158,18 @@ fun SettingsScreen(
         onCancelModelDownload = { settingsViewModel.cancelModelDownload() },
         onStartTtsModelDownload = { settingsViewModel.startTtsModelDownload() },
         onDeleteTtsModel = { settingsViewModel.deleteTtsModel() },
-        onCancelTtsModelDownload = { settingsViewModel.cancelTtsModelDownload() }
+        onCancelTtsModelDownload = { settingsViewModel.cancelTtsModelDownload() },
+        onTranslationEnabledChange = onTranslationEnabledChange,
+        onLanguageSelected = onLanguageSelected,
+        onDownloadTranslationModel = { settingsViewModel.downloadTranslationModel(it) },
+        onDeleteTranslationModel = { settingsViewModel.deleteTranslationModel(it) }
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreenContent(
+    settingsViewModel: SettingsViewModel,
     initialYoutubeKey: String,
     initialChatKey: String,
     initialProvider: LlmProvider,
@@ -173,12 +192,12 @@ fun SettingsScreenContent(
     isModelInstalled: Boolean,
     modelDownloadState: DownloadState,
     ttsDownloadState: DownloadState,
+    isTranslationEnabled: Boolean,
+    activeLanguageCode: String,
+    downloadedTranslationLanguages: Set<String>,
+    downloadingTranslationLanguages: Set<String>,
+    translationLanguages: List<Pair<String, String>>,
     onBack: () -> Unit,
-    onSave: (
-        String, String, LlmProvider, String, String, String, String, String, String, String, String, String,
-        com.app.assistant.speech.SttMode,
-        com.app.assistant.tts.TtsMode
-    ) -> Unit,
     onResetVerificationState: () -> Unit,
     onFetchModelsForProvider: (LlmProvider, String, String, String) -> Unit,
     onVerifyModelAndSaveCapabilities: (
@@ -189,7 +208,11 @@ fun SettingsScreenContent(
     onCancelModelDownload: () -> Unit,
     onStartTtsModelDownload: () -> Unit,
     onDeleteTtsModel: () -> Unit,
-    onCancelTtsModelDownload: () -> Unit
+    onCancelTtsModelDownload: () -> Unit,
+    onTranslationEnabledChange: (Boolean) -> Unit,
+    onLanguageSelected: (String) -> Unit,
+    onDownloadTranslationModel: (String) -> Unit,
+    onDeleteTranslationModel: (String) -> Unit
 ) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
@@ -208,7 +231,7 @@ fun SettingsScreenContent(
     var customUserRole by rememberSaveable { mutableStateOf(initialCustomUserRole) }
     var customAssistantRole by rememberSaveable { mutableStateOf(initialCustomAssistantRole) }
 
-    var hasChanged by rememberSaveable { mutableStateOf(false) }
+    var showTranslationSheet by remember { mutableStateOf(false) }
 
 
 
@@ -216,16 +239,11 @@ fun SettingsScreenContent(
         if (ttsMode == com.app.assistant.tts.TtsMode.OFFLINE) {
             if (!isTtsInstalled) {
                 ttsMode = com.app.assistant.tts.TtsMode.NATIVE
-                hasChanged = true
+                settingsViewModel.updateTtsMode(com.app.assistant.tts.TtsMode.NATIVE)
             }
         }
     }
 
-    val isLlmChanged = apiKey2 != initialChatKey || provider != initialProvider || model != initialModel ||
-            customUrl != initialCustomUrl || customHeaders != initialCustomHeaders || 
-            customResponsePath != initialCustomResponsePath || customRequestTemplate != initialCustomRequestTemplate ||
-            customMessageFormat != initialCustomMessageFormat || customSystemRole != initialCustomSystemRole ||
-            customUserRole != initialCustomUserRole || customAssistantRole != initialCustomAssistantRole
     var expanded by remember { mutableStateOf(false) }
 
     var modelDropdownExpanded by remember { mutableStateOf(false) }
@@ -281,79 +299,6 @@ fun SettingsScreenContent(
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        },
-        bottomBar = {
-            Surface(
-                tonalElevation = 3.dp,
-                shadowElevation = 8.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = onBack,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.cancel),
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Button(
-                            onClick = {
-                                onSave(
-                                    apiKey1,
-                                    apiKey2,
-                                    provider,
-                                    model,
-                                    customUrl,
-                                    customHeaders,
-                                    customResponsePath,
-                                    customRequestTemplate,
-                                    customMessageFormat,
-                                    customSystemRole,
-                                    customUserRole,
-                                    customAssistantRole,
-                                    sttMode,
-                                    ttsMode
-                                )
-                            },
-                            enabled = !isLlmChanged || verificationState is VerificationState.Success,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.save),
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-                    Text(
-                        text = stringResource(id = R.string.app_version, versionName),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-            }
         }
     ) { innerPadding ->
         Column(
@@ -414,176 +359,201 @@ fun SettingsScreenContent(
                                 DropdownMenuItem(
                                     text = { Text(p.displayName) },
                                     onClick = {
-                                         if (provider != p) {
-                                             provider = p
-                                             hasChanged = true
-                                             onResetVerificationState()
-                                             if (p != LlmProvider.CUSTOM) {
+                                          if (provider != p) {
+                                              provider = p
+                                              settingsViewModel.updateLlmProvider(p)
+                                              onResetVerificationState()
+                                              if (p != LlmProvider.CUSTOM) {
+                                                  model = p.defaultModel
+                                                  settingsViewModel.updateLlmModel(p.defaultModel)
+                                                  val currentKey = apiKey2
+                                                  if (currentKey.isNotBlank() || p == LlmProvider.OLLAMA || p == LlmProvider.OPEN_ROUTER) {
+                                                      onFetchModelsForProvider(p, currentKey, "", "")
+                                                  }
+                                              } else {
                                                  model = p.defaultModel
-                                                 val currentKey = apiKey2
-                                                 if (currentKey.isNotBlank() || p == LlmProvider.OLLAMA || p == LlmProvider.OPEN_ROUTER) {
-                                                     onFetchModelsForProvider(p, currentKey, "", "")
+                                                 settingsViewModel.updateLlmModel(p.defaultModel)
+                                                 if (customUrl.isBlank()) {
+                                                     customUrl = p.config.url
+                                                     settingsViewModel.updateLlmCustomUrl(p.config.url)
                                                  }
-                                             } else {
-                                                model = p.defaultModel
-                                                if (customUrl.isBlank()) customUrl = p.config.url
-                                                if (customHeaders.isBlank()) customHeaders = "{\"Authorization\": \"Bearer {{API_KEY}}\", \"Content-Type\": \"application/json\"}"
-                                                if (customResponsePath.isBlank()) customResponsePath = p.config.responsePath
-                                                if (customRequestTemplate.isBlank()) customRequestTemplate = p.config.requestTemplate
-                                                if (customMessageFormat.isBlank()) customMessageFormat = p.config.messageFormat
-                                                if (customSystemRole.isBlank()) customSystemRole = p.config.systemRole ?: "system"
-                                                if (customUserRole.isBlank()) customUserRole = p.config.userRole
-                                                if (customAssistantRole.isBlank()) customAssistantRole = p.config.assistantRole
-                                            }
-                                        }
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val modelsList = fetchedModelsMap[provider] ?: provider.suggestedModels
-
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = model,
-                            onValueChange = { 
-                                model = it
-                                hasChanged = true
-                                onResetVerificationState()
-                            },
-                            label = { Text(stringResource(id = R.string.llm_model)) },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            supportingText = if (!modelFetchError.isNullOrBlank()) {
-                                { Text(modelFetchError, color = MaterialTheme.colorScheme.error) }
-                            } else null,
-                            trailingIcon = {
-                                IconButton(onClick = { modelDropdownExpanded = !modelDropdownExpanded }) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_arrow_drop_down),
-                                        contentDescription = "Show suggested models"
-                                    )
-                                }
-                            }
-                        )
-                        DropdownMenu(
-                            expanded = modelDropdownExpanded,
-                            onDismissRequest = { modelDropdownExpanded = false },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (isFetchingModels) {
-                                DropdownMenuItem(
-                                    text = { 
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text("Fetching models...")
-                                        }
-                                    },
-                                    onClick = {}
-                                )
-                            } else {
-                                if (provider != LlmProvider.CUSTOM) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_restart),
-                                                    contentDescription = "Fetch latest",
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Text("Fetch latest models from API")
-                                            }
-                                        },
-                                        onClick = {
-                                            onFetchModelsForProvider(
-                                                provider,
-                                                apiKey2,
-                                                customUrl,
-                                                customHeaders
-                                            )
-                                        }
-                                    )
-                                    if (modelsList.isNotEmpty()) {
-                                        androidx.compose.material3.HorizontalDivider(
-                                            modifier = Modifier.padding(vertical = 4.dp)
-                                        )
-                                    }
-                                }
-
-                                if (modelsList.isNotEmpty()) {
-                                    modelsList.forEach { suggested ->
-                                        DropdownMenuItem(
-                                            text = { Text(suggested) },
-                                            onClick = {
-                                                model = suggested
-                                                hasChanged = true
-                                                onResetVerificationState()
-                                                modelDropdownExpanded = false
-                                            }
-                                        )
-                                    }
-                                } else if (provider == LlmProvider.CUSTOM) {
-                                    DropdownMenuItem(
-                                        text = { Text("No suggested models. Please enter your model name.") },
-                                        onClick = { modelDropdownExpanded = false }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = apiKey2,
-                        onValueChange = { 
-                            apiKey2 = it
-                            hasChanged = true
-                            onResetVerificationState()
-                        },
-                        label = { Text(stringResource(id = R.string.chat_api_key)) },
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Verification Section
-                    VerifySection(
-                        verificationState = verificationState,
-                        onVerify = {
-                            onVerifyModelAndSaveCapabilities(
-                                provider,
-                                model,
-                                apiKey2,
-                                customUrl,
-                                customHeaders,
-                                customResponsePath,
-                                customRequestTemplate,
-                                customMessageFormat,
-                                customSystemRole,
-                                customUserRole,
-                                customAssistantRole
-                            )
-                            hasChanged = false
-                        }
-                    )
+                                                 if (customHeaders.isBlank()) {
+                                                     customHeaders = "{\"Authorization\": \"Bearer {{API_KEY}}\", \"Content-Type\": \"application/json\"}"
+                                                     settingsViewModel.updateLlmCustomHeaders(customHeaders)
+                                                 }
+                                                 if (customResponsePath.isBlank()) {
+                                                     customResponsePath = p.config.responsePath
+                                                     settingsViewModel.updateLlmCustomResponsePath(p.config.responsePath)
+                                                 }
+                                                 if (customRequestTemplate.isBlank()) {
+                                                     customRequestTemplate = p.config.requestTemplate
+                                                     settingsViewModel.updateLlmCustomRequestTemplate(p.config.requestTemplate)
+                                                 }
+                                                 if (customMessageFormat.isBlank()) {
+                                                     customMessageFormat = p.config.messageFormat
+                                                     settingsViewModel.updateLlmCustomMessageFormat(p.config.messageFormat)
+                                                 }
+                                                 if (customSystemRole.isBlank()) {
+                                                     customSystemRole = p.config.systemRole ?: "system"
+                                                     settingsViewModel.updateLlmCustomSystemRole(customSystemRole)
+                                                 }
+                                                 if (customUserRole.isBlank()) {
+                                                     customUserRole = p.config.userRole
+                                                     settingsViewModel.updateLlmCustomUserRole(p.config.userRole)
+                                                 }
+                                                 if (customAssistantRole.isBlank()) {
+                                                     customAssistantRole = p.config.assistantRole
+                                                     settingsViewModel.updateLlmCustomAssistantRole(p.config.assistantRole)
+                                                 }
+                                             }
+                                          }
+                                          expanded = false
+                                      }
+                                  )
+                              }
+                          }
+                      }
+  
+                      Spacer(modifier = Modifier.height(12.dp))
+  
+                      val modelsList = fetchedModelsMap[provider] ?: provider.suggestedModels
+  
+                      Box(modifier = Modifier.fillMaxWidth()) {
+                          OutlinedTextField(
+                              value = model,
+                              onValueChange = { 
+                                  model = it
+                                  settingsViewModel.updateLlmModel(it)
+                                  onResetVerificationState()
+                              },
+                              label = { Text(stringResource(id = R.string.llm_model)) },
+                              shape = RoundedCornerShape(12.dp),
+                              modifier = Modifier.fillMaxWidth(),
+                              supportingText = if (!modelFetchError.isNullOrBlank()) {
+                                  { Text(modelFetchError, color = MaterialTheme.colorScheme.error) }
+                              } else null,
+                              trailingIcon = {
+                                  IconButton(onClick = { modelDropdownExpanded = !modelDropdownExpanded }) {
+                                      Icon(
+                                          painter = painterResource(id = R.drawable.ic_arrow_drop_down),
+                                          contentDescription = "Show suggested models"
+                                      )
+                                  }
+                              }
+                          )
+                          DropdownMenu(
+                              expanded = modelDropdownExpanded,
+                              onDismissRequest = { modelDropdownExpanded = false },
+                              modifier = Modifier.fillMaxWidth()
+                          ) {
+                              if (isFetchingModels) {
+                                  DropdownMenuItem(
+                                      text = { 
+                                          Row(
+                                              verticalAlignment = Alignment.CenterVertically,
+                                              modifier = Modifier.fillMaxWidth()
+                                          ) {
+                                              CircularProgressIndicator(
+                                                  modifier = Modifier.size(16.dp),
+                                                  strokeWidth = 2.dp
+                                              )
+                                              Spacer(modifier = Modifier.width(12.dp))
+                                              Text("Fetching models...")
+                                          }
+                                      },
+                                      onClick = {}
+                                  )
+                              } else {
+                                  if (provider != LlmProvider.CUSTOM) {
+                                      DropdownMenuItem(
+                                          text = {
+                                              Row(
+                                                  verticalAlignment = Alignment.CenterVertically,
+                                                  modifier = Modifier.fillMaxWidth()
+                                              ) {
+                                                  Icon(
+                                                      painter = painterResource(id = R.drawable.ic_restart),
+                                                      contentDescription = "Fetch latest",
+                                                      modifier = Modifier.size(16.dp)
+                                                  )
+                                                  Spacer(modifier = Modifier.width(12.dp))
+                                                  Text("Fetch latest models from API")
+                                              }
+                                          },
+                                          onClick = {
+                                              onFetchModelsForProvider(
+                                                  provider,
+                                                  apiKey2,
+                                                  customUrl,
+                                                  customHeaders
+                                              )
+                                          }
+                                      )
+                                      if (modelsList.isNotEmpty()) {
+                                          androidx.compose.material3.HorizontalDivider(
+                                              modifier = Modifier.padding(vertical = 4.dp)
+                                          )
+                                      }
+                                  }
+  
+                                  if (modelsList.isNotEmpty()) {
+                                      modelsList.forEach { suggested ->
+                                          DropdownMenuItem(
+                                              text = { Text(suggested) },
+                                              onClick = {
+                                                  model = suggested
+                                                  settingsViewModel.updateLlmModel(suggested)
+                                                  onResetVerificationState()
+                                                  modelDropdownExpanded = false
+                                              }
+                                          )
+                                      }
+                                  } else if (provider == LlmProvider.CUSTOM) {
+                                      DropdownMenuItem(
+                                          text = { Text("No suggested models. Please enter your model name.") },
+                                          onClick = { modelDropdownExpanded = false }
+                                      )
+                                  }
+                              }
+                          }
+                      }
+  
+                      Spacer(modifier = Modifier.height(12.dp))
+  
+                      OutlinedTextField(
+                          value = apiKey2,
+                          onValueChange = { 
+                              apiKey2 = it
+                              settingsViewModel.updateChatApiKey(it)
+                              onResetVerificationState()
+                          },
+                          label = { Text(stringResource(id = R.string.chat_api_key)) },
+                          visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                          shape = RoundedCornerShape(12.dp),
+                          modifier = Modifier.fillMaxWidth()
+                      )
+  
+                      Spacer(modifier = Modifier.height(16.dp))
+  
+                      // Verification Section
+                      VerifySection(
+                          verificationState = verificationState,
+                          onVerify = {
+                              onVerifyModelAndSaveCapabilities(
+                                  provider,
+                                  model,
+                                  apiKey2,
+                                  customUrl,
+                                  customHeaders,
+                                  customResponsePath,
+                                  customRequestTemplate,
+                                  customMessageFormat,
+                                  customSystemRole,
+                                  customUserRole,
+                                  customAssistantRole
+                              )
+                          }
+                      )
                 }
             }
 
@@ -608,11 +578,11 @@ fun SettingsScreenContent(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        OutlinedTextField(
+                         OutlinedTextField(
                             value = customUrl,
                             onValueChange = { 
                                 customUrl = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomUrl(it)
                                 onResetVerificationState()
                             },
                             label = { Text("API Endpoint URL") },
@@ -626,7 +596,7 @@ fun SettingsScreenContent(
                             value = customHeaders,
                             onValueChange = { 
                                 customHeaders = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomHeaders(it)
                                 onResetVerificationState()
                             },
                             label = { Text("Custom Headers (JSON)") },
@@ -640,7 +610,7 @@ fun SettingsScreenContent(
                             value = customResponsePath,
                             onValueChange = { 
                                 customResponsePath = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomResponsePath(it)
                                 onResetVerificationState()
                             },
                             label = { Text("Response Extraction JSON Path") },
@@ -654,7 +624,7 @@ fun SettingsScreenContent(
                             value = customRequestTemplate,
                             onValueChange = { 
                                 customRequestTemplate = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomRequestTemplate(it)
                                 onResetVerificationState()
                             },
                             label = { Text("Request Body JSON Template") },
@@ -671,7 +641,7 @@ fun SettingsScreenContent(
                             value = customMessageFormat,
                             onValueChange = { 
                                 customMessageFormat = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomMessageFormat(it)
                                 onResetVerificationState()
                             },
                             label = { Text("Single Message Format (JSON)") },
@@ -685,7 +655,7 @@ fun SettingsScreenContent(
                             value = customSystemRole,
                             onValueChange = { 
                                 customSystemRole = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomSystemRole(it)
                                 onResetVerificationState()
                             },
                             label = { Text("System Role Mapping") },
@@ -699,7 +669,7 @@ fun SettingsScreenContent(
                             value = customUserRole,
                             onValueChange = { 
                                 customUserRole = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomUserRole(it)
                                 onResetVerificationState()
                             },
                             label = { Text("User Role Mapping") },
@@ -713,7 +683,7 @@ fun SettingsScreenContent(
                             value = customAssistantRole,
                             onValueChange = { 
                                 customAssistantRole = it
-                                hasChanged = true
+                                settingsViewModel.updateLlmCustomAssistantRole(it)
                                 onResetVerificationState()
                             },
                             label = { Text("Assistant Role Mapping") },
@@ -748,7 +718,7 @@ fun SettingsScreenContent(
                         value = apiKey1,
                         onValueChange = { 
                             apiKey1 = it
-                            hasChanged = true
+                            settingsViewModel.updateYoutubeApiKey(it)
                         },
                         label = { Text(stringResource(id = R.string.youtube_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
@@ -786,7 +756,7 @@ fun SettingsScreenContent(
                         selected = sttMode == SttMode.NATIVE,
                         onClick = {
                             sttMode = SttMode.NATIVE
-                            hasChanged = true
+                            settingsViewModel.updateSttMode(SttMode.NATIVE)
                         },
                         title = stringResource(id = R.string.use_native_stt),
                         description = stringResource(id = R.string.native_stt_desc)
@@ -798,7 +768,7 @@ fun SettingsScreenContent(
                         enabled = isInstalled,
                         onClick = {
                             sttMode = SttMode.PARAKEET
-                            hasChanged = true
+                            settingsViewModel.updateSttMode(SttMode.PARAKEET)
                         },
                         title = stringResource(id = R.string.use_parakeet_stt),
                         description = if (isInstalled) {
@@ -814,7 +784,7 @@ fun SettingsScreenContent(
                         enabled = isInstalled,
                         onClick = {
                             sttMode = SttMode.HYBRID
-                            hasChanged = true
+                            settingsViewModel.updateSttMode(SttMode.HYBRID)
                         },
                         title = stringResource(id = R.string.use_hybrid_stt),
                         description = if (isInstalled) {
@@ -847,7 +817,7 @@ fun SettingsScreenContent(
                     LaunchedEffect(isInstalled) {
                         if (!isInstalled && (sttMode == SttMode.PARAKEET || sttMode == SttMode.HYBRID)) {
                             sttMode = SttMode.NATIVE
-                            hasChanged = true
+                            settingsViewModel.updateSttMode(SttMode.NATIVE)
                         }
                     }
                 }
@@ -885,7 +855,7 @@ fun SettingsScreenContent(
                         selected = ttsMode == com.app.assistant.tts.TtsMode.NATIVE,
                         onClick = {
                             ttsMode = com.app.assistant.tts.TtsMode.NATIVE
-                            hasChanged = true
+                            settingsViewModel.updateTtsMode(com.app.assistant.tts.TtsMode.NATIVE)
                         },
                         title = "Use Native TTS (Fast)",
                         description = "Uses the built-in system text-to-speech engine.",
@@ -921,7 +891,7 @@ fun SettingsScreenContent(
                         enabled = isTtsInstalled,
                         onClick = {
                             ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
-                            hasChanged = true
+                            settingsViewModel.updateTtsMode(com.app.assistant.tts.TtsMode.OFFLINE)
                         },
                         title = "Use Offline TTS Model",
                         description = if (isTtsInstalled) {
@@ -950,7 +920,154 @@ fun SettingsScreenContent(
                     )
                 }
             }
+
+            // CARD 6: OFFLINE TRANSLATION SETTINGS
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    SettingsSectionHeader(
+                        title = "Offline Translation Settings",
+                        description = "Translate queries and responses offline using Google ML Kit models.",
+                        icon = R.drawable.ic_translate
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Enable Translation",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Translate chat messages and voice input",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                        Switch(
+                            checked = isTranslationEnabled,
+                            onCheckedChange = onTranslationEnabledChange
+                        )
+                    }
+
+                    if (isTranslationEnabled) {
+                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        
+                        val activeLangName = remember(activeLanguageCode, translationLanguages) {
+                            translationLanguages.find { it.second == activeLanguageCode }?.first?.let { formatLanguageName(it) } ?: activeLanguageCode.uppercase()
+                        }
+                        
+                        Card(
+                            onClick = { showTranslationSheet = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_translate),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Default Language",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Selected: $activeLangName",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_arrow_drop_down),
+                                    contentDescription = "Select language",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Button(
+                            onClick = { showTranslationSheet = true },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                        ) {
+                            Text("Manage Translation Models", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(id = R.string.app_version, versionName),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
         }
+    }
+
+    if (showTranslationSheet) {
+        val sheetState = rememberModalBottomSheetState()
+        TranslationLanguageManagerBottomSheet(
+            sheetState = sheetState,
+            languages = translationLanguages,
+            activeLanguageCode = activeLanguageCode,
+            downloadedLanguages = downloadedTranslationLanguages,
+            downloadingLanguages = downloadingTranslationLanguages,
+            onLanguageSelected = {
+                onLanguageSelected(it)
+            },
+            onDownloadLanguage = {
+                onDownloadTranslationModel(it)
+            },
+            onDeleteLanguage = {
+                onDeleteTranslationModel(it)
+            },
+            onDismissRequest = { showTranslationSheet = false }
+        )
     }
 }
 
@@ -1505,7 +1622,15 @@ fun ModelDownloadCard(
 @Composable
 fun SettingsScreenContentPreview() {
     AssistantTheme {
+        val context = LocalContext.current
+        val dummyViewModel = remember {
+            SettingsViewModel(
+                settingsRepository = com.app.assistant.repository.SettingsRepository(context),
+                okHttpClient = okhttp3.OkHttpClient()
+            )
+        }
         SettingsScreenContent(
+            settingsViewModel = dummyViewModel,
             initialYoutubeKey = "AIzaSy...",
             initialChatKey = "gsk_...",
             initialProvider = LlmProvider.GROQ,
@@ -1528,8 +1653,12 @@ fun SettingsScreenContentPreview() {
             isModelInstalled = false,
             modelDownloadState = DownloadState.Idle,
             ttsDownloadState = DownloadState.Idle,
+            isTranslationEnabled = false,
+            activeLanguageCode = "en",
+            downloadedTranslationLanguages = emptySet(),
+            downloadingTranslationLanguages = emptySet(),
+            translationLanguages = emptyList(),
             onBack = {},
-            onSave = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
             onResetVerificationState = {},
             onFetchModelsForProvider = { _, _, _, _ -> },
             onVerifyModelAndSaveCapabilities = { _, _, _, _, _, _, _, _, _, _, _ -> },
@@ -1538,7 +1667,11 @@ fun SettingsScreenContentPreview() {
             onCancelModelDownload = {},
             onStartTtsModelDownload = {},
             onDeleteTtsModel = {},
-            onCancelTtsModelDownload = {}
+            onCancelTtsModelDownload = {},
+            onTranslationEnabledChange = {},
+            onLanguageSelected = {},
+            onDownloadTranslationModel = {},
+            onDeleteTranslationModel = {}
         )
     }
 }
@@ -1547,7 +1680,15 @@ fun SettingsScreenContentPreview() {
 @Composable
 fun SettingsScreenContentCustomPreview() {
     AssistantTheme {
+        val context = LocalContext.current
+        val dummyViewModel = remember {
+            SettingsViewModel(
+                settingsRepository = com.app.assistant.repository.SettingsRepository(context),
+                okHttpClient = okhttp3.OkHttpClient()
+            )
+        }
         SettingsScreenContent(
+            settingsViewModel = dummyViewModel,
             initialYoutubeKey = "",
             initialChatKey = "",
             initialProvider = LlmProvider.CUSTOM,
@@ -1577,8 +1718,12 @@ fun SettingsScreenContentCustomPreview() {
             isModelInstalled = true,
             modelDownloadState = DownloadState.Idle,
             ttsDownloadState = DownloadState.Idle,
+            isTranslationEnabled = false,
+            activeLanguageCode = "en",
+            downloadedTranslationLanguages = emptySet(),
+            downloadingTranslationLanguages = emptySet(),
+            translationLanguages = emptyList(),
             onBack = {},
-            onSave = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> },
             onResetVerificationState = {},
             onFetchModelsForProvider = { _, _, _, _ -> },
             onVerifyModelAndSaveCapabilities = { _, _, _, _, _, _, _, _, _, _, _ -> },
@@ -1587,9 +1732,180 @@ fun SettingsScreenContentCustomPreview() {
             onCancelModelDownload = {},
             onStartTtsModelDownload = {},
             onDeleteTtsModel = {},
-            onCancelTtsModelDownload = {}
+            onCancelTtsModelDownload = {},
+            onTranslationEnabledChange = {},
+            onLanguageSelected = {},
+            onDownloadTranslationModel = {},
+            onDeleteTranslationModel = {}
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TranslationLanguageManagerBottomSheet(
+    sheetState: SheetState,
+    languages: List<Pair<String, String>>,
+    activeLanguageCode: String,
+    downloadedLanguages: Set<String>,
+    downloadingLanguages: Set<String>,
+    onLanguageSelected: (String) -> Unit,
+    onDownloadLanguage: (String) -> Unit,
+    onDeleteLanguage: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredLanguages = remember(searchQuery, languages) {
+        languages.filter { it.first.contains(searchQuery, true) }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 16.dp)
+        ) {
+            Text(
+                text = "Translation Language Manager",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                value = searchQuery,
+                placeholder = { Text("Search languages…") },
+                singleLine = true,
+                onValueChange = { searchQuery = it },
+                shape = RoundedCornerShape(12.dp),
+                leadingIcon = {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Info,
+                        contentDescription = "Search"
+                    )
+                }
+            )
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                items(filteredLanguages) { lang ->
+                    val langCode = lang.second
+                    val rawName = lang.first
+                    val displayName = remember(rawName) {
+                        formatLanguageName(rawName)
+                    }
+                    val isDefault = langCode == activeLanguageCode
+                    val isDownloaded = langCode in downloadedLanguages || langCode == "en"
+                    val isDownloading = langCode in downloadingLanguages
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isDefault) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else Color.Transparent,
+                        border = if (isDefault) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) else null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable {
+                                if (isDownloaded) {
+                                    onLanguageSelected(langCode)
+                                } else if (!isDownloading) {
+                                    onDownloadLanguage(langCode)
+                                    onLanguageSelected(langCode)
+                                }
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isDefault,
+                                onClick = {
+                                    if (isDownloaded) {
+                                        onLanguageSelected(langCode)
+                                    } else if (!isDownloading) {
+                                        onDownloadLanguage(langCode)
+                                        onLanguageSelected(langCode)
+                                    }
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isDefault) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Text(
+                                    text = "Code: $langCode",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            when {
+                                isDownloading -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                                isDownloaded -> {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        StatusBadge(text = "Installed", isInstalled = true)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        if (langCode != "en") {
+                                            IconButton(onClick = { onDeleteLanguage(langCode) }) {
+                                                Icon(
+                                                    imageVector = androidx.compose.material.icons.Icons.Default.Delete,
+                                                    contentDescription = "Delete model",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    IconButton(
+                                        onClick = {
+                                            onDownloadLanguage(langCode)
+                                            onLanguageSelected(langCode)
+                                        }
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_download),
+                                            contentDescription = "Download model",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun formatLanguageName(name: String): String {
+    return name.lowercase().split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
 }
 
 

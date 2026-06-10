@@ -106,7 +106,6 @@ fun ChatTopAppBar(
     showCopyIcon: Boolean,
     onCopyClick: () -> Unit,
     onDeleteClick: () -> Unit,
-    onTranslateClick: () -> Unit,
     chatListNotEmpty: Boolean,
     onClearChatClick: () -> Unit,
     onMenuClick: () -> Unit,
@@ -135,12 +134,6 @@ fun ChatTopAppBar(
                         contentDescription = stringResource(id = R.string.delete),
                     )
                 }
-            }
-            IconButton(onClick = onTranslateClick) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_translate),
-                    contentDescription = stringResource(id = R.string.translate),
-                )
             }
             if (chatListNotEmpty) {
                 IconButton(onClick = onClearChatClick) {
@@ -190,94 +183,7 @@ fun CustomUiDragHandle(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LanguageSelectionBottomSheet(
-    sheetState: SheetState,
-    languages: List<Pair<String, String>>,
-    isTranslationEnabled: Boolean,
-    isLanguageLoading: Boolean,
-    onTranslationEnabledChange: (Boolean) -> Unit,
-    onLanguageSelected: (String) -> Unit,
-    onDismissRequest: () -> Unit,
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredItems = remember(searchQuery, languages) {
-        languages.filter { it.first.contains(searchQuery, true) }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp, 0.dp, 16.dp, 16.dp),
-            ) {
-                Text(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .align(Alignment.CenterVertically),
-                    text = stringResource(id = R.string.chat_different_languages),
-                )
-                Switch(
-                    checked = isTranslationEnabled,
-                    onCheckedChange = onTranslationEnabledChange,
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                )
-            }
-
-            TextField(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(0.dp)
-                        .imePadding(),
-                value = searchQuery,
-                placeholder = { Text(stringResource(id = R.string.search_placeholder)) },
-                singleLine = true,
-                onValueChange = { searchQuery = it },
-                colors =
-                    TextFieldDefaults.colors(
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                    ),
-                enabled = isTranslationEnabled,
-            )
-
-            if (isLanguageLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(0.dp, 16.dp, 0.dp, 0.dp),
-            ) {
-                items(items = filteredItems) { lang ->
-                    Text(
-                        text = lang.first,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = isTranslationEnabled) {
-                                    onLanguageSelected(lang.second)
-                                }
-                                .padding(16.dp),
-                    )
-                }
-            }
-        }
-    }
-}
+// LanguageSelectionBottomSheet removed (moved to Settings)
 
 @Composable
 fun ClearChatDialog(
@@ -345,7 +251,6 @@ fun ChatTopAppBarPreview() {
             showCopyIcon = true,
             onCopyClick = {},
             onDeleteClick = {},
-            onTranslateClick = {},
             chatListNotEmpty = true,
             onClearChatClick = {},
             onMenuClick = {}

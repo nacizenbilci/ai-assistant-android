@@ -17,6 +17,11 @@ import kotlinx.coroutines.Dispatchers
 import java.io.File
 import android.util.Log
 import java.io.IOException
+import com.google.mlkit.common.model.DownloadConditions
+import com.google.mlkit.common.model.RemoteModelManager
+import com.google.mlkit.nl.translate.TranslateLanguage
+import com.google.mlkit.nl.translate.TranslateRemoteModel
+import java.lang.reflect.Modifier
 
 sealed class DownloadState {
     object Idle : DownloadState()
@@ -44,6 +49,26 @@ class SettingsViewModel(
     val modelDownloadState: StateFlow<DownloadState> = _modelDownloadState.asStateFlow()
 
     private val _isModelInstalled = MutableStateFlow(modelManager.isModelDownloaded())
+
+    private val _isTranslationEnabled = MutableStateFlow(settingsRepository.getIsTranslationEnabled())
+    val isTranslationEnabled: StateFlow<Boolean> = _isTranslationEnabled.asStateFlow()
+
+    private val _activeLanguageCode = MutableStateFlow(settingsRepository.getActiveLanguageCode())
+    val activeLanguageCode: StateFlow<String> = _activeLanguageCode.asStateFlow()
+
+    private val _downloadedTranslationLanguages = MutableStateFlow<Set<String>>(emptySet())
+    val downloadedTranslationLanguages: StateFlow<Set<String>> = _downloadedTranslationLanguages.asStateFlow()
+
+    private val _downloadingTranslationLanguages = MutableStateFlow<Set<String>>(emptySet())
+    val downloadingTranslationLanguages: StateFlow<Set<String>> = _downloadingTranslationLanguages.asStateFlow()
+
+    var translationLanguages: List<Pair<String, String>> = emptyList()
+        private set
+
+    init {
+        translationLanguages = getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java)
+        refreshDownloadedTranslationModels()
+    }
     val isModelInstalled: StateFlow<Boolean> = _isModelInstalled.asStateFlow()
 
     private val _ttsModelDownloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -216,6 +241,63 @@ class SettingsViewModel(
         settingsRepository.setTtsMode(ttsMode)
     }
 
+    fun updateYoutubeApiKey(key: String) {
+        settingsRepository.saveKeys(youtubeApiKey = key, chatApiKey = settingsRepository.getChatApiKey() ?: "")
+    }
+
+    fun updateChatApiKey(key: String) {
+        settingsRepository.saveKeys(youtubeApiKey = settingsRepository.getYoutubeApiKey() ?: "", chatApiKey = key)
+    }
+
+    fun updateLlmProvider(provider: LlmProvider) {
+        settingsRepository.setLlmProvider(provider.name)
+    }
+
+    fun updateLlmModel(model: String) {
+        settingsRepository.setLlmModel(model)
+    }
+
+    fun updateLlmCustomUrl(url: String) {
+        settingsRepository.setLlmCustomUrl(url)
+    }
+
+    fun updateLlmCustomHeaders(headers: String) {
+        settingsRepository.setLlmCustomHeaders(headers)
+    }
+
+    fun updateLlmCustomResponsePath(path: String) {
+        settingsRepository.setLlmCustomResponsePath(path)
+    }
+
+    fun updateLlmCustomRequestTemplate(template: String) {
+        settingsRepository.setLlmCustomRequestTemplate(template)
+    }
+
+    fun updateLlmCustomMessageFormat(format: String) {
+        settingsRepository.setLlmCustomMessageFormat(format)
+    }
+
+    fun updateLlmCustomSystemRole(role: String) {
+        settingsRepository.setLlmCustomSystemRole(role)
+    }
+
+    fun updateLlmCustomUserRole(role: String) {
+        settingsRepository.setLlmCustomUserRole(role)
+    }
+
+    fun updateLlmCustomAssistantRole(role: String) {
+        settingsRepository.setLlmCustomAssistantRole(role)
+    }
+
+    fun updateSttMode(mode: com.app.assistant.speech.SttMode) {
+        settingsRepository.setSttMode(mode)
+    }
+
+    fun updateTtsMode(mode: com.app.assistant.tts.TtsMode) {
+        settingsRepository.setTtsMode(mode)
+    }
+
+
 
     fun verifyModelAndSaveCapabilities(
         provider: LlmProvider,
@@ -350,5 +432,78 @@ class SettingsViewModel(
         } catch (e: Exception) {
             emptyMap()
         }
+    }
+
+    fun updateTranslationEnabled(enabled: Boolean) {
+        _isTranslationEnabled.value = enabled
+        settingsRepository.setTranslationEnabled(enabled)
+    }
+
+    fun updateActiveLanguageCode(languageCode: String) {
+        _activeLanguageCode.value = languageCode
+        settingsRepository.setActiveLanguageCode(languageCode)
+    }
+
+    fun refreshDownloadedTranslationModels() {
+        RemoteModelManager.getInstance()
+            .getDownloadedModels(TranslateRemoteModel::class.java)
+            .addOnSuccessListener { downloadedModels ->
+                val langs = downloadedModels.map { it.language }.toSet()
+                _downloadedTranslationLanguages.value = langs
+            }
+            .addOnFailureListener { e ->
+                Log.e("SettingsViewModel", "Failed to fetch downloaded translation models: ${e.message}")
+            }
+    }
+
+    fun downloadTranslationModel(languageCode: String, onResult: (Boolean) -> Unit = {}) {
+        _downloadingTranslationLanguages.value = _downloadingTranslationLanguages.value + languageCode
+        val modelManager = RemoteModelManager.getInstance()
+        val languageModel = TranslateRemoteModel.Builder(languageCode).build()
+        val conditions = DownloadConditions.Builder().build()
+
+        modelManager.download(languageModel, conditions)
+            .addOnSuccessListener {
+                _downloadingTranslationLanguages.value = _downloadingTranslationLanguages.value - languageCode
+                refreshDownloadedTranslationModels()
+                onResult(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e("SettingsViewModel", "Failed to download model for $languageCode: ${e.message}")
+                _downloadingTranslationLanguages.value = _downloadingTranslationLanguages.value - languageCode
+                onResult(false)
+            }
+    }
+
+    fun deleteTranslationModel(languageCode: String) {
+        val modelManager = RemoteModelManager.getInstance()
+        val languageModel = TranslateRemoteModel.Builder(languageCode).build()
+        modelManager.deleteDownloadedModel(languageModel)
+            .addOnSuccessListener {
+                refreshDownloadedTranslationModels()
+            }
+            .addOnFailureListener { e ->
+                Log.e("SettingsViewModel", "Failed to delete model for $languageCode: ${e.message}")
+            }
+    }
+
+    private fun getPublicStaticFinalStringsWithNames(clazz: Class<*>): List<Pair<String, String>> {
+        val publicStaticFinalStringsWithNames = mutableListOf<Pair<String, String>>()
+        val fields = clazz.declaredFields
+        for (field in fields) {
+            val modifiers = field.modifiers
+            if (Modifier.isPublic(modifiers) && Modifier.isStatic(modifiers) && Modifier.isFinal(modifiers)) {
+                if (field.type == String::class.java) {
+                    try {
+                        val name = field.name
+                        val value = field.get(null) as String
+                        publicStaticFinalStringsWithNames.add(Pair(name, value))
+                    } catch (e: IllegalAccessException) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+        return publicStaticFinalStringsWithNames
     }
 }
