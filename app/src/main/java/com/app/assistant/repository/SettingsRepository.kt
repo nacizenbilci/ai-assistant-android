@@ -161,4 +161,18 @@ class SettingsRepository(
     fun setUseLocalWhisper(enabled: Boolean) {
         sharedPreferences.edit().putBoolean("use_local_whisper", enabled).apply()
     }
+
+    fun getTtsMode(): com.app.assistant.tts.TtsMode {
+        val modeStr = sharedPreferences.getString("tts_mode", com.app.assistant.tts.TtsMode.NATIVE.name)
+        return try {
+            com.app.assistant.tts.TtsMode.valueOf(modeStr ?: com.app.assistant.tts.TtsMode.NATIVE.name)
+        } catch (e: Exception) {
+            com.app.assistant.tts.TtsMode.NATIVE
+        }
+    }
+
+    fun setTtsMode(mode: com.app.assistant.tts.TtsMode) {
+        sharedPreferences.edit().putString("tts_mode", mode.name).apply()
+    }
 }
+

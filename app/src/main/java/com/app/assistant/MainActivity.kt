@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private lateinit var textToSpeechManager: com.app.assistant.hardware.TextToSpeechManager
+    private lateinit var textToSpeechManager: com.app.assistant.tts.TtsManager
     private lateinit var speechRecognizerManager: com.app.assistant.speech.SpeechRecognizerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,7 +73,10 @@ class MainActivity : ComponentActivity() {
         allowOnLockScreen()
         enableEdgeToEdge()
         
-        textToSpeechManager = com.app.assistant.hardware.TextToSpeechManager(this) { isSpeaking ->
+        textToSpeechManager = com.app.assistant.tts.TtsEngineSelector(
+            context = this,
+            settingsRepository = com.app.assistant.repository.SettingsRepository(application)
+        ) { isSpeaking ->
             viewModel.setSpeaking(isSpeaking)
         }
         speechRecognizerManager = com.app.assistant.speech.SpeechRecognizerManager(this, lifecycleScope)
@@ -100,7 +103,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UIEvent.SpeakText -> {
-                            textToSpeechManager.speak(event.text)
+                            textToSpeechManager.speak(event.text, event.queueMode)
                         }
 
                         is UIEvent.StopSpeaking -> {
@@ -281,6 +284,5 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         textToSpeechManager.shutdown()
         speechRecognizerManager.destroy()
-        viewModel.shutdownResources()
     }
 }

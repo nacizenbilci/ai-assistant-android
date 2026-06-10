@@ -19,6 +19,7 @@ sealed class UIEvent {
 
     data class SpeakText(
         val text: String,
+        val queueMode: Int = 0,
     ) : UIEvent()
 
     object StopSpeaking : UIEvent()

@@ -61,6 +61,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.RadioButton
 import com.app.assistant.speech.SttMode
 import com.app.assistant.viewmodel.DownloadState
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,14 +81,21 @@ fun SettingsScreen(
     initialCustomUserRole: String,
     initialCustomAssistantRole: String,
     initialSttMode: SttMode,
+    initialTtsMode: com.app.assistant.tts.TtsMode,
     onBack: () -> Unit,
-    onSave: (String, String, LlmProvider, String, String, String, String, String, String, String, String, String, com.app.assistant.speech.SttMode) -> Unit,
+    onSave: (
+        String, String, LlmProvider, String, String, String, String, String, String, String, String, String,
+        com.app.assistant.speech.SttMode,
+        com.app.assistant.tts.TtsMode
+    ) -> Unit,
 ) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
     var provider by rememberSaveable { mutableStateOf(initialProvider) }
     var model by rememberSaveable { mutableStateOf(initialModel) }
     var sttMode by rememberSaveable { mutableStateOf(initialSttMode) }
+    var ttsMode by rememberSaveable { mutableStateOf(initialTtsMode) }
+
     
     var customUrl by rememberSaveable { mutableStateOf(initialCustomUrl) }
     var customHeaders by rememberSaveable { mutableStateOf(initialCustomHeaders) }
@@ -98,6 +107,19 @@ fun SettingsScreen(
     var customAssistantRole by rememberSaveable { mutableStateOf(initialCustomAssistantRole) }
 
     var hasChanged by rememberSaveable { mutableStateOf(false) }
+
+
+
+    val isTtsInstalled by settingsViewModel.isTtsModelInstalled.collectAsState()
+    LaunchedEffect(isTtsInstalled) {
+        if (ttsMode == com.app.assistant.tts.TtsMode.OFFLINE) {
+            if (!isTtsInstalled) {
+                ttsMode = com.app.assistant.tts.TtsMode.NATIVE
+                hasChanged = true
+            }
+        }
+    }
+
     val isLlmChanged = apiKey2 != initialChatKey || provider != initialProvider || model != initialModel ||
             customUrl != initialCustomUrl || customHeaders != initialCustomHeaders || 
             customResponsePath != initialCustomResponsePath || customRequestTemplate != initialCustomRequestTemplate ||
@@ -195,7 +217,8 @@ fun SettingsScreen(
                                     customSystemRole,
                                     customUserRole,
                                     customAssistantRole,
-                                    sttMode
+                                    sttMode,
+                                    ttsMode
                                 )
                             },
                             enabled = !isLlmChanged || verificationState is VerificationState.Success,
@@ -906,6 +929,274 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // CARD 5: TEXT TO SPEECH (TTS) SETTINGS
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Text-to-Speech Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Using an offline TTS model will require device storage for voice processing.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Option 1: Native TTS
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ttsMode = com.app.assistant.tts.TtsMode.NATIVE
+                                hasChanged = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = ttsMode == com.app.assistant.tts.TtsMode.NATIVE,
+                            onClick = {
+                                ttsMode = com.app.assistant.tts.TtsMode.NATIVE
+                                hasChanged = true
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Use Native TTS (Fast)",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Uses the built-in system text-to-speech engine.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Option 2: Offline TTS
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
+                                hasChanged = true
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = ttsMode == com.app.assistant.tts.TtsMode.OFFLINE,
+                            onClick = {
+                                ttsMode = com.app.assistant.tts.TtsMode.OFFLINE
+                                hasChanged = true
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Use Offline TTS Model",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Uses Supertonic/ONNX engine on-device without internet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (ttsMode == com.app.assistant.tts.TtsMode.OFFLINE) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        val ttsDownloadState by settingsViewModel.ttsModelDownloadState.collectAsState()
+
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Supertonic English Model (int8)",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Supertonic v3 English int8 model.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                when (val state = ttsDownloadState) {
+                                    is DownloadState.Idle -> {
+                                        if (isTtsInstalled) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = "Installed",
+                                                        tint = Color(0xFF4CAF50),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Installed (~66 MB)",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color(0xFF4CAF50)
+                                                    )
+                                                }
+                                                Button(
+                                                    onClick = { settingsViewModel.deleteTtsModel() },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.error
+                                                    ),
+                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("Delete", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                        } else {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Status: Not Downloaded",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                )
+                                                Button(
+                                                    onClick = { settingsViewModel.startTtsModelDownload() },
+                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("Download", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    is DownloadState.Downloading -> {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val progressPercent = (state.progress * 100).toInt()
+                                                val downloadedMb = (state.currentBytes.toDouble() / (1024 * 1024)).toInt()
+                                                val totalMb = (state.totalBytes.toDouble() / (1024 * 1024)).toInt()
+                                                val progressText = if (totalMb > 0) {
+                                                    "Downloading… $progressPercent% ($downloadedMb MB / $totalMb MB)"
+                                                } else {
+                                                    "Downloading…"
+                                                }
+                                                Text(
+                                                    text = progressText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                OutlinedButton(
+                                                    onClick = { settingsViewModel.cancelTtsModelDownload() },
+                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("Cancel", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            androidx.compose.material3.LinearProgressIndicator(
+                                                progress = { state.progress },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                    is DownloadState.Completed -> {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Download Completed!",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color(0xFF4CAF50),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Button(
+                                                onClick = { settingsViewModel.deleteTtsModel() },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(32.dp)
+                                            ) {
+                                                Text("Delete", style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                    is DownloadState.Error -> {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
+                                            Text(
+                                                text = "Download Failed: ${state.message}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.End
+                                            ) {
+                                                OutlinedButton(
+                                                    onClick = { settingsViewModel.deleteTtsModel() },
+                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("Clear", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Button(
+                                                    onClick = { settingsViewModel.startTtsModelDownload() },
+                                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(32.dp)
+                                                ) {
+                                                    Text("Retry", style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1074,3 +1365,5 @@ fun CapabilityRow(label: String, supported: Boolean) {
         )
     }
 }
+
+

@@ -109,6 +109,8 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         var llmCustomUserRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomUserRole()) }
         var llmCustomAssistantRole by remember { mutableStateOf(settingsViewModel.loadLlmCustomAssistantRole()) }
         var sttMode by remember { mutableStateOf(settingsViewModel.loadSttMode()) }
+        var ttsMode by remember { mutableStateOf(settingsViewModel.loadTtsMode()) }
+
 
         var currentScreen by remember { mutableStateOf("chat") }
 
@@ -160,9 +162,13 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 initialCustomUserRole = llmCustomUserRole,
                 initialCustomAssistantRole = llmCustomAssistantRole,
                 initialSttMode = sttMode,
+                initialTtsMode = ttsMode,
                 onBack = { currentScreen = "chat" },
-                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal ->
-                    settingsViewModel.saveSettings(ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal)
+                onSave = { ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal, ttsModeVal ->
+                    settingsViewModel.saveSettings(
+                        ytKey, chKey, providerVal, modelVal, cUrl, cHeaders, cPath, cTemplate, cMsgFormat, cSystemRole, cUserRole, cAssistantRole, sttModeVal,
+                        ttsModeVal
+                    )
                     youtubeKey = ytKey
                     chatKey = chKey
                     llmProvider = providerVal
@@ -176,6 +182,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                     llmCustomUserRole = cUserRole
                     llmCustomAssistantRole = cAssistantRole
                     sttMode = sttModeVal
+                    ttsMode = ttsModeVal
                     currentScreen = "chat"
                 }
             )

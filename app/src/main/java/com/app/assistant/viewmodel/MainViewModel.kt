@@ -583,6 +583,10 @@ class MainViewModel(
             var fullResponse = ""
             var hasStarted = false
             
+            val speakBuffer = StringBuilder()
+            var processedAnswerLength = 0
+            var isFirstSentence = true
+            
             try {
                 processChatCommandUseCase.getAiChatResponseStream(MAIN_CONTEXT, chatList.toList())
                     .collect { chunk ->
@@ -612,6 +616,34 @@ class MainViewModel(
                             )
                             chatList.set(index, item)
                         }
+                        
+                        if (speak) {
+                            val actualAnswerText = Conversation(text = fullResponse, isMe = false).getActualAnswer()
+                            if (actualAnswerText.length > processedAnswerLength) {
+                                val newTokens = actualAnswerText.substring(processedAnswerLength)
+                                processedAnswerLength = actualAnswerText.length
+                                speakBuffer.append(newTokens)
+                                
+                                var searchIndex = 0
+                                while (searchIndex < speakBuffer.length) {
+                                    val boundaryIndex = findSentenceBoundary(speakBuffer, searchIndex)
+                                    if (boundaryIndex != -1) {
+                                        val sentence = speakBuffer.substring(0, boundaryIndex + 1)
+                                        speakBuffer.delete(0, boundaryIndex + 1)
+                                        searchIndex = 0
+                                        
+                                        val cleanText = com.app.assistant.util.MarkdownUtils.markdownToPlainText(sentence).trim()
+                                        if (cleanText.isNotEmpty()) {
+                                            val queueMode = if (isFirstSentence) 0 else 1
+                                            isFirstSentence = false
+                                            speakResponse(cleanText, queueMode)
+                                        }
+                                    } else {
+                                        break
+                                    }
+                                }
+                            }
+                        }
                     }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Streaming error", e)
@@ -637,13 +669,54 @@ class MainViewModel(
             }
 
             if (speak) {
-                val conversationTemp = Conversation(text = fullResponse, isMe = false)
-                val answerToSpeak = com.app.assistant.util.MarkdownUtils.markdownToPlainText(conversationTemp.getActualAnswer())
-                if (answerToSpeak.isNotBlank()) {
-                    speakResponse(answerToSpeak)
+                val remainingText = speakBuffer.toString().trim()
+                if (remainingText.isNotEmpty()) {
+                    val cleanText = com.app.assistant.util.MarkdownUtils.markdownToPlainText(remainingText).trim()
+                    if (cleanText.isNotEmpty()) {
+                        val queueMode = if (isFirstSentence) 0 else 1
+                        speakResponse(cleanText, queueMode)
+                    }
                 }
             }
         }
+    }
+
+    private fun findSentenceBoundary(buffer: StringBuilder, startIndex: Int): Int {
+        val len = buffer.length
+        for (i in startIndex until len) {
+            val c = buffer[i]
+            if (c == '\n' || c == '\r') {
+                return i
+            }
+            if (c == '.' || c == '?' || c == '!') {
+                if (i + 1 < len) {
+                    val nextChar = buffer[i + 1]
+                    if (nextChar.isWhitespace()) {
+                        if (c == '.') {
+                            if (isAbbreviationOrDecimal(buffer, i)) {
+                                continue
+                            }
+                        }
+                        return i
+                    }
+                }
+            }
+        }
+        return -1
+    }
+
+    private fun isAbbreviationOrDecimal(buffer: StringBuilder, dotIndex: Int): Boolean {
+        var start = dotIndex - 1
+        while (start >= 0 && buffer[start].isLetter()) {
+            start--
+        }
+        val word = buffer.substring(start + 1, dotIndex).lowercase()
+        val abbreviations = setOf(
+            "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "eg", "ie", "vs", "etc", "st", "co",
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
+            "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"
+        )
+        return word in abbreviations
     }
 
     internal fun processResponse(
@@ -690,9 +763,9 @@ class MainViewModel(
         }
     }
 
-    internal fun speakResponse(plaintext: String) {
+    internal fun speakResponse(plaintext: String, queueMode: Int = 0) {
         viewModelScope.launch {
-            _uiEvent.send(UIEvent.SpeakText(plaintext))
+            _uiEvent.send(UIEvent.SpeakText(plaintext, queueMode))
         }
     }
 
@@ -770,6 +843,11 @@ class MainViewModel(
         if (lockState is LockState.LockAlarm) {
             (lockState as LockState.LockAlarm).day = null
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        shutdownResources()
     }
 
 

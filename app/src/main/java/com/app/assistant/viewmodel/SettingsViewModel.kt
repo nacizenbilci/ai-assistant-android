@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import kotlinx.coroutines.Dispatchers
+import java.io.File
+import android.util.Log
+import java.io.IOException
 
 sealed class DownloadState {
     object Idle : DownloadState()
@@ -35,12 +38,19 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     private val modelManager = com.app.assistant.speech.SpeechModelManager(settingsRepository.context)
+    private val ttsModelManager = com.app.assistant.tts.TtsModelManager(settingsRepository.context)
 
     private val _modelDownloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val modelDownloadState: StateFlow<DownloadState> = _modelDownloadState.asStateFlow()
 
     private val _isModelInstalled = MutableStateFlow(modelManager.isModelDownloaded())
     val isModelInstalled: StateFlow<Boolean> = _isModelInstalled.asStateFlow()
+
+    private val _ttsModelDownloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+    val ttsModelDownloadState: StateFlow<DownloadState> = _ttsModelDownloadState.asStateFlow()
+
+    private val _isTtsModelInstalled = MutableStateFlow(ttsModelManager.isModelDownloaded())
+    val isTtsModelInstalled: StateFlow<Boolean> = _isTtsModelInstalled.asStateFlow()
 
     private val _verificationState = MutableStateFlow<VerificationState>(VerificationState.Idle)
     val verificationState: StateFlow<VerificationState> = _verificationState.asStateFlow()
@@ -90,6 +100,9 @@ class SettingsViewModel(
     fun loadUseLocalWhisper(): Boolean = settingsRepository.getUseLocalWhisper()
     fun loadSttMode(): com.app.assistant.speech.SttMode = settingsRepository.getSttMode()
 
+    fun loadTtsMode(): com.app.assistant.tts.TtsMode = settingsRepository.getTtsMode()
+
+
     fun deleteModel() {
         viewModelScope.launch(Dispatchers.IO) {
             modelManager.deleteLocalModel()
@@ -131,6 +144,47 @@ class SettingsViewModel(
         }
     }
 
+    fun startTtsModelDownload() {
+        viewModelScope.launch {
+            _ttsModelDownloadState.value = DownloadState.Downloading(0f, 0L, 0L)
+            ttsModelManager.downloadModel(
+                client = okHttpClient,
+                onProgress = { downloadedBytes, totalBytes ->
+                    val progress = if (totalBytes > 0) downloadedBytes.toFloat() / totalBytes else 0f
+                    _ttsModelDownloadState.value = DownloadState.Downloading(progress, downloadedBytes, totalBytes)
+                },
+                onComplete = { success, errorMsg ->
+                    viewModelScope.launch {
+                        if (success) {
+                            _ttsModelDownloadState.value = DownloadState.Completed
+                            _isTtsModelInstalled.value = true
+                        } else {
+                            _ttsModelDownloadState.value = DownloadState.Error(errorMsg ?: "Unknown download error")
+                            _isTtsModelInstalled.value = ttsModelManager.isModelDownloaded()
+                        }
+                    }
+                }
+            )
+        }
+    }
+
+    fun cancelTtsModelDownload() {
+        ttsModelManager.cancelDownload()
+        _ttsModelDownloadState.value = DownloadState.Idle
+    }
+
+    fun deleteTtsModel() {
+        viewModelScope.launch(Dispatchers.IO) {
+            ttsModelManager.deleteLocalModel()
+            _isTtsModelInstalled.value = false
+            _ttsModelDownloadState.value = DownloadState.Idle
+            val currentMode = settingsRepository.getTtsMode()
+            if (currentMode != com.app.assistant.tts.TtsMode.NATIVE) {
+                settingsRepository.setTtsMode(com.app.assistant.tts.TtsMode.NATIVE)
+            }
+        }
+    }
+
     fun saveSettings(
         youtubeApiKey: String,
         chatApiKey: String,
@@ -144,7 +198,8 @@ class SettingsViewModel(
         customSystemRole: String,
         customUserRole: String,
         customAssistantRole: String,
-        sttMode: com.app.assistant.speech.SttMode
+        sttMode: com.app.assistant.speech.SttMode,
+        ttsMode: com.app.assistant.tts.TtsMode
     ) {
         settingsRepository.saveKeys(youtubeApiKey, chatApiKey)
         settingsRepository.setLlmProvider(provider.name)
@@ -158,7 +213,9 @@ class SettingsViewModel(
         settingsRepository.setLlmCustomUserRole(customUserRole)
         settingsRepository.setLlmCustomAssistantRole(customAssistantRole)
         settingsRepository.setSttMode(sttMode)
+        settingsRepository.setTtsMode(ttsMode)
     }
+
 
     fun verifyModelAndSaveCapabilities(
         provider: LlmProvider,

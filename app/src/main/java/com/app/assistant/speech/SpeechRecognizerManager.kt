@@ -226,6 +226,7 @@ class SpeechRecognizerManager(
             
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 listener.onError(-1)
+                stopBluetoothSco()
                 return
             }
             
@@ -240,6 +241,7 @@ class SpeechRecognizerManager(
             if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
                 Log.e("SpeechRecognizerManager", "AudioRecord could not be initialized")
                 listener.onError(-1)
+                stopBluetoothSco()
                 return
             }
 
@@ -321,11 +323,13 @@ class SpeechRecognizerManager(
                     withContext(Dispatchers.Main) {
                         listener.onEndOfSpeech()
                         restoreRingerMode()
+                        stopBluetoothSco()
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e("SpeechRecognizerManager", "Error starting Parakeet STT", e)
+            stopBluetoothSco()
             listener.onError(-1)
         }
     }
@@ -376,12 +380,14 @@ class SpeechRecognizerManager(
                     isListening = false
                     listener.onError(errorCode)
                     restoreRingerMode()
+                    stopBluetoothSco()
                 }
 
                 override fun onResults(bundle: Bundle?) {
                     isListening = false
                     val recognizedText = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.get(0) ?: ""
                     listener.onResults(recognizedText)
+                    stopBluetoothSco()
                 }
 
                 override fun onPartialResults(bundle: Bundle) {
@@ -395,6 +401,7 @@ class SpeechRecognizerManager(
             recognizer.startListening(speechRecognizerIntent)
         } catch (e: Exception) {
             Log.e("SpeechRecognizerManager", "Error starting native speech recognition", e)
+            stopBluetoothSco()
             listener.onError(-1)
         }
     }
@@ -412,6 +419,9 @@ class SpeechRecognizerManager(
         try {
             audioManager.stopBluetoothSco()
             audioManager.isBluetoothScoOn = false
+            if (audioManager.mode == AudioManager.MODE_IN_CALL || audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) {
+                audioManager.mode = AudioManager.MODE_NORMAL
+            }
         } catch (e: Exception) {
             Log.e("SpeechRecognizerManager", "Error stopping Bluetooth SCO", e)
         }
