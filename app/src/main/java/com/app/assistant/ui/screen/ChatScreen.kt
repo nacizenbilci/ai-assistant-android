@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -43,6 +46,21 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.animation.core.InfiniteTransition
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,6 +109,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         val chatList = viewModel.chatList
         val isSpeaking by viewModel.isSpeaking.collectAsState()
         val isListening by viewModel.isListening.collectAsState()
+        val isHandsFree by viewModel.isHandsFreeModeActive.collectAsState()
         val question by viewModel.question.collectAsState()
         val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
 
@@ -148,6 +167,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 chatList = chatList,
                 isSpeaking = isSpeaking,
                 isListening = isListening,
+                isHandsFree = isHandsFree,
                 question = question,
                 isTranslationEnabled = isTranslationEnabled,
                 onGroupClick = { viewModel.loadMessagesFromGroup(it) },
@@ -192,7 +212,9 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 isImageSupported = isImageSupported,
                 isAudioSupported = isAudioSupported,
                 isVideoSupported = isVideoSupported,
-                isDocumentSupported = isDocumentSupported
+                isDocumentSupported = isDocumentSupported,
+                onToggleHandsFree = { viewModel.toggleHandsFreeMode() },
+                onExitHandsFree = { viewModel.setHandsFreeModeActive(false) }
             )
         }
     }
@@ -229,6 +251,9 @@ fun ChatScreenContent(
     isAudioSupported: Boolean = false,
     isVideoSupported: Boolean = false,
     isDocumentSupported: Boolean = false,
+    isHandsFree: Boolean = false,
+    onToggleHandsFree: () -> Unit = {},
+    onExitHandsFree: () -> Unit = {},
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -339,6 +364,9 @@ fun ChatScreenContent(
                     isAudioSupported = isAudioSupported,
                     isVideoSupported = isVideoSupported,
                     isDocumentSupported = isDocumentSupported,
+                    isHandsFree = isHandsFree,
+                    onToggleHandsFree = onToggleHandsFree,
+                    onExitHandsFree = onExitHandsFree,
                 )
             }
         }
@@ -416,7 +444,11 @@ fun ChatScreenContent(
     BackHandler(enabled = selectedItemIndex != null) {
         selectedItemIndex = null
     }
+
+
 }
+
+
 
 @Preview(showBackground = true)
 @Composable
@@ -441,6 +473,7 @@ fun ChatScreenContentPreview() {
             ),
             isSpeaking = false,
             isListening = false,
+            isHandsFree = true,
             question = "",
             isTranslationEnabled = false,
             onGroupClick = {},

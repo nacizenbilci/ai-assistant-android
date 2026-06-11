@@ -87,6 +87,8 @@ fun UserInputField(
     isAudioSupported: Boolean = false,
     isVideoSupported: Boolean = false,
     isDocumentSupported: Boolean = false,
+    isHandsFree: Boolean = false,
+    onToggleHandsFree: () -> Unit = {},
 ) {
     val containerColor = TextFieldDefaults.colors().unfocusedContainerColor
     val rippleColor = adjustContrast(containerColor)
@@ -234,6 +236,13 @@ fun UserInputField(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        IconButton(onClick = onToggleHandsFree) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_speaker),
+                                contentDescription = "Toggle Hands-free Mode",
+                                tint = if (isHandsFree) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (isSpeaking) {
                             IconButton(onClick = {
                                 if (isSpeaking) {

@@ -42,6 +42,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -67,6 +74,9 @@ fun MyLayout(
     isAudioSupported: Boolean = false,
     isVideoSupported: Boolean = false,
     isDocumentSupported: Boolean = false,
+    isHandsFree: Boolean = false,
+    onToggleHandsFree: () -> Unit = {},
+    onExitHandsFree: () -> Unit = {},
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -182,25 +192,51 @@ fun MyLayout(
             }
         }
 
-        if (keyboardController != null) {
-            UserInputField(
-                focusManager = focusManager,
-                keyboardController = keyboardController,
-                isSpeaking = isSpeaking,
-                isListening = isListening,
-                question = question,
-                onQuestionChange = onQuestionChange,
-                onStopSpeaking = onStopSpeaking,
-                onStartListening = onStartListening,
-                onProcessQuestion = onProcessQuestion,
-                selectedAttachments = selectedAttachments,
-                onRemoveAttachment = onRemoveAttachment,
-                onAttachClick = onAttachClick,
-                isImageSupported = isImageSupported,
-                isAudioSupported = isAudioSupported,
-                isVideoSupported = isVideoSupported,
-                isDocumentSupported = isDocumentSupported,
-            )
+        AnimatedContent(
+            targetState = isHandsFree,
+            transitionSpec = {
+                (slideInVertically(animationSpec = tween(300)) { height -> height } + fadeIn(animationSpec = tween(300)))
+                    .togetherWith(
+                        slideOutVertically(animationSpec = tween(300)) { height -> height } + fadeOut(animationSpec = tween(300))
+                    )
+            },
+            label = "InputFieldTransition",
+            modifier = Modifier.fillMaxWidth()
+        ) { handsFreeActive ->
+            if (handsFreeActive) {
+                HandsFreeBar(
+                    isSpeaking = isSpeaking,
+                    isListening = isListening,
+                    isThinking = chatList.any { it.isLoading || it.isStreaming },
+                    onExitHandsFree = onExitHandsFree,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                )
+            } else {
+                if (keyboardController != null) {
+                    UserInputField(
+                        focusManager = focusManager,
+                        keyboardController = keyboardController,
+                        isSpeaking = isSpeaking,
+                        isListening = isListening,
+                        question = question,
+                        onQuestionChange = onQuestionChange,
+                        onStopSpeaking = onStopSpeaking,
+                        onStartListening = onStartListening,
+                        onProcessQuestion = onProcessQuestion,
+                        selectedAttachments = selectedAttachments,
+                        onRemoveAttachment = onRemoveAttachment,
+                        onAttachClick = onAttachClick,
+                        isImageSupported = isImageSupported,
+                        isAudioSupported = isAudioSupported,
+                        isVideoSupported = isVideoSupported,
+                        isDocumentSupported = isDocumentSupported,
+                        isHandsFree = isHandsFree,
+                        onToggleHandsFree = onToggleHandsFree,
+                    )
+                }
+            }
         }
     }
 

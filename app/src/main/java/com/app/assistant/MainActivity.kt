@@ -78,6 +78,9 @@ class MainActivity : ComponentActivity() {
             settingsRepository = com.app.assistant.repository.SettingsRepository(application)
         ) { isSpeaking ->
             viewModel.setSpeaking(isSpeaking)
+            if (::speechRecognizerManager.isInitialized) {
+                speechRecognizerManager.isTtsSpeaking = isSpeaking
+            }
         }
         speechRecognizerManager = com.app.assistant.speech.SpeechRecognizerManager(this, lifecycleScope)
         speechRecognizerManager.preLoadModelAsync()
@@ -111,11 +114,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UIEvent.StartSpeechRecognition -> {
-                            startSpeechRecognition()
+                            startSpeechRecognition(isHandsFree = viewModel.isHandsFreeModeActive.value)
                         }
 
                         is UIEvent.StopSpeechRecognition -> {
-                            // no-op
+                            speechRecognizerManager.stop()
                         }
 
                         is UIEvent.GetLocationForWeather -> {
@@ -134,12 +137,24 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isHandsFreeModeActive.collect { active ->
+                    if (active) {
+                        startSpeechRecognition(isHandsFree = true)
+                    } else {
+                        speechRecognizerManager.stop()
+                    }
+                }
+            }
+        }
+
         setContent {
             SetupUI(viewModel, settingsViewModel)
         }
     }
 
-    private fun startSpeechRecognition() {
+    private fun startSpeechRecognition(isHandsFree: Boolean = false) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
             return
@@ -150,11 +165,15 @@ class MainActivity : ComponentActivity() {
         }
 
         speechRecognizerManager.startListening(
+            isHandsFree = isHandsFree,
             listener = object : com.app.assistant.speech.SpeechRecognizerManager.SpeechListener {
                 override fun onReadyForSpeech() {}
 
                 override fun onBeginningOfSpeech() {
                     viewModel.setListening(true)
+                    if (textToSpeechManager.isSpeaking()) {
+                        textToSpeechManager.stop()
+                    }
                 }
 
                 override fun onEndOfSpeech() {
@@ -163,11 +182,21 @@ class MainActivity : ComponentActivity() {
 
                 override fun onError(errorCode: Int) {
                     viewModel.setListening(false)
+                    if (viewModel.isHandsFreeModeActive.value) {
+                        lifecycleScope.launch {
+                            delay(500)
+                            if (viewModel.isHandsFreeModeActive.value) {
+                                startSpeechRecognition(isHandsFree = true)
+                            }
+                        }
+                    }
                 }
 
                 override fun onResults(recognizedText: String) {
                     viewModel.setListening(false)
-                    viewModel.onSpeechRecognized(recognizedText)
+                    if (recognizedText.isNotBlank()) {
+                        viewModel.onSpeechRecognized(recognizedText)
+                    }
                 }
 
                 override fun onPartialResults(recognizedText: String) {

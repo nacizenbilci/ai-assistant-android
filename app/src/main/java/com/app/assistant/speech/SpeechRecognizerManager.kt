@@ -42,6 +42,11 @@ class SpeechRecognizerManager(
     private var isInHybridTransition = false
     private var hybridPrefixText = ""
 
+    @Volatile
+    var isTtsSpeaking = false
+
+    private val doubleTalkRmsThreshold = 1200.0
+
     private val componentCallbacks = object : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) {
             if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
@@ -139,12 +144,22 @@ class SpeechRecognizerManager(
         }
     }
 
-    fun startListening(listener: SpeechListener) {
+    fun startListening(isHandsFree: Boolean = false, listener: SpeechListener) {
         val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
         val mode = settingsRepository.getSttMode()
         
         isInHybridTransition = false
         hybridPrefixText = ""
+
+        if (isHandsFree) {
+            if (modelManager.isModelDownloaded()) {
+                startLocalParakeetListening(isHandsFree = true, listener)
+            } else {
+                Log.w("SpeechRecognizerManager", "Hands-free requested but model not downloaded. Falling back to Native STT.")
+                startNativeListening(listener)
+            }
+            return
+        }
 
         when (mode) {
             SttMode.NATIVE -> {
@@ -152,7 +167,7 @@ class SpeechRecognizerManager(
             }
             SttMode.PARAKEET -> {
                 if (modelManager.isModelDownloaded()) {
-                    startLocalParakeetListening(listener)
+                    startLocalParakeetListening(isHandsFree = false, listener)
                 } else {
                     Log.w("SpeechRecognizerManager", "Parakeet selected but not downloaded. Falling back to Native STT.")
                     startNativeListening(listener)
@@ -162,7 +177,7 @@ class SpeechRecognizerManager(
                 if (modelManager.isModelDownloaded()) {
                     if (offlineRecognizer != null && vad != null) {
                         // Already loaded, start Parakeet directly
-                        startLocalParakeetListening(listener)
+                        startLocalParakeetListening(isHandsFree = false, listener)
                     } else {
                         // Start native immediately and load Parakeet in background
                         startHybridTransitionListening(listener)
@@ -188,18 +203,18 @@ class SpeechRecognizerManager(
         }
     }
 
-    private fun startLocalParakeetListening(listener: SpeechListener) {
+    private fun startLocalParakeetListening(isHandsFree: Boolean = false, listener: SpeechListener) {
         try {
             cleanupSpeechRecognizer()
             initParakeetAndVad()
-            startLocalParakeetListeningInternal(listener)
+            startLocalParakeetListeningInternal(isHandsFree, listener)
         } catch (e: Exception) {
             Log.e("SpeechRecognizerManager", "Error starting Parakeet STT", e)
             listener.onError(-1)
         }
     }
 
-    private fun startLocalParakeetListeningInternal(listener: SpeechListener) {
+    private fun startLocalParakeetListeningInternal(isHandsFree: Boolean, listener: SpeechListener) {
         val activeVad = vad
         val recognizer = offlineRecognizer
         if (activeVad == null || recognizer == null) {
@@ -208,10 +223,16 @@ class SpeechRecognizerManager(
             return
         }
 
+        var echoCanceler: android.media.audiofx.AcousticEchoCanceler? = null
         try {
-            audioManager.mode = AudioManager.MODE_IN_CALL
-            audioManager.isBluetoothScoOn = true
-            audioManager.startBluetoothSco()
+            if (isHandsFree) {
+                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                audioManager.isSpeakerphoneOn = true
+            } else {
+                audioManager.mode = AudioManager.MODE_IN_CALL
+                audioManager.isBluetoothScoOn = true
+                audioManager.startBluetoothSco()
+            }
 
             val sampleRate = 16000
             val channelConfig = AudioFormat.CHANNEL_IN_MONO
@@ -225,7 +246,7 @@ class SpeechRecognizerManager(
             }
             
             val audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                 sampleRate,
                 channelConfig,
                 audioFormat,
@@ -239,61 +260,123 @@ class SpeechRecognizerManager(
                 return
             }
 
+            if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) {
+                echoCanceler = android.media.audiofx.AcousticEchoCanceler.create(audioRecord.audioSessionId)
+                if (echoCanceler != null) {
+                    echoCanceler.enabled = true
+                    Log.d("SpeechRecognizerManager", "AcousticEchoCanceler enabled successfully")
+                } else {
+                    Log.w("SpeechRecognizerManager", "AcousticEchoCanceler creation failed")
+                }
+            } else {
+                Log.d("SpeechRecognizerManager", "AcousticEchoCanceler is not available on this device")
+            }
+
             activeVad.clear()
             isListening = true
             isRecording = true
             listener.onReadyForSpeech()
-            listener.onBeginningOfSpeech()
+            if (!isHandsFree) {
+                listener.onBeginningOfSpeech()
+            }
 
             audioRecord.startRecording()
 
             recordingJob = scope.launch(Dispatchers.IO) {
                 val buffer = ShortArray(512)
                 var lastSpeechDetectedTime = System.currentTimeMillis()
-                val silenceTimeoutMs = 5000L // 5 seconds of silence
+                val silenceTimeoutMs = if (isHandsFree) 20000L else 5000L
+                var isSpeechActive = false
                 try {
                     while (isRecording && coroutineContext[Job]?.isActive == true) {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
-                            val floatSamples = FloatArray(read) { buffer[it] / 32768.0f }
-                            activeVad.acceptWaveform(floatSamples)
-
-                            if (activeVad.isSpeechDetected()) {
+                            if (isHandsFree && isTtsSpeaking) {
                                 lastSpeechDetectedTime = System.currentTimeMillis()
+                                isSpeechActive = false
                             }
 
-                            var gotResult = false
-                            while (!activeVad.empty()) {
-                                val segment = activeVad.front()
-                                
-                                val stream = recognizer.createStream()
-                                stream.acceptWaveform(segment.samples, sampleRate)
-                                recognizer.decode(stream)
-                                
-                                val result = recognizer.getResult(stream)
-                                val text = result.text.trim()
-                                stream.release()
-                                
-                                activeVad.pop()
+                            var sum = 0.0
+                            for (i in 0 until read) {
+                                sum += buffer[i] * buffer[i]
+                            }
+                            val rms = Math.sqrt(sum / read)
 
-                                if (text.isNotEmpty()) {
+                            val proceedWithSpeech: Boolean
+                            if (isHandsFree && isTtsSpeaking) {
+                                if (rms > doubleTalkRmsThreshold) {
+                                    Log.d("SpeechRecognizerManager", "Double-talk detected! RMS: $rms, interrupting TTS.")
+                                    isTtsSpeaking = false
+                                    isSpeechActive = true
                                     withContext(Dispatchers.Main) {
-                                        listener.onResults(text)
+                                        listener.onBeginningOfSpeech()
                                     }
-                                    gotResult = true
-                                    break
+                                    proceedWithSpeech = true
+                                } else {
+                                    activeVad.clear()
+                                    proceedWithSpeech = false
                                 }
+                            } else {
+                                proceedWithSpeech = true
                             }
 
-                            if (gotResult) {
-                                isRecording = false
-                                break
+                            if (proceedWithSpeech) {
+                                val floatSamples = FloatArray(read) { buffer[it] / 32768.0f }
+                                activeVad.acceptWaveform(floatSamples)
+
+                                if (activeVad.isSpeechDetected()) {
+                                    lastSpeechDetectedTime = System.currentTimeMillis()
+                                    if (!isSpeechActive) {
+                                        isSpeechActive = true
+                                        withContext(Dispatchers.Main) {
+                                            listener.onBeginningOfSpeech()
+                                        }
+                                    }
+                                } else {
+                                    if (isSpeechActive) {
+                                        isSpeechActive = false
+                                        withContext(Dispatchers.Main) {
+                                            listener.onEndOfSpeech()
+                                        }
+                                    }
+                                }
+
+                                var gotResult = false
+                                while (!activeVad.empty()) {
+                                    val segment = activeVad.front()
+                                    
+                                    val stream = recognizer.createStream()
+                                    stream.acceptWaveform(segment.samples, sampleRate)
+                                    recognizer.decode(stream)
+                                    
+                                    val result = recognizer.getResult(stream)
+                                    val text = result.text.trim()
+                                    stream.release()
+                                    
+                                    activeVad.pop()
+
+                                    if (text.isNotEmpty()) {
+                                        withContext(Dispatchers.Main) {
+                                            listener.onResults(text)
+                                        }
+                                        gotResult = true
+                                        break
+                                    }
+                                }
+
+                                if (gotResult) {
+                                    isSpeechActive = false
+                                    if (!isHandsFree) {
+                                        isRecording = false
+                                        break
+                                    }
+                                }
                             }
 
                             if (System.currentTimeMillis() - lastSpeechDetectedTime > silenceTimeoutMs) {
                                 Log.d("SpeechRecognizerManager", "Silence timeout reached, stopping Parakeet STT")
                                 withContext(Dispatchers.Main) {
-                                    listener.onError(6) // 6 is SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                                    listener.onError(6)
                                 }
                                 isRecording = false
                                 break
@@ -309,6 +392,10 @@ class SpeechRecognizerManager(
                 } finally {
                     try {
                         audioRecord.stop()
+                        echoCanceler?.let {
+                            it.enabled = false
+                            it.release()
+                        }
                         audioRecord.release()
                     } catch (e: Exception) {
                         Log.e("SpeechRecognizerManager", "Error releasing AudioRecord", e)
@@ -398,12 +485,18 @@ class SpeechRecognizerManager(
         try {
             audioManager.stopBluetoothSco()
             audioManager.isBluetoothScoOn = false
+            audioManager.isSpeakerphoneOn = false
             if (audioManager.mode == AudioManager.MODE_IN_CALL || audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) {
                 audioManager.mode = AudioManager.MODE_NORMAL
             }
         } catch (e: Exception) {
             Log.e("SpeechRecognizerManager", "Error stopping Bluetooth SCO", e)
         }
+    }
+
+    fun stop() {
+        cleanupSpeechRecognizer()
+        stopBluetoothSco()
     }
 
     private fun cleanupSpeechRecognizer() {

@@ -278,6 +278,38 @@ class MainViewModel(
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    private val _isHandsFreeModeActive = MutableStateFlow(false)
+    val isHandsFreeModeActive: StateFlow<Boolean> = _isHandsFreeModeActive.asStateFlow()
+
+    fun toggleHandsFreeMode() {
+        val modelManager = com.app.assistant.speech.SpeechModelManager(getApplication())
+        val isDownloaded = modelManager.isModelDownloaded()
+        if (!isDownloaded && !_isHandsFreeModeActive.value) {
+            triggerToast("Offline speech models are required for Hands-Free mode. Please download them in settings.")
+            return
+        }
+        setHandsFreeModeActive(!_isHandsFreeModeActive.value)
+    }
+
+    fun setHandsFreeModeActive(active: Boolean) {
+        if (active) {
+            val modelManager = com.app.assistant.speech.SpeechModelManager(getApplication())
+            if (!modelManager.isModelDownloaded()) {
+                triggerToast("Offline speech models are required for Hands-Free mode. Please download them in settings.")
+                return
+            }
+        }
+        _isHandsFreeModeActive.value = active
+        if (active) {
+            _isCustomUI.value = false // Keep standard layout size so our overlay takes full screen
+            _isCustomUIHalfPage.value = false // Clear half-page voice panel flags
+            _isListening.value = false
+        } else {
+            stopTextToSpeech()
+            _isListening.value = false
+        }
+    }
+
     private val _groupList = MutableStateFlow<List<Group>>(emptyList())
     val groupList: StateFlow<List<Group>> = _groupList.asStateFlow()
 
