@@ -195,4 +195,10 @@
     <string name="hybrid_stt_desc_enabled">Starts with Native STT instantly, loads Parakeet in the background, and switches automatically once loaded.</string>
     <string name="hybrid_stt_desc_disabled">Starts with Native STT, loads Parakeet in background, and switches automatically once loaded. Requires model download.</string>
     <string name="content_desc_installed">Installed</string>
+
+    <!-- Speech API Settings -->
+    <string name="use_api_stt">Use STT API (Cloud)</string>
+    <string name="api_stt_desc">Uses the cloud STT API (Groq Whisper) for highly accurate speech transcription.</string>
+    <string name="use_api_tts">Use TTS API (Cloud)</string>
+    <string name="api_tts_desc">Uses the cloud TTS API (Edge-TTS) for high-quality natural voice generation.</string>
 </resources>

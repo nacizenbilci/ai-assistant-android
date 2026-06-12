@@ -14,5 +14,6 @@ interface TtsManager {
 
 enum class TtsMode {
     NATIVE,
-    OFFLINE
+    OFFLINE,
+    API
 }

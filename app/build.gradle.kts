@@ -40,6 +40,10 @@ android {
         buildConfigField("String", "GROQ_API_KEY",
             "\"${localProperties.getProperty("GROQ_API_KEY") ?: ""}\"" // Add quotes
         )
+
+        buildConfigField("String", "EDGE_TTS_SUBSCRIPTION_KEY",
+            "\"${localProperties.getProperty("EDGE_TTS_SUBSCRIPTION_KEY") ?: ""}\"" // Add quotes
+        )
     }
 
     buildTypes {
@@ -134,4 +138,4 @@ configurations.all {
         force("org.jetbrains.kotlinx:kotlinx-serialization-core:1.6.3")
         force("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.6.3")
     }
-}
+}

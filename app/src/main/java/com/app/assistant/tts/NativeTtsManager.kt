@@ -72,8 +72,11 @@ class NativeTtsManager(
 
     override fun stop() {
         if (isInitialized) {
+            val wasSpeaking = isSpeaking()
             textToSpeech?.stop()
-            onSpeakingStateChanged(false)
+            if (wasSpeaking) {
+                onSpeakingStateChanged(false)
+            }
         }
     }
 

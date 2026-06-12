@@ -12,35 +12,63 @@ class TtsEngineSelector(
 
     private val nativeTtsManager = NativeTtsManager(context, onSpeakingStateChanged)
     private val offlineTtsManager = OfflineTtsManager(context, settingsRepository, onSpeakingStateChanged)
+    private val apiTtsManager = ApiTtsManager(context, settingsRepository, onSpeakingStateChanged)
 
     override fun speak(text: String, queueMode: Int) {
         val mode = settingsRepository.getTtsMode()
-        if (mode == TtsMode.OFFLINE && isOfflineModelInstalled()) {
+        
+        if (queueMode == TtsManager.QUEUE_FLUSH) {
             nativeTtsManager.stop()
-            offlineTtsManager.speak(text, queueMode)
-        } else {
             offlineTtsManager.stop()
-            nativeTtsManager.speak(text, queueMode)
+            apiTtsManager.stop()
+        }
+
+        when (mode) {
+            TtsMode.OFFLINE -> {
+                if (isOfflineModelInstalled()) {
+                    offlineTtsManager.speak(text, queueMode)
+                } else {
+                    nativeTtsManager.speak(text, queueMode)
+                }
+            }
+            TtsMode.API -> {
+                apiTtsManager.speak(text, queueMode)
+            }
+            else -> {
+                nativeTtsManager.speak(text, queueMode)
+            }
         }
     }
 
     override fun stop() {
         nativeTtsManager.stop()
         offlineTtsManager.stop()
+        apiTtsManager.stop()
     }
 
     override fun isSpeaking(): Boolean {
         val mode = settingsRepository.getTtsMode()
-        return if (mode == TtsMode.OFFLINE && isOfflineModelInstalled()) {
-            offlineTtsManager.isSpeaking()
-        } else {
-            nativeTtsManager.isSpeaking()
+        return when (mode) {
+            TtsMode.OFFLINE -> {
+                if (isOfflineModelInstalled()) {
+                    offlineTtsManager.isSpeaking()
+                } else {
+                    nativeTtsManager.isSpeaking()
+                }
+            }
+            TtsMode.API -> {
+                apiTtsManager.isSpeaking()
+            }
+            else -> {
+                nativeTtsManager.isSpeaking()
+            }
         }
     }
 
     override fun shutdown() {
         nativeTtsManager.shutdown()
         offlineTtsManager.shutdown()
+        apiTtsManager.shutdown()
     }
 
     private fun isOfflineModelInstalled(): Boolean {

@@ -65,6 +65,7 @@ import com.app.assistant.viewmodel.VerificationState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.RadioButton
 import com.app.assistant.speech.SttMode
+import com.app.assistant.config.SpeechConfig
 import com.app.assistant.viewmodel.DownloadState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -794,6 +795,17 @@ fun SettingsScreenContent(
                         }
                     )
 
+                    // Option 4: API STT (Cloud)
+                    SelectableOptionCard(
+                        selected = sttMode == SttMode.API,
+                        onClick = {
+                            sttMode = SttMode.API
+                            settingsViewModel.updateSttMode(SttMode.API)
+                        },
+                        title = stringResource(id = R.string.use_api_stt),
+                        description = stringResource(id = R.string.api_stt_desc) + " (Configured: ${SpeechConfig.ACTIVE_STT_PROVIDER})"
+                    )
+
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Model Information & Warning Card
@@ -899,6 +911,17 @@ fun SettingsScreenContent(
                         } else {
                             "Uses Supertonic/ONNX engine on-device without internet. Requires downloading the model first."
                         }
+                    )
+
+                    // Option 3: API TTS (Cloud)
+                    SelectableOptionCard(
+                        selected = ttsMode == com.app.assistant.tts.TtsMode.API,
+                        onClick = {
+                            ttsMode = com.app.assistant.tts.TtsMode.API
+                            settingsViewModel.updateTtsMode(com.app.assistant.tts.TtsMode.API)
+                        },
+                        title = stringResource(id = R.string.use_api_tts),
+                        description = stringResource(id = R.string.api_tts_desc) + " (Configured: ${SpeechConfig.ACTIVE_TTS_PROVIDER})"
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
