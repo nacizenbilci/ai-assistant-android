@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -77,6 +78,7 @@ fun MyLayout(
     isHandsFree: Boolean = false,
     onToggleHandsFree: () -> Unit = {},
     onExitHandsFree: () -> Unit = {},
+    isVoiceProcessing: Boolean = false,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -207,7 +209,7 @@ fun MyLayout(
                 HandsFreeBar(
                     isSpeaking = isSpeaking,
                     isListening = isListening,
-                    isThinking = chatList.any { it.isLoading || it.isStreaming },
+                    isThinking = isVoiceProcessing || chatList.any { it.isLoading || it.isStreaming },
                     onExitHandsFree = onExitHandsFree,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -240,9 +242,38 @@ fun MyLayout(
         }
     }
 
-    LaunchedEffect(chatList.size) {
+    val lastItem = chatList.lastOrNull()
+    LaunchedEffect(chatList.size, lastItem?.text, lastItem?.isStreaming, lastItem?.isLoading) {
         if (chatList.isNotEmpty()) {
-            scrollState.animateScrollToItem(chatList.size - 1)
+            val lastIndex = chatList.size - 1
+            
+            var lastVisibleItem = scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lastIndex }
+            if (lastVisibleItem == null) {
+                if (lastItem?.isStreaming == true) {
+                    scrollState.scrollToItem(lastIndex, 0)
+                } else {
+                    scrollState.animateScrollToItem(lastIndex, 0)
+                }
+                delay(50)
+                lastVisibleItem = scrollState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lastIndex }
+            }
+            
+            val itemHeight = lastVisibleItem?.size ?: 0
+            val viewportHeight = scrollState.layoutInfo.viewportEndOffset - scrollState.layoutInfo.viewportStartOffset
+            if (viewportHeight > 0 && itemHeight > 0) {
+                val scrollOffset = viewportHeight - itemHeight
+                if (lastItem?.isStreaming == true) {
+                    scrollState.scrollToItem(lastIndex, scrollOffset)
+                } else {
+                    scrollState.animateScrollToItem(lastIndex, scrollOffset)
+                }
+            } else {
+                if (lastItem?.isStreaming == true) {
+                    scrollState.scrollToItem(lastIndex, 0)
+                } else {
+                    scrollState.animateScrollToItem(lastIndex, 0)
+                }
+            }
         }
     }
 }

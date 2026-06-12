@@ -13,6 +13,8 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
+import android.os.Vibrator
+import android.os.VibrationEffect
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -106,7 +108,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is UIEvent.SpeakText -> {
-                            textToSpeechManager.speak(event.text, event.queueMode)
+                            if (!viewModel.isListening.value && !viewModel.isVoiceProcessing.value) {
+                                textToSpeechManager.speak(event.text, event.queueMode)
+                            }
                         }
 
                         is UIEvent.StopSpeaking -> {
@@ -171,6 +175,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onBeginningOfSpeech() {
                     viewModel.setListening(true)
+                    viewModel.setVoiceProcessing(false)
                     if (textToSpeechManager.isSpeaking()) {
                         textToSpeechManager.stop()
                     }
@@ -178,10 +183,13 @@ class MainActivity : ComponentActivity() {
 
                 override fun onEndOfSpeech() {
                     viewModel.setListening(false)
+                    viewModel.setVoiceProcessing(true)
+                    triggerVibration()
                 }
 
                 override fun onError(errorCode: Int) {
                     viewModel.setListening(false)
+                    viewModel.setVoiceProcessing(false)
                     if (viewModel.isHandsFreeModeActive.value) {
                         lifecycleScope.launch {
                             delay(500)
@@ -194,6 +202,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onResults(recognizedText: String) {
                     viewModel.setListening(false)
+                    viewModel.setVoiceProcessing(false)
                     if (recognizedText.isNotBlank()) {
                         viewModel.onSpeechRecognized(recognizedText)
                     }
@@ -285,6 +294,29 @@ class MainActivity : ComponentActivity() {
     }
 
 
+
+    private fun triggerVibration() {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                manager?.defaultVibrator ?: (getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+
+            if (vibrator?.hasVibrator() == true) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(100)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Vibration failed", e)
+        }
+    }
 
     private fun allowOnLockScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { // Android 8.1+

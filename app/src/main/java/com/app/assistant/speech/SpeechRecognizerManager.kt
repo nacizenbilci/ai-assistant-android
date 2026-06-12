@@ -45,7 +45,11 @@ class SpeechRecognizerManager(
     @Volatile
     var isTtsSpeaking = false
 
-    private val doubleTalkRmsThreshold = 1200.0
+    private val doubleTalkMinRmsFloor = 500.0
+    private val doubleTalkMultiplier = 1.6
+    private val doubleTalkStartDelayFrames = 8
+    private val doubleTalkCalibrationFrames = 12
+    private val doubleTalkConsecutiveFramesRequired = 3
 
     private val componentCallbacks = object : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) {
@@ -287,11 +291,20 @@ class SpeechRecognizerManager(
                 var lastSpeechDetectedTime = System.currentTimeMillis()
                 val silenceTimeoutMs = if (isHandsFree) 20000L else 5000L
                 var isSpeechActive = false
+
+                var wasTtsSpeaking = false
+                var calibrationFramesCount = 0
+                var calibrationRmsSum = 0.0
+                var finalRmsFloor = doubleTalkMinRmsFloor
+                var consecutiveInterruptionFrames = 0
+                var hasError = false
+
                 try {
                     while (isRecording && coroutineContext[Job]?.isActive == true) {
                         val read = audioRecord.read(buffer, 0, buffer.size)
                         if (read > 0) {
-                            if (isHandsFree && isTtsSpeaking) {
+                            val currentTtsSpeaking = isTtsSpeaking
+                            if (isHandsFree && currentTtsSpeaking) {
                                 lastSpeechDetectedTime = System.currentTimeMillis()
                                 isSpeechActive = false
                             }
@@ -302,19 +315,49 @@ class SpeechRecognizerManager(
                             }
                             val rms = Math.sqrt(sum / read)
 
+                            if (currentTtsSpeaking && !wasTtsSpeaking) {
+                                calibrationFramesCount = 0
+                                calibrationRmsSum = 0.0
+                                consecutiveInterruptionFrames = 0
+                                Log.d("SpeechRecognizerManager", "TTS speech started. Initiating double-talk calibration.")
+                            }
+                            wasTtsSpeaking = currentTtsSpeaking
+
                             val proceedWithSpeech: Boolean
-                            if (isHandsFree && isTtsSpeaking) {
-                                if (rms > doubleTalkRmsThreshold) {
-                                    Log.d("SpeechRecognizerManager", "Double-talk detected! RMS: $rms, interrupting TTS.")
-                                    isTtsSpeaking = false
-                                    isSpeechActive = true
-                                    withContext(Dispatchers.Main) {
-                                        listener.onBeginningOfSpeech()
+                            if (isHandsFree && currentTtsSpeaking) {
+                                if (calibrationFramesCount < doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
+                                    if (calibrationFramesCount >= doubleTalkStartDelayFrames) {
+                                        calibrationRmsSum += rms
                                     }
-                                    proceedWithSpeech = true
-                                } else {
+                                    calibrationFramesCount++
+                                    if (calibrationFramesCount == doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
+                                        val avgRms = calibrationRmsSum / doubleTalkCalibrationFrames
+                                        finalRmsFloor = maxOf(avgRms, doubleTalkMinRmsFloor)
+                                        Log.d("SpeechRecognizerManager", "Double-talk calibration complete. Avg RMS: $avgRms, Final RMS Floor: $finalRmsFloor")
+                                    }
+                                    consecutiveInterruptionFrames = 0
                                     activeVad.clear()
                                     proceedWithSpeech = false
+                                } else {
+                                    val adaptiveThreshold = finalRmsFloor * doubleTalkMultiplier
+                                    if (rms > adaptiveThreshold) {
+                                        consecutiveInterruptionFrames++
+                                        if (consecutiveInterruptionFrames >= doubleTalkConsecutiveFramesRequired) {
+                                            Log.d("SpeechRecognizerManager", "Double-talk detected! RMS: $rms, Adaptive Threshold: $adaptiveThreshold (Floor: $finalRmsFloor), interrupting TTS.")
+                                            isTtsSpeaking = false
+                                            withContext(Dispatchers.Main) {
+                                                listener.onBeginningOfSpeech()
+                                            }
+                                            proceedWithSpeech = true
+                                        } else {
+                                            activeVad.clear()
+                                            proceedWithSpeech = false
+                                        }
+                                    } else {
+                                        consecutiveInterruptionFrames = 0
+                                        activeVad.clear()
+                                        proceedWithSpeech = false
+                                    }
                                 }
                             } else {
                                 proceedWithSpeech = true
@@ -375,6 +418,7 @@ class SpeechRecognizerManager(
 
                             if (System.currentTimeMillis() - lastSpeechDetectedTime > silenceTimeoutMs) {
                                 Log.d("SpeechRecognizerManager", "Silence timeout reached, stopping Parakeet STT")
+                                hasError = true
                                 withContext(Dispatchers.Main) {
                                     listener.onError(6)
                                 }
@@ -386,6 +430,7 @@ class SpeechRecognizerManager(
                     }
                 } catch (e: Exception) {
                     Log.e("SpeechRecognizerManager", "Error in VAD + Parakeet loop", e)
+                    hasError = true
                     withContext(Dispatchers.Main) {
                         listener.onError(-1)
                     }
@@ -402,7 +447,9 @@ class SpeechRecognizerManager(
                     }
                     isListening = false
                     withContext(Dispatchers.Main) {
-                        listener.onEndOfSpeech()
+                        if (!hasError) {
+                            listener.onEndOfSpeech()
+                        }
                         stopBluetoothSco()
                     }
                 }

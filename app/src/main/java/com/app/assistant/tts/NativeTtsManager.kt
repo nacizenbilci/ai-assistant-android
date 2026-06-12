@@ -32,6 +32,10 @@ class NativeTtsManager(
                     override fun onError(utteranceId: String?) {
                         onSpeakingStateChanged(false)
                     }
+
+                    override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                        onSpeakingStateChanged(false)
+                    }
                 })
             } else {
                 Log.e("NativeTtsManager", "Initialization Failed")
@@ -69,6 +73,7 @@ class NativeTtsManager(
     override fun stop() {
         if (isInitialized) {
             textToSpeech?.stop()
+            onSpeakingStateChanged(false)
         }
     }
 

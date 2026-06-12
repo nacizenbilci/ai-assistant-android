@@ -109,6 +109,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         val chatList = viewModel.chatList
         val isSpeaking by viewModel.isSpeaking.collectAsState()
         val isListening by viewModel.isListening.collectAsState()
+        val isVoiceProcessing by viewModel.isVoiceProcessing.collectAsState()
         val isHandsFree by viewModel.isHandsFreeModeActive.collectAsState()
         val question by viewModel.question.collectAsState()
         val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
@@ -168,6 +169,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 isSpeaking = isSpeaking,
                 isListening = isListening,
                 isHandsFree = isHandsFree,
+                isVoiceProcessing = isVoiceProcessing,
                 question = question,
                 isTranslationEnabled = isTranslationEnabled,
                 onGroupClick = { viewModel.loadMessagesFromGroup(it) },
@@ -254,6 +256,7 @@ fun ChatScreenContent(
     isHandsFree: Boolean = false,
     onToggleHandsFree: () -> Unit = {},
     onExitHandsFree: () -> Unit = {},
+    isVoiceProcessing: Boolean = false,
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -367,6 +370,7 @@ fun ChatScreenContent(
                     isHandsFree = isHandsFree,
                     onToggleHandsFree = onToggleHandsFree,
                     onExitHandsFree = onExitHandsFree,
+                    isVoiceProcessing = isVoiceProcessing,
                 )
             }
         }

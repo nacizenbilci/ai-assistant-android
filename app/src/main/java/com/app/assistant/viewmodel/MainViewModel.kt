@@ -278,6 +278,9 @@ class MainViewModel(
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    private val _isVoiceProcessing = MutableStateFlow(false)
+    val isVoiceProcessing: StateFlow<Boolean> = _isVoiceProcessing.asStateFlow()
+
     private val _isHandsFreeModeActive = MutableStateFlow(false)
     val isHandsFreeModeActive: StateFlow<Boolean> = _isHandsFreeModeActive.asStateFlow()
 
@@ -304,9 +307,11 @@ class MainViewModel(
             _isCustomUI.value = false // Keep standard layout size so our overlay takes full screen
             _isCustomUIHalfPage.value = false // Clear half-page voice panel flags
             _isListening.value = false
+            _isVoiceProcessing.value = false
         } else {
             stopTextToSpeech()
             _isListening.value = false
+            _isVoiceProcessing.value = false
         }
     }
 
@@ -420,6 +425,10 @@ class MainViewModel(
 
     fun setListening(listening: Boolean) {
         _isListening.value = listening
+    }
+
+    fun setVoiceProcessing(processing: Boolean) {
+        _isVoiceProcessing.value = processing
     }
 
     fun stopTextToSpeech() {
