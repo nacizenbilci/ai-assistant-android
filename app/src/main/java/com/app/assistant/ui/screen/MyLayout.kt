@@ -79,6 +79,7 @@ fun MyLayout(
     onToggleHandsFree: () -> Unit = {},
     onExitHandsFree: () -> Unit = {},
     isVoiceProcessing: Boolean = false,
+    isMicReady: Boolean = false,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -210,6 +211,7 @@ fun MyLayout(
                     isSpeaking = isSpeaking,
                     isListening = isListening,
                     isThinking = isVoiceProcessing || chatList.any { it.isLoading || it.isStreaming },
+                    isMicReady = isMicReady,
                     onExitHandsFree = onExitHandsFree,
                     modifier = Modifier
                         .fillMaxWidth()

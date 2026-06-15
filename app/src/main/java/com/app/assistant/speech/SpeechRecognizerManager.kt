@@ -8,8 +8,6 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -21,53 +19,53 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayOutputStream
 import com.app.assistant.config.SpeechConfig
-import kotlinx.coroutines.withContext
 
 class SpeechRecognizerManager(
     private val context: Context,
     private val scope: CoroutineScope
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
 
     private var vad: com.k2fsa.sherpa.onnx.Vad? = null
     private var offlineRecognizer: com.k2fsa.sherpa.onnx.OfflineRecognizer? = null
 
-    private var isRecording = false
-    private var recordingJob: Job? = null
-
     private val modelManager = SpeechModelManager(context)
     private var isInHybridTransition = false
     private var hybridPrefixText = ""
 
+    private var activeListener: SpeechListener? = null
+    private var isHandsFreeMode = false
+
+    private var audioHygieneProcessor: AudioHygieneProcessor? = null
+    private var vadIntelligenceProcessor: VadIntelligenceProcessor? = null
+    private var voiceStateMachine: VoiceStateMachine? = null
+
     @Volatile
     var isTtsSpeaking = false
-
-    private val doubleTalkMinRmsFloor = 500.0
-    private val doubleTalkMultiplier = 1.6
-    private val doubleTalkStartDelayFrames = 8
-    private val doubleTalkCalibrationFrames = 12
-    private val doubleTalkConsecutiveFramesRequired = 3
+        set(value) {
+            field = value
+            voiceStateMachine?.onTtsStateChanged(value)
+        }
 
     private val componentCallbacks = object : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) {
             if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-                stopBluetoothSco()
-                cleanupSpeechRecognizer()
+                stop()
             }
         }
         override fun onConfigurationChanged(newConfig: Configuration) {}
@@ -88,36 +86,47 @@ class SpeechRecognizerManager(
     }
 
     @Synchronized
-    private fun initParakeetAndVad() {
-        if (vad != null && offlineRecognizer != null) return
+    private fun initVad() {
+        if (vad != null) return
         try {
             if (!modelManager.isModelDownloaded()) {
-                Log.w("SpeechRecognizerManager", "Cannot init Parakeet: Model files not downloaded.")
+                Log.w("SpeechRecognizerManager", "Cannot init VAD: Model files not downloaded.")
                 return
             }
 
-            // 1. Initialize Silero VAD using absolute disk paths
             val sileroConfig = com.k2fsa.sherpa.onnx.SileroVadModelConfig(
                 model = modelManager.getVadPath(),
                 threshold = 0.5f,
                 minSilenceDuration = 0.5f,
-                minSpeechDuration = 0.25f,
+                minSpeechDuration = 0.1f,
                 windowSize = 512,
                 maxSpeechDuration = 10.0f
             )
             val vadConfig = com.k2fsa.sherpa.onnx.VadModelConfig(
                 sileroVadModelConfig = sileroConfig,
                 sampleRate = 16000,
-                numThreads = 2,
+                numThreads = 4,
                 provider = "cpu"
             )
             vad = com.k2fsa.sherpa.onnx.Vad(
-                assetManager = null, // null means load from absolute path
+                assetManager = null,
                 config = vadConfig
             )
-            Log.d("SpeechRecognizerManager", "Silero VAD initialized successfully from disk")
+            Log.i("SpeechRecognizerManager", "[Silero VAD] Initialized successfully")
+        } catch (e: Exception) {
+            Log.e("SpeechRecognizerManager", "Failed to initialize VAD from disk", e)
+        }
+    }
 
-            // 2. Initialize Offline Parakeet (NeMo Transducer) Recognizer using absolute disk paths
+    @Synchronized
+    private fun initOfflineRecognizer() {
+        if (offlineRecognizer != null) return
+        try {
+            if (!modelManager.isModelDownloaded()) {
+                Log.w("SpeechRecognizerManager", "Cannot init Parakeet: Model files not downloaded.")
+                return
+            }
+
             val transducerConfig = com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig(
                 encoder = modelManager.getEncoderPath(),
                 decoder = modelManager.getDecoderPath(),
@@ -139,37 +148,41 @@ class SpeechRecognizerManager(
                 decodingMethod = "greedy_search"
             )
             offlineRecognizer = com.k2fsa.sherpa.onnx.OfflineRecognizer(
-                assetManager = null, // null means load from absolute path
+                assetManager = null,
                 config = recognizerConfig
             )
-            Log.d("SpeechRecognizerManager", "Offline Parakeet Recognizer initialized successfully from disk")
+            Log.i("SpeechRecognizerManager", "[Parakeet Recognizer] Initialized successfully")
         } catch (e: Exception) {
-            Log.e("SpeechRecognizerManager", "Failed to initialize Parakeet + VAD from disk", e)
+            Log.e("SpeechRecognizerManager", "Failed to initialize Parakeet from disk", e)
         }
     }
 
     fun preLoadModelAsync() {
-        val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
         val mode = settingsRepository.getSttMode()
-        if (mode == SttMode.PARAKEET || mode == SttMode.HYBRID) {
-            if (modelManager.isModelDownloaded()) {
-                scope.launch(Dispatchers.IO) {
-                    initParakeetAndVad()
+        if (modelManager.isModelDownloaded()) {
+            scope.launch(Dispatchers.IO) {
+                if (mode == SttMode.PARAKEET || mode == SttMode.HYBRID || mode == SttMode.NATIVE) {
+                    initVad()
+                    initOfflineRecognizer()
+                } else if (mode == SttMode.API) {
+                    initVad()
                 }
             }
         }
     }
 
     fun startListening(isHandsFree: Boolean = false, listener: SpeechListener) {
-        val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
         val mode = settingsRepository.getSttMode()
+        Log.i("SpeechRecognizerManager", "[Listening] Start Listening requested. Hands-free: $isHandsFree, STT Mode: $mode")
         
         isInHybridTransition = false
         hybridPrefixText = ""
+        activeListener = listener
+        isHandsFreeMode = isHandsFree
 
         if (isHandsFree) {
             if (modelManager.isModelDownloaded()) {
-                startLocalParakeetListening(isHandsFree = true, listener)
+                startThreeLayerPipeline(isHandsFree = true, listener)
             } else {
                 Log.w("SpeechRecognizerManager", "Hands-free requested but model not downloaded. Falling back to Native STT.")
                 startNativeListening(listener)
@@ -183,7 +196,7 @@ class SpeechRecognizerManager(
             }
             SttMode.PARAKEET -> {
                 if (modelManager.isModelDownloaded()) {
-                    startLocalParakeetListening(isHandsFree = false, listener)
+                    startThreeLayerPipeline(isHandsFree = false, listener)
                 } else {
                     Log.w("SpeechRecognizerManager", "Parakeet selected but not downloaded. Falling back to Native STT.")
                     startNativeListening(listener)
@@ -192,10 +205,8 @@ class SpeechRecognizerManager(
             SttMode.HYBRID -> {
                 if (modelManager.isModelDownloaded()) {
                     if (offlineRecognizer != null && vad != null) {
-                        // Already loaded, start Parakeet directly
-                        startLocalParakeetListening(isHandsFree = false, listener)
+                        startThreeLayerPipeline(isHandsFree = false, listener)
                     } else {
-                        // Start native immediately and load Parakeet in background
                         startHybridTransitionListening(listener)
                     }
                 } else {
@@ -205,7 +216,7 @@ class SpeechRecognizerManager(
             }
             SttMode.API -> {
                 if (modelManager.isModelDownloaded()) {
-                    startApiWhisperListening(isHandsFree = isHandsFree, listener)
+                    startThreeLayerPipeline(isHandsFree = isHandsFree, listener)
                 } else {
                     Log.w("SpeechRecognizerManager", "STT API selected but VAD model not downloaded. Falling back to Native STT.")
                     startNativeListening(listener)
@@ -214,270 +225,164 @@ class SpeechRecognizerManager(
         }
     }
 
+    private val stateMachineCallback = object : VoiceStateMachine.StateCallback {
+        override fun onTransitionToListening() {
+            scope.launch(Dispatchers.Main) {
+                isListening = true
+                activeListener?.onBeginningOfSpeech()
+            }
+        }
+
+        override fun onTransitionToProcessing(speechSamples: FloatArray) {
+            scope.launch(Dispatchers.Main) {
+                isListening = false
+                activeListener?.onEndOfSpeech()
+            }
+            scope.launch(Dispatchers.IO) {
+                transcribeAndDeliver(speechSamples)
+            }
+        }
+
+        override fun onTransitionToBotSpeaking() {
+            isListening = false
+        }
+
+        override fun onTransitionToIdle() {
+            isListening = false
+            stopPipeline()
+        }
+
+        override fun stopTtsPlayback() {
+            // This propagates TTS state change
+            isTtsSpeaking = false
+        }
+
+        override fun onMicReady(ready: Boolean) {
+            scope.launch(Dispatchers.Main) {
+                if (ready) {
+                    activeListener?.onReadyForSpeech()
+                }
+            }
+        }
+    }
+
+    private fun startThreeLayerPipeline(isHandsFree: Boolean, listener: SpeechListener) {
+        scope.launch {
+            try {
+                cleanupSpeechRecognizer()
+                withContext(Dispatchers.IO) {
+                    initVad()
+                    val mode = settingsRepository.getSttMode()
+                    if (mode == SttMode.PARAKEET || mode == SttMode.HYBRID || mode == SttMode.NATIVE) {
+                        initOfflineRecognizer()
+                    }
+
+                    val activeVad = vad
+                    if (activeVad == null) {
+                        Log.e("SpeechRecognizerManager", "VAD is null. Cannot listen.")
+                        withContext(Dispatchers.Main) {
+                            listener.onError(-1)
+                        }
+                        return@withContext
+                    }
+
+                    // Stop any existing pipeline before starting a new one
+                    stopPipeline()
+
+                    // Initialize the Orchestrator (Layer 3)
+                    val stateMachine = VoiceStateMachine(isHandsFree, stateMachineCallback)
+                    voiceStateMachine = stateMachine
+
+                    // Initialize the Intelligence Layer (Layer 2)
+                    val vadProcessor = VadIntelligenceProcessor(activeVad, object : VadIntelligenceProcessor.VadListener {
+                        override fun onSpeechStart() {
+                            stateMachine.onSpeechStartDetected()
+                        }
+
+                        override fun onSpeechEnd(samples: FloatArray) {
+                            stateMachine.onSpeechEndDetected(samples)
+                        }
+                    })
+                    vadIntelligenceProcessor = vadProcessor
+
+                    // Initialize the Audio Hygiene Layer (Layer 1)
+                    val audioProcessor = AudioHygieneProcessor(context, scope, isHandsFree) { floatSamples ->
+                        // Pass samples directly up to Layer 2
+                        vadProcessor.acceptSamples(floatSamples)
+                    }
+                    audioHygieneProcessor = audioProcessor
+
+                    vadProcessor.clear()
+                    if (audioProcessor.start()) {
+                        stateMachine.onUserStartedListening()
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            listener.onError(-1)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SpeechRecognizerManager", "Error starting 3-layer pipeline", e)
+                withContext(Dispatchers.Main) {
+                    listener.onError(-1)
+                }
+            }
+        }
+    }
+
+    private suspend fun transcribeAndDeliver(samples: FloatArray) {
+        val currentListener = activeListener ?: return
+        val mode = settingsRepository.getSttMode()
+        var text = ""
+
+        try {
+            if (mode == SttMode.PARAKEET || mode == SttMode.HYBRID || mode == SttMode.NATIVE) {
+                val recognizer = offlineRecognizer
+                if (recognizer != null) {
+                    val stream = recognizer.createStream()
+                    stream.acceptWaveform(samples, 16000)
+                    recognizer.decode(stream)
+                    text = recognizer.getResult(stream).text.trim()
+                    stream.release()
+                } else {
+                    Log.e("SpeechRecognizerManager", "Offline recognizer not initialized")
+                }
+            } else if (mode == SttMode.API) {
+                // Convert float samples back to short samples for WAV encoding
+                val shortSamples = ShortArray(samples.size) {
+                    (samples[it] * 32767.0f).toInt().coerceIn(-32768, 32767).toShort()
+                }
+                val wavBytes = getWavBytes(shortSamples, 16000)
+                text = transcribeWithGroq(wavBytes)
+            }
+
+            withContext(Dispatchers.Main) {
+                if (text.isNotEmpty()) {
+                    currentListener.onResults(text)
+                } else {
+                    currentListener.onError(SpeechRecognizer.ERROR_NO_MATCH)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("SpeechRecognizerManager", "Transcription failed", e)
+            withContext(Dispatchers.Main) {
+                currentListener.onError(-1)
+            }
+        } finally {
+            if (!isHandsFreeMode) {
+                stop()
+            }
+        }
+    }
+
     private fun startHybridTransitionListening(listener: SpeechListener) {
         isInHybridTransition = false
         hybridPrefixText = ""
-
-        // Start native listening first
         startNativeListening(listener)
 
-        // Load Parakeet in background so it is ready for the next call
         scope.launch(Dispatchers.IO) {
-            initParakeetAndVad()
-        }
-    }
-
-    private fun startLocalParakeetListening(isHandsFree: Boolean = false, listener: SpeechListener) {
-        try {
-            cleanupSpeechRecognizer()
-            initParakeetAndVad()
-            startLocalParakeetListeningInternal(isHandsFree, listener)
-        } catch (e: Exception) {
-            Log.e("SpeechRecognizerManager", "Error starting Parakeet STT", e)
-            listener.onError(-1)
-        }
-    }
-
-    private fun startLocalParakeetListeningInternal(isHandsFree: Boolean, listener: SpeechListener) {
-        val activeVad = vad
-        val recognizer = offlineRecognizer
-        if (activeVad == null || recognizer == null) {
-            Log.e("SpeechRecognizerManager", "Parakeet or VAD is null. Cannot listen.")
-            listener.onError(-1)
-            return
-        }
-
-        var echoCanceler: android.media.audiofx.AcousticEchoCanceler? = null
-        try {
-            if (isHandsFree) {
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager.isSpeakerphoneOn = true
-            } else {
-                audioManager.mode = AudioManager.MODE_IN_CALL
-                audioManager.isBluetoothScoOn = true
-                audioManager.startBluetoothSco()
-            }
-
-            val sampleRate = 16000
-            val channelConfig = AudioFormat.CHANNEL_IN_MONO
-            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-            val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                listener.onError(-1)
-                stopBluetoothSco()
-                return
-            }
-            
-            val audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize
-            )
-
-            if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e("SpeechRecognizerManager", "AudioRecord could not be initialized")
-                listener.onError(-1)
-                stopBluetoothSco()
-                return
-            }
-
-            if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) {
-                echoCanceler = android.media.audiofx.AcousticEchoCanceler.create(audioRecord.audioSessionId)
-                if (echoCanceler != null) {
-                    echoCanceler.enabled = true
-                    Log.d("SpeechRecognizerManager", "AcousticEchoCanceler enabled successfully")
-                } else {
-                    Log.w("SpeechRecognizerManager", "AcousticEchoCanceler creation failed")
-                }
-            } else {
-                Log.d("SpeechRecognizerManager", "AcousticEchoCanceler is not available on this device")
-            }
-
-            activeVad.clear()
-            isListening = true
-            isRecording = true
-            listener.onReadyForSpeech()
-            if (!isHandsFree) {
-                listener.onBeginningOfSpeech()
-            }
-
-            audioRecord.startRecording()
-
-            recordingJob = scope.launch(Dispatchers.IO) {
-                val buffer = ShortArray(512)
-                var lastSpeechDetectedTime = System.currentTimeMillis()
-                val silenceTimeoutMs = if (isHandsFree) 20000L else 5000L
-                var isSpeechActive = false
-
-                var wasTtsSpeaking = false
-                var calibrationFramesCount = 0
-                var calibrationRmsSum = 0.0
-                var finalRmsFloor = doubleTalkMinRmsFloor
-                var consecutiveInterruptionFrames = 0
-                var hasError = false
-
-                try {
-                    while (isRecording && coroutineContext[Job]?.isActive == true) {
-                        val read = audioRecord.read(buffer, 0, buffer.size)
-                        if (read > 0) {
-                            val currentTtsSpeaking = isTtsSpeaking
-                            if (isHandsFree && currentTtsSpeaking) {
-                                lastSpeechDetectedTime = System.currentTimeMillis()
-                                isSpeechActive = false
-                            }
-
-                            var sum = 0.0
-                            for (i in 0 until read) {
-                                sum += buffer[i] * buffer[i]
-                            }
-                            val rms = Math.sqrt(sum / read)
-
-                            if (currentTtsSpeaking && !wasTtsSpeaking) {
-                                calibrationFramesCount = 0
-                                calibrationRmsSum = 0.0
-                                consecutiveInterruptionFrames = 0
-                                Log.d("SpeechRecognizerManager", "TTS speech started. Initiating double-talk calibration.")
-                            }
-                            wasTtsSpeaking = currentTtsSpeaking
-
-                            val proceedWithSpeech: Boolean
-                            if (isHandsFree && currentTtsSpeaking) {
-                                if (calibrationFramesCount < doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
-                                    if (calibrationFramesCount >= doubleTalkStartDelayFrames) {
-                                        calibrationRmsSum += rms
-                                    }
-                                    calibrationFramesCount++
-                                    if (calibrationFramesCount == doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
-                                        val avgRms = calibrationRmsSum / doubleTalkCalibrationFrames
-                                        finalRmsFloor = maxOf(avgRms, doubleTalkMinRmsFloor)
-                                        Log.d("SpeechRecognizerManager", "Double-talk calibration complete. Avg RMS: $avgRms, Final RMS Floor: $finalRmsFloor")
-                                    }
-                                    consecutiveInterruptionFrames = 0
-                                    activeVad.clear()
-                                    proceedWithSpeech = false
-                                } else {
-                                    val adaptiveThreshold = finalRmsFloor * doubleTalkMultiplier
-                                    if (rms > adaptiveThreshold) {
-                                        consecutiveInterruptionFrames++
-                                        if (consecutiveInterruptionFrames >= doubleTalkConsecutiveFramesRequired) {
-                                            Log.d("SpeechRecognizerManager", "Double-talk detected! RMS: $rms, Adaptive Threshold: $adaptiveThreshold (Floor: $finalRmsFloor), interrupting TTS.")
-                                            isTtsSpeaking = false
-                                            withContext(Dispatchers.Main) {
-                                                listener.onBeginningOfSpeech()
-                                            }
-                                            proceedWithSpeech = true
-                                        } else {
-                                            activeVad.clear()
-                                            proceedWithSpeech = false
-                                        }
-                                    } else {
-                                        consecutiveInterruptionFrames = 0
-                                        activeVad.clear()
-                                        proceedWithSpeech = false
-                                    }
-                                }
-                            } else {
-                                proceedWithSpeech = true
-                            }
-
-                            if (proceedWithSpeech) {
-                                val floatSamples = FloatArray(read) { buffer[it] / 32768.0f }
-                                activeVad.acceptWaveform(floatSamples)
-
-                                if (activeVad.isSpeechDetected()) {
-                                    lastSpeechDetectedTime = System.currentTimeMillis()
-                                    if (!isSpeechActive) {
-                                        isSpeechActive = true
-                                        withContext(Dispatchers.Main) {
-                                            listener.onBeginningOfSpeech()
-                                        }
-                                    }
-                                } else {
-                                    if (isSpeechActive) {
-                                        isSpeechActive = false
-                                        withContext(Dispatchers.Main) {
-                                            listener.onEndOfSpeech()
-                                        }
-                                    }
-                                }
-
-                                var gotResult = false
-                                while (!activeVad.empty()) {
-                                    val segment = activeVad.front()
-                                    
-                                    val stream = recognizer.createStream()
-                                    stream.acceptWaveform(segment.samples, sampleRate)
-                                    recognizer.decode(stream)
-                                    
-                                    val result = recognizer.getResult(stream)
-                                    val text = result.text.trim()
-                                    stream.release()
-                                    
-                                    activeVad.pop()
-
-                                    if (text.isNotEmpty()) {
-                                        withContext(Dispatchers.Main) {
-                                            listener.onResults(text)
-                                        }
-                                        gotResult = true
-                                        break
-                                    }
-                                }
-
-                                if (gotResult) {
-                                    isSpeechActive = false
-                                    if (!isHandsFree) {
-                                        isRecording = false
-                                        break
-                                    }
-                                }
-                            }
-
-                            if (System.currentTimeMillis() - lastSpeechDetectedTime > silenceTimeoutMs) {
-                                Log.d("SpeechRecognizerManager", "Silence timeout reached, stopping Parakeet STT")
-                                hasError = true
-                                withContext(Dispatchers.Main) {
-                                    listener.onError(6)
-                                }
-                                isRecording = false
-                                break
-                            }
-                        }
-                        delay(10)
-                    }
-                } catch (e: Exception) {
-                    Log.e("SpeechRecognizerManager", "Error in VAD + Parakeet loop", e)
-                    hasError = true
-                    withContext(Dispatchers.Main) {
-                        listener.onError(-1)
-                    }
-                } finally {
-                    try {
-                        audioRecord.stop()
-                        echoCanceler?.let {
-                            it.enabled = false
-                            it.release()
-                        }
-                        audioRecord.release()
-                    } catch (e: Exception) {
-                        Log.e("SpeechRecognizerManager", "Error releasing AudioRecord", e)
-                    }
-                    isListening = false
-                    withContext(Dispatchers.Main) {
-                        if (!hasError) {
-                            listener.onEndOfSpeech()
-                        }
-                        stopBluetoothSco()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SpeechRecognizerManager", "Error starting Parakeet STT", e)
-            stopBluetoothSco()
-            listener.onError(-1)
+            initVad()
+            initOfflineRecognizer()
         }
     }
 
@@ -509,7 +414,6 @@ class SpeechRecognizerManager(
                 }
 
                 override fun onRmsChanged(v: Float) {}
-
                 override fun onBufferReceived(bytes: ByteArray?) {}
 
                 override fun onEndOfSpeech() {
@@ -546,8 +450,6 @@ class SpeechRecognizerManager(
         }
     }
 
-
-
     private fun stopBluetoothSco() {
         try {
             audioManager.stopBluetoothSco()
@@ -561,16 +463,25 @@ class SpeechRecognizerManager(
         }
     }
 
+    private fun stopPipeline() {
+        audioHygieneProcessor?.stop()
+        audioHygieneProcessor = null
+        
+        vadIntelligenceProcessor?.clear()
+        vadIntelligenceProcessor = null
+        
+        voiceStateMachine = null
+    }
+
     fun stop() {
+        Log.i("SpeechRecognizerManager", "[Listening] Stop Listening requested manually")
+        voiceStateMachine?.onUserStoppedListening()
+        stopPipeline()
         cleanupSpeechRecognizer()
         stopBluetoothSco()
     }
 
     private fun cleanupSpeechRecognizer() {
-        isRecording = false
-        recordingJob?.cancel()
-        recordingJob = null
-
         speechRecognizer?.let {
             it.destroy()
             speechRecognizer = null
@@ -578,272 +489,20 @@ class SpeechRecognizerManager(
     }
 
     fun destroy() {
+        Log.i("SpeechRecognizerManager", "[Listening] destroy() requested")
         context.unregisterComponentCallbacks(componentCallbacks)
-        stopBluetoothSco()
-        cleanupSpeechRecognizer()
+        stop()
         
-        vad?.release()
-        vad = null
+        vad?.let {
+            it.release()
+            vad = null
+            Log.i("SpeechRecognizerManager", "[Silero VAD] Released/Stopped")
+        }
         
-        offlineRecognizer?.release()
-        offlineRecognizer = null
-    }
-
-    private fun startApiWhisperListening(isHandsFree: Boolean = false, listener: SpeechListener) {
-        try {
-            cleanupSpeechRecognizer()
-            initParakeetAndVad()
-            startApiWhisperListeningInternal(isHandsFree, listener)
-        } catch (e: Exception) {
-            Log.e("SpeechRecognizerManager", "Error starting API Whisper STT", e)
-            listener.onError(-1)
-        }
-    }
-
-    private fun startApiWhisperListeningInternal(isHandsFree: Boolean, listener: SpeechListener) {
-        val activeVad = vad
-        if (activeVad == null) {
-            Log.e("SpeechRecognizerManager", "VAD is null. Cannot listen.")
-            listener.onError(-1)
-            return
-        }
-
-        var echoCanceler: android.media.audiofx.AcousticEchoCanceler? = null
-        try {
-            if (isHandsFree) {
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                audioManager.isSpeakerphoneOn = true
-            } else {
-                audioManager.mode = AudioManager.MODE_IN_CALL
-                audioManager.isBluetoothScoOn = true
-                audioManager.startBluetoothSco()
-            }
-
-            val sampleRate = 16000
-            val channelConfig = AudioFormat.CHANNEL_IN_MONO
-            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-            val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-            
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                listener.onError(-1)
-                stopBluetoothSco()
-                return
-            }
-            
-            val audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize
-            )
-
-            if (audioRecord.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e("SpeechRecognizerManager", "AudioRecord could not be initialized")
-                listener.onError(-1)
-                stopBluetoothSco()
-                return
-            }
-
-            if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) {
-                echoCanceler = android.media.audiofx.AcousticEchoCanceler.create(audioRecord.audioSessionId)
-                if (echoCanceler != null) {
-                    echoCanceler.enabled = true
-                    Log.d("SpeechRecognizerManager", "AcousticEchoCanceler enabled successfully")
-                } else {
-                    Log.w("SpeechRecognizerManager", "AcousticEchoCanceler creation failed")
-                }
-            } else {
-                Log.d("SpeechRecognizerManager", "AcousticEchoCanceler is not available on this device")
-            }
-
-            activeVad.clear()
-            isListening = true
-            isRecording = true
-            listener.onReadyForSpeech()
-            if (!isHandsFree) {
-                listener.onBeginningOfSpeech()
-            }
-
-            audioRecord.startRecording()
-
-            recordingJob = scope.launch(Dispatchers.IO) {
-                val buffer = ShortArray(512)
-                var lastSpeechDetectedTime = System.currentTimeMillis()
-                val silenceTimeoutMs = if (isHandsFree) 20000L else 5000L
-                var isSpeechActive = false
-
-                var wasTtsSpeaking = false
-                var calibrationFramesCount = 0
-                var calibrationRmsSum = 0.0
-                var finalRmsFloor = doubleTalkMinRmsFloor
-                var consecutiveInterruptionFrames = 0
-                var hasError = false
-
-                try {
-                    while (isRecording && coroutineContext[Job]?.isActive == true) {
-                        val read = audioRecord.read(buffer, 0, buffer.size)
-                        if (read > 0) {
-                            val currentTtsSpeaking = isTtsSpeaking
-                            if (isHandsFree && currentTtsSpeaking) {
-                                lastSpeechDetectedTime = System.currentTimeMillis()
-                                isSpeechActive = false
-                            }
-
-                            var sum = 0.0
-                            for (i in 0 until read) {
-                                sum += buffer[i] * buffer[i]
-                            }
-                            val rms = Math.sqrt(sum / read)
-
-                            if (currentTtsSpeaking && !wasTtsSpeaking) {
-                                calibrationFramesCount = 0
-                                calibrationRmsSum = 0.0
-                                consecutiveInterruptionFrames = 0
-                                Log.d("SpeechRecognizerManager", "TTS speech started. Initiating double-talk calibration.")
-                            }
-                            wasTtsSpeaking = currentTtsSpeaking
-
-                            val proceedWithSpeech: Boolean
-                            if (isHandsFree && currentTtsSpeaking) {
-                                if (calibrationFramesCount < doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
-                                    if (calibrationFramesCount >= doubleTalkStartDelayFrames) {
-                                        calibrationRmsSum += rms
-                                    }
-                                    calibrationFramesCount++
-                                    if (calibrationFramesCount == doubleTalkStartDelayFrames + doubleTalkCalibrationFrames) {
-                                        val avgRms = calibrationRmsSum / doubleTalkCalibrationFrames
-                                        finalRmsFloor = maxOf(avgRms, doubleTalkMinRmsFloor)
-                                        Log.d("SpeechRecognizerManager", "Double-talk calibration complete. Avg RMS: $avgRms, Final RMS Floor: $finalRmsFloor")
-                                    }
-                                    consecutiveInterruptionFrames = 0
-                                    activeVad.clear()
-                                    proceedWithSpeech = false
-                                } else {
-                                    val adaptiveThreshold = finalRmsFloor * doubleTalkMultiplier
-                                    if (rms > adaptiveThreshold) {
-                                        consecutiveInterruptionFrames++
-                                        if (consecutiveInterruptionFrames >= doubleTalkConsecutiveFramesRequired) {
-                                            Log.d("SpeechRecognizerManager", "Double-talk detected! RMS: $rms, Adaptive Threshold: $adaptiveThreshold (Floor: $finalRmsFloor), interrupting TTS.")
-                                            isTtsSpeaking = false
-                                            withContext(Dispatchers.Main) {
-                                                listener.onBeginningOfSpeech()
-                                            }
-                                            proceedWithSpeech = true
-                                        } else {
-                                            activeVad.clear()
-                                            proceedWithSpeech = false
-                                        }
-                                    } else {
-                                        consecutiveInterruptionFrames = 0
-                                        activeVad.clear()
-                                        proceedWithSpeech = false
-                                    }
-                                }
-                            } else {
-                                proceedWithSpeech = true
-                            }
-
-                            if (proceedWithSpeech) {
-                                val floatSamples = FloatArray(read) { buffer[it] / 32768.0f }
-                                activeVad.acceptWaveform(floatSamples)
-
-                                if (activeVad.isSpeechDetected()) {
-                                    lastSpeechDetectedTime = System.currentTimeMillis()
-                                    if (!isSpeechActive) {
-                                        isSpeechActive = true
-                                        withContext(Dispatchers.Main) {
-                                            listener.onBeginningOfSpeech()
-                                        }
-                                    }
-                                } else {
-                                    if (isSpeechActive) {
-                                        isSpeechActive = false
-                                        withContext(Dispatchers.Main) {
-                                            listener.onEndOfSpeech()
-                                        }
-                                    }
-                                }
-
-                                var gotSegment = false
-                                while (!activeVad.empty()) {
-                                    val segment = activeVad.front()
-                                    activeVad.pop()
-                                    gotSegment = true
-
-                                    scope.launch(Dispatchers.IO) {
-                                        val segFloatSamples = segment.samples
-                                        val shortSamples = ShortArray(segFloatSamples.size) {
-                                            (segFloatSamples[it] * 32767.0f).toInt().coerceIn(-32768, 32767).toShort()
-                                        }
-                                        val wavBytes = getWavBytes(shortSamples, sampleRate)
-                                        try {
-                                            val transcribedText = transcribeWithGroq(wavBytes)
-                                            if (transcribedText.isNotEmpty()) {
-                                                withContext(Dispatchers.Main) {
-                                                    listener.onResults(transcribedText)
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            Log.e("SpeechRecognizerManager", "Error transcribing with Groq", e)
-                                            withContext(Dispatchers.Main) {
-                                                listener.onError(-1)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (gotSegment) {
-                                    isSpeechActive = false
-                                    if (!isHandsFree) {
-                                        isRecording = false
-                                        break
-                                    }
-                                }
-                            }
-
-                            if (System.currentTimeMillis() - lastSpeechDetectedTime > silenceTimeoutMs) {
-                                Log.d("SpeechRecognizerManager", "Silence timeout reached, stopping API Whisper STT")
-                                hasError = true
-                                withContext(Dispatchers.Main) {
-                                    listener.onError(6)
-                                }
-                                isRecording = false
-                                break
-                            }
-                        }
-                        delay(10)
-                    }
-                } catch (e: Exception) {
-                    Log.e("SpeechRecognizerManager", "Error in VAD + API Whisper loop", e)
-                    hasError = true
-                    withContext(Dispatchers.Main) {
-                        listener.onError(-1)
-                    }
-                } finally {
-                    try {
-                        audioRecord.stop()
-                        echoCanceler?.let {
-                            it.enabled = false
-                            it.release()
-                        }
-                        audioRecord.release()
-                    } catch (e: Exception) {
-                        Log.e("SpeechRecognizerManager", "Error releasing AudioRecord", e)
-                    }
-                    isListening = false
-                    withContext(Dispatchers.Main) {
-                        if (!hasError) {
-                            listener.onEndOfSpeech()
-                        }
-                        stopBluetoothSco()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SpeechRecognizerManager", "Error starting API Whisper STT", e)
-            stopBluetoothSco()
-            listener.onError(-1)
+        offlineRecognizer?.let {
+            it.release()
+            offlineRecognizer = null
+            Log.i("SpeechRecognizerManager", "[Parakeet Recognizer] Released/Stopped")
         }
     }
 

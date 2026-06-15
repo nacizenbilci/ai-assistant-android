@@ -64,6 +64,7 @@ class EdgeTtsApiManager(
     )
 
     init {
+        Log.i("EdgeTtsApiManager", "[EdgeTTS] Initialized")
         startProcessing()
     }
 
@@ -615,6 +616,7 @@ class EdgeTtsApiManager(
     }
 
     private fun stopPlaybackOnly() {
+        Log.i("EdgeTtsApiManager", "[EdgeTTS] Playback stopped/cleared")
         while (!speechQueue.isEmpty) {
             speechQueue.tryReceive()
         }
@@ -645,6 +647,7 @@ class EdgeTtsApiManager(
     }
 
     override fun shutdown() {
+        Log.i("EdgeTtsApiManager", "[EdgeTTS] Shutdown")
         job.cancel()
         closeWebSocketConnection()
         ttsDispatcher.close()

@@ -64,6 +64,7 @@ class GoogleTtsApiManager(
     )
 
     init {
+        Log.i("GoogleTtsApiManager", "[GoogleTTS] Initialized")
         startProcessing()
     }
 
@@ -450,6 +451,7 @@ class GoogleTtsApiManager(
     }
 
     private fun stopPlaybackOnly() {
+        Log.i("GoogleTtsApiManager", "[GoogleTTS] Playback stopped/cleared")
         while (!speechQueue.isEmpty) {
             speechQueue.tryReceive()
         }
@@ -478,6 +480,7 @@ class GoogleTtsApiManager(
     }
 
     override fun shutdown() {
+        Log.i("GoogleTtsApiManager", "[GoogleTTS] Shutdown")
         job.cancel()
         ttsDispatcher.close()
     }
