@@ -284,6 +284,13 @@ class MainViewModel(
     private val _isHandsFreeModeActive = MutableStateFlow(false)
     val isHandsFreeModeActive: StateFlow<Boolean> = _isHandsFreeModeActive.asStateFlow()
 
+    private val _isMicReady = MutableStateFlow(false)
+    val isMicReady: StateFlow<Boolean> = _isMicReady.asStateFlow()
+
+    fun setMicReady(ready: Boolean) {
+        _isMicReady.value = ready
+    }
+
     fun toggleHandsFreeMode() {
         val modelManager = com.app.assistant.speech.SpeechModelManager(getApplication())
         val isDownloaded = modelManager.isModelDownloaded()
@@ -308,10 +315,12 @@ class MainViewModel(
             _isCustomUIHalfPage.value = false // Clear half-page voice panel flags
             _isListening.value = false
             _isVoiceProcessing.value = false
+            _isMicReady.value = false
         } else {
             stopTextToSpeech()
             _isListening.value = false
             _isVoiceProcessing.value = false
+            _isMicReady.value = false
         }
     }
 

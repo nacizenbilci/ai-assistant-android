@@ -171,7 +171,9 @@ class MainActivity : ComponentActivity() {
         speechRecognizerManager.startListening(
             isHandsFree = isHandsFree,
             listener = object : com.app.assistant.speech.SpeechRecognizerManager.SpeechListener {
-                override fun onReadyForSpeech() {}
+                override fun onReadyForSpeech() {
+                    viewModel.setMicReady(true)
+                }
 
                 override fun onBeginningOfSpeech() {
                     viewModel.setListening(true)
@@ -190,6 +192,7 @@ class MainActivity : ComponentActivity() {
                 override fun onError(errorCode: Int) {
                     viewModel.setListening(false)
                     viewModel.setVoiceProcessing(false)
+                    viewModel.setMicReady(false)
                     if (viewModel.isHandsFreeModeActive.value) {
                         lifecycleScope.launch {
                             delay(500)
@@ -203,6 +206,9 @@ class MainActivity : ComponentActivity() {
                 override fun onResults(recognizedText: String) {
                     viewModel.setListening(false)
                     viewModel.setVoiceProcessing(false)
+                    if (!viewModel.isHandsFreeModeActive.value) {
+                        viewModel.setMicReady(false)
+                    }
                     if (recognizedText.isNotBlank()) {
                         viewModel.onSpeechRecognized(recognizedText)
                     }

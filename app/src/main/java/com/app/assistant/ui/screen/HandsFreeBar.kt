@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
 
 enum class HandsFreeState {
+    STARTING,
     LISTENING,
     THINKING,
     SPEAKING
@@ -53,19 +55,23 @@ fun HandsFreeBar(
     isSpeaking: Boolean,
     isListening: Boolean,
     isThinking: Boolean,
+    isMicReady: Boolean,
     onExitHandsFree: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val currentState = remember(isSpeaking, isListening, isThinking) {
+    val currentState = remember(isSpeaking, isListening, isThinking, isMicReady) {
         when {
             isThinking -> HandsFreeState.THINKING
             isSpeaking -> HandsFreeState.SPEAKING
-            else -> HandsFreeState.LISTENING
+            isListening -> HandsFreeState.LISTENING
+            isMicReady -> HandsFreeState.LISTENING
+            else -> HandsFreeState.STARTING
         }
     }
 
     val orbBackgroundColor by animateColorAsState(
         targetValue = when (currentState) {
+            HandsFreeState.STARTING -> MaterialTheme.colorScheme.surfaceVariant
             HandsFreeState.LISTENING -> MaterialTheme.colorScheme.primaryContainer
             HandsFreeState.THINKING -> MaterialTheme.colorScheme.tertiaryContainer
             HandsFreeState.SPEAKING -> MaterialTheme.colorScheme.secondaryContainer
@@ -76,6 +82,7 @@ fun HandsFreeBar(
 
     val orbContentColor by animateColorAsState(
         targetValue = when (currentState) {
+            HandsFreeState.STARTING -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             HandsFreeState.LISTENING -> MaterialTheme.colorScheme.primary
             HandsFreeState.THINKING -> MaterialTheme.colorScheme.tertiary
             HandsFreeState.SPEAKING -> MaterialTheme.colorScheme.secondary
@@ -86,6 +93,7 @@ fun HandsFreeBar(
 
     val orbWidth by animateDpAsState(
         targetValue = when (currentState) {
+            HandsFreeState.STARTING -> 48.dp
             HandsFreeState.LISTENING -> 72.dp
             HandsFreeState.THINKING -> 48.dp
             HandsFreeState.SPEAKING -> 88.dp
@@ -196,6 +204,13 @@ fun HandsFreeBar(
             ) {
                 // Creative animations depending on state
                 when (currentState) {
+                    HandsFreeState.STARTING -> {
+                        CircularProgressIndicator(
+                            color = orbContentColor,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                     HandsFreeState.LISTENING -> {
                         // Out of the box: Flowing double sine wave
                         Canvas(modifier = Modifier.size(width = 52.dp, height = 24.dp)) {
@@ -380,11 +395,26 @@ fun HandsFreeBar(
 
 @Preview(showBackground = true)
 @Composable
+fun HandsFreeBarStartingPreview() {
+    AssistantTheme {
+        HandsFreeBar(
+            isSpeaking = false,
+            isListening = false,
+            isThinking = false,
+            isMicReady = false,
+            onExitHandsFree = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
 fun HandsFreeBarListeningPreview() {
     AssistantTheme {
         HandsFreeBar(
             isSpeaking = false,
             isListening = true,
+            isMicReady = true,
             isThinking = false,
             onExitHandsFree = {}
         )
@@ -398,6 +428,7 @@ fun HandsFreeBarThinkingPreview() {
         HandsFreeBar(
             isSpeaking = false,
             isListening = false,
+            isMicReady = true,
             isThinking = true,
             onExitHandsFree = {}
         )
@@ -411,6 +442,7 @@ fun HandsFreeBarSpeakingPreview() {
         HandsFreeBar(
             isSpeaking = true,
             isListening = false,
+            isMicReady = true,
             isThinking = false,
             onExitHandsFree = {}
         )
