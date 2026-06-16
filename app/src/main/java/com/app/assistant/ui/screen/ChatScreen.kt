@@ -111,6 +111,7 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
         val isListening by viewModel.isListening.collectAsState()
         val isVoiceProcessing by viewModel.isVoiceProcessing.collectAsState()
         val isHandsFree by viewModel.isHandsFreeModeActive.collectAsState()
+        val isMicMuted by viewModel.isMicMuted.collectAsState()
         val question by viewModel.question.collectAsState()
         val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
 
@@ -216,7 +217,9 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 isVideoSupported = isVideoSupported,
                 isDocumentSupported = isDocumentSupported,
                 onToggleHandsFree = { viewModel.toggleHandsFreeMode() },
-                onExitHandsFree = { viewModel.setHandsFreeModeActive(false) }
+                onExitHandsFree = { viewModel.setHandsFreeModeActive(false) },
+                isMicMuted = isMicMuted,
+                onToggleMicMute = { viewModel.toggleMicMute() }
             )
         }
     }
@@ -257,6 +260,8 @@ fun ChatScreenContent(
     onToggleHandsFree: () -> Unit = {},
     onExitHandsFree: () -> Unit = {},
     isVoiceProcessing: Boolean = false,
+    isMicMuted: Boolean = false,
+    onToggleMicMute: () -> Unit = {},
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -371,6 +376,8 @@ fun ChatScreenContent(
                     onToggleHandsFree = onToggleHandsFree,
                     onExitHandsFree = onExitHandsFree,
                     isVoiceProcessing = isVoiceProcessing,
+                    isMicMuted = isMicMuted,
+                    onToggleMicMute = onToggleMicMute,
                 )
             }
         }

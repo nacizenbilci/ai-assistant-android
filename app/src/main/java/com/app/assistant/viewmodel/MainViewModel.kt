@@ -287,6 +287,21 @@ class MainViewModel(
     private val _isMicReady = MutableStateFlow(false)
     val isMicReady: StateFlow<Boolean> = _isMicReady.asStateFlow()
 
+    private val _isMicMuted = MutableStateFlow(false)
+    val isMicMuted: StateFlow<Boolean> = _isMicMuted.asStateFlow()
+
+    fun toggleMicMute() {
+        val newMuteState = !_isMicMuted.value
+        _isMicMuted.value = newMuteState
+        if (newMuteState) {
+            _isListening.value = false
+            _isMicReady.value = false
+            triggerToast("Microphone muted")
+        } else {
+            triggerToast("Microphone unmuted")
+        }
+    }
+
     fun setMicReady(ready: Boolean) {
         _isMicReady.value = ready
     }
@@ -321,6 +336,7 @@ class MainViewModel(
             _isListening.value = false
             _isVoiceProcessing.value = false
             _isMicReady.value = false
+            _isMicMuted.value = false // Reset mic mute state when exiting Hands-Free mode
         }
     }
 

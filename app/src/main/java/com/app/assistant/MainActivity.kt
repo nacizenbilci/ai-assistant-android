@@ -89,6 +89,16 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isMicMuted.collect { muted ->
+                    if (::speechRecognizerManager.isInitialized) {
+                        speechRecognizerManager.setMicMuted(muted)
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiEvent.collect { event ->
                     when (event) {
                         is UIEvent.RequestPermissions -> {

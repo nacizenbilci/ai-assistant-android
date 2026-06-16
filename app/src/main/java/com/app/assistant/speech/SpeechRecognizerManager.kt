@@ -50,6 +50,8 @@ class SpeechRecognizerManager(
 
     private var activeListener: SpeechListener? = null
     private var isHandsFreeMode = false
+    @Volatile
+    private var isMicMuted = false
 
     private var audioHygieneProcessor: AudioHygieneProcessor? = null
     private var vadIntelligenceProcessor: VadIntelligenceProcessor? = null
@@ -313,11 +315,16 @@ class SpeechRecognizerManager(
                     audioHygieneProcessor = audioProcessor
 
                     vadProcessor.clear()
-                    if (audioProcessor.start()) {
+                    if (isMicMuted) {
+                        Log.i("SpeechRecognizerManager", "Pipeline initialized but mic is muted. Not starting AudioRecord.")
                         stateMachine.onUserStartedListening()
                     } else {
-                        withContext(Dispatchers.Main) {
-                            listener.onError(-1)
+                        if (audioProcessor.start()) {
+                            stateMachine.onUserStartedListening()
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                listener.onError(-1)
+                            }
                         }
                     }
                 }
@@ -389,6 +396,10 @@ class SpeechRecognizerManager(
     private fun startNativeListening(listener: SpeechListener) {
         try {
             cleanupSpeechRecognizer()
+            if (isMicMuted) {
+                Log.i("SpeechRecognizerManager", "startNativeListening: mic is muted, not starting SpeechRecognizer")
+                return
+            }
 
             audioManager.mode = AudioManager.MODE_IN_CALL
             audioManager.isBluetoothScoOn = true
@@ -471,6 +482,57 @@ class SpeechRecognizerManager(
         vadIntelligenceProcessor = null
         
         voiceStateMachine = null
+    }
+
+    @Synchronized
+    fun setMicMuted(muted: Boolean) {
+        if (isMicMuted == muted) return
+        isMicMuted = muted
+        Log.i("SpeechRecognizerManager", "setMicMuted changed to $muted")
+        
+        if (muted) {
+            stopMicAccess()
+        } else {
+            resumeMicAccess()
+        }
+    }
+
+    private fun stopMicAccess() {
+        Log.i("SpeechRecognizerManager", "stopMicAccess: making microphone unavailable")
+        audioHygieneProcessor?.stop()
+        
+        speechRecognizer?.let {
+            it.stopListening()
+            cleanupSpeechRecognizer()
+            stopBluetoothSco()
+        }
+    }
+
+    private fun resumeMicAccess() {
+        Log.i("SpeechRecognizerManager", "resumeMicAccess: resuming microphone access")
+        val listener = activeListener ?: return
+        
+        if (isHandsFreeMode) {
+            val audioProcessor = audioHygieneProcessor
+            val stateMachine = voiceStateMachine
+            if (audioProcessor != null && stateMachine != null) {
+                scope.launch(Dispatchers.IO) {
+                    if (audioProcessor.start()) {
+                        stateMachine.onUserStartedListening()
+                    } else {
+                        scope.launch(Dispatchers.Main) {
+                            listener.onError(-1)
+                        }
+                    }
+                }
+            } else {
+                if (modelManager.isModelDownloaded()) {
+                    startThreeLayerPipeline(isHandsFree = true, listener)
+                } else {
+                    startNativeListening(listener)
+                }
+            }
+        }
     }
 
     fun stop() {

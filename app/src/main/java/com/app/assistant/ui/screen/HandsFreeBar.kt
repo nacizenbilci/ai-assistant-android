@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,8 @@ fun HandsFreeBar(
     isThinking: Boolean,
     isMicReady: Boolean,
     onExitHandsFree: () -> Unit,
+    isMuted: Boolean = false,
+    onToggleMute: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val currentState = remember(isSpeaking, isListening, isThinking, isMicReady) {
@@ -95,7 +98,7 @@ fun HandsFreeBar(
         targetValue = when (currentState) {
             HandsFreeState.STARTING -> 48.dp
             HandsFreeState.LISTENING -> 72.dp
-            HandsFreeState.THINKING -> 48.dp
+            HandsFreeState.THINKING -> 72.dp
             HandsFreeState.SPEAKING -> 88.dp
         },
         animationSpec = tween(durationMillis = 350),
@@ -205,11 +208,56 @@ fun HandsFreeBar(
                 // Creative animations depending on state
                 when (currentState) {
                     HandsFreeState.STARTING -> {
-                        CircularProgressIndicator(
-                            color = orbContentColor,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp)
+                        // Circular rotating arc segment with a pulsing inner core dot
+                        val rotation by infiniteTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1500, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            ),
+                            label = "startingRotation"
                         )
+                        
+                        val coreScale by infiniteTransition.animateFloat(
+                            initialValue = 0.7f,
+                            targetValue = 1.0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(800, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "startingCore"
+                        )
+
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Outer spinning arc segment
+                            Canvas(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { rotationZ = rotation }
+                            ) {
+                                drawArc(
+                                    color = orbContentColor,
+                                    startAngle = 0f,
+                                    sweepAngle = 270f,
+                                    useCenter = false,
+                                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                                )
+                            }
+                            // Inner breathing core
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .graphicsLayer {
+                                        scaleX = coreScale
+                                        scaleY = coreScale
+                                    }
+                                    .background(orbContentColor, CircleShape)
+                            )
+                        }
                     }
                     HandsFreeState.LISTENING -> {
                         // Out of the box: Flowing double sine wave
@@ -249,55 +297,40 @@ fun HandsFreeBar(
                         }
                     }
                     HandsFreeState.THINKING -> {
-                        // Out of the box: Circular rotating arc segment with a pulsing inner core dot
-                        val rotation by infiniteTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue = 360f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(1500, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart
-                            ),
-                            label = "thinkingRotation"
-                        )
-                        
-                        val coreScale by infiniteTransition.animateFloat(
-                            initialValue = 0.7f,
-                            targetValue = 1.0f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(800, easing = FastOutSlowInEasing),
-                                repeatMode = RepeatMode.Reverse
-                            ),
-                            label = "thinkingCore"
-                        )
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val width = size.width
+                            val height = size.height
+                            val centerX = width / 2
+                            val centerY = height / 2
 
-                        Box(
-                            modifier = Modifier.size(32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Outer spinning arc segment
-                            Canvas(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { rotationZ = rotation }
-                            ) {
-                                drawArc(
+                            val baseRadius = 2.5.dp.toPx()
+                            val spacing = 7.5.dp.toPx()
+                            val horizontalAmplitude = 5.dp.toPx()
+                            val verticalAmplitude = 1.5.dp.toPx()
+
+                            for (i in 0 until 5) {
+                                // Staggered phase for each dot
+                                val dotPhase = wavePhase - i * 0.6f
+
+                                // 3D-like orbital offsets
+                                val dx = horizontalAmplitude * kotlin.math.cos(dotPhase)
+                                val dy = verticalAmplitude * kotlin.math.sin(dotPhase)
+
+                                val homeX = centerX + (i - 2) * spacing
+                                val x = homeX + dx
+                                val y = centerY + dy
+
+                                // Scale and alpha oscillate to create depth/3D effect
+                                val scale = 0.8f + 0.4f * ((kotlin.math.sin(dotPhase) + 1f) / 2f)
+                                val alpha = 0.4f + 0.6f * ((kotlin.math.sin(dotPhase) + 1f) / 2f)
+
+                                drawCircle(
                                     color = orbContentColor,
-                                    startAngle = 0f,
-                                    sweepAngle = 270f,
-                                    useCenter = false,
-                                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                                    radius = baseRadius * scale,
+                                    center = Offset(x, y),
+                                    alpha = alpha
                                 )
                             }
-                            // Inner breathing core
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .graphicsLayer {
-                                        scaleX = coreScale
-                                        scaleY = coreScale
-                                    }
-                                    .background(orbContentColor, CircleShape)
-                            )
                         }
                     }
                     HandsFreeState.SPEAKING -> {
@@ -371,11 +404,13 @@ fun HandsFreeBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             IconButton(
-                onClick = { /* Add mic mute/unmute feature later */ }
+                onClick = onToggleMute
             ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.ic_mic),
-                    contentDescription = "Mic (Hands-free)",
+                    painter = painterResource(
+                        id = if (isMuted) R.drawable.ic_mic_off else R.drawable.ic_mic
+                    ),
+                    contentDescription = if (isMuted) "Unmute Mic" else "Mute Mic",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
