@@ -14,6 +14,7 @@ class VoiceStateMachine(
     }
 
     private var state = VoiceState.IDLE
+    private var lastTtsStartTime: Long = 0L
 
     @Synchronized
     fun getCurrentState(): VoiceState = state
@@ -42,6 +43,11 @@ class VoiceStateMachine(
     fun onSpeechStartDetected() {
         when (state) {
             VoiceState.BOT_SPEAKING -> {
+                val elapsedSinceTtsStart = System.currentTimeMillis() - lastTtsStartTime
+                if (elapsedSinceTtsStart < 300) {
+                    logD("Ignoring speech start detected during echo bleed window ($elapsedSinceTtsStart ms < 300 ms).")
+                    return
+                }
                 logI("[Interruption] Speech detected during TTS. Stopping TTS and listening.")
                 callback.stopTtsPlayback()
                 state = VoiceState.LISTENING
@@ -75,6 +81,7 @@ class VoiceStateMachine(
         logD("TTS state changed: isSpeaking = $isSpeaking, current state = $state")
         when {
             isSpeaking -> {
+                lastTtsStartTime = System.currentTimeMillis()
                 if (state == VoiceState.PROCESSING || state == VoiceState.LISTENING) {
                     logD("State transition: $state -> BOT_SPEAKING")
                     state = VoiceState.BOT_SPEAKING

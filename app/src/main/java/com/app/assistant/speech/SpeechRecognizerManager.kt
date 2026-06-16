@@ -247,6 +247,7 @@ class SpeechRecognizerManager(
 
         override fun onTransitionToBotSpeaking() {
             isListening = false
+            vadIntelligenceProcessor?.clear()
         }
 
         override fun onTransitionToIdle() {
