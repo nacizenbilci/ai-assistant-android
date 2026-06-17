@@ -242,6 +242,7 @@ fun ChatLayout(
                         isDocumentSupported = isDocumentSupported,
                         isHandsFree = isHandsFree,
                         onToggleHandsFree = onToggleHandsFree,
+                        hasMessages = chatList.isNotEmpty(),
                     )
                 }
             }

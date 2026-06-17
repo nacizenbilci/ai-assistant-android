@@ -3,6 +3,11 @@ package com.app.assistant.ui.screen
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -89,6 +94,7 @@ fun UserInputField(
     isDocumentSupported: Boolean = false,
     isHandsFree: Boolean = false,
     onToggleHandsFree: () -> Unit = {},
+    hasMessages: Boolean = false,
 ) {
     val containerColor = TextFieldDefaults.colors().unfocusedContainerColor
     val rippleColor = adjustContrast(containerColor)
@@ -232,17 +238,12 @@ fun UserInputField(
                     }
                 } else null,
                 trailingIcon = {
+                    val hasInput = question.isNotEmpty() || selectedAttachments.isNotEmpty()
+                    val showSendButton = hasInput || isListening || hasMessages
                     Row(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onToggleHandsFree) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_speaker),
-                                contentDescription = "Toggle Hands-free Mode",
-                                tint = if (isHandsFree) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                         if (isSpeaking) {
                             IconButton(onClick = {
                                 if (isSpeaking) {
@@ -264,15 +265,34 @@ fun UserInputField(
                                 )
                             }
                         }
-                        IconButton(onClick = {
-                            if (question.isNotEmpty() || selectedAttachments.isNotEmpty()) {
-                                onProcessQuestion(focusManager, keyboardController, false)
+                        AnimatedVisibility(
+                            visible = !showSendButton,
+                            enter = fadeIn() + expandHorizontally(),
+                            exit = fadeOut() + shrinkHorizontally()
+                        ) {
+                            IconButton(onClick = onToggleHandsFree) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_live_modes),
+                                    contentDescription = "Toggle Hands-free Mode",
+                                    tint = if (isHandsFree) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                        }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = stringResource(id = R.string.send_desc),
-                            )
+                        }
+                        AnimatedVisibility(
+                            visible = showSendButton,
+                            enter = fadeIn() + expandHorizontally(),
+                            exit = fadeOut() + shrinkHorizontally()
+                        ) {
+                            IconButton(onClick = {
+                                if (question.isNotEmpty() || selectedAttachments.isNotEmpty()) {
+                                    onProcessQuestion(focusManager, keyboardController, false)
+                                }
+                            }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = stringResource(id = R.string.send_desc),
+                                )
+                            }
                         }
                     }
                 },
@@ -435,7 +455,8 @@ fun UserInputFieldIdlePreview() {
                 onStopSpeaking = {},
                 onStartListening = {},
                 onProcessQuestion = { _, _, _ -> },
-                isImageSupported = true
+                isImageSupported = true,
+                hasMessages = true
             )
         }
     }
