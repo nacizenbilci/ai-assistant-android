@@ -53,7 +53,7 @@ import androidx.compose.animation.core.tween
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
-fun MyLayout(
+fun ChatLayout(
     modifier: Modifier = Modifier,
     onShowCopyIconChange: (Boolean) -> Unit,
     selectedItemIndex: Int?,
@@ -286,9 +286,9 @@ fun MyLayout(
 
 @Preview(showBackground = true)
 @Composable
-fun MyLayoutPreview() {
+fun ChatLayoutPreview() {
     AssistantTheme {
-        MyLayout(
+        ChatLayout(
             onShowCopyIconChange = {},
             selectedItemIndex = null,
             onSelectedItemChange = {},

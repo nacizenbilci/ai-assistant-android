@@ -296,9 +296,6 @@ class MainViewModel(
         if (newMuteState) {
             _isListening.value = false
             _isMicReady.value = false
-            triggerToast("Microphone muted")
-        } else {
-            triggerToast("Microphone unmuted")
         }
     }
 

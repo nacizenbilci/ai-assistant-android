@@ -348,7 +348,7 @@ fun ChatScreenContent(
                     }
                 },
             ) { innerPadding ->
-                MyLayout(
+                ChatLayout(
                     modifier = Modifier.padding(innerPadding),
                     onShowCopyIconChange = { newValue ->
                         showCopyIcon = newValue
