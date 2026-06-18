@@ -101,10 +101,15 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
+fun SetupUI(
+    viewModel: MainViewModel,
+    settingsViewModel: SettingsViewModel,
+    onToggleVisionMode: () -> Unit
+) {
     AssistantTheme {
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
+        val isVisionModeActive by viewModel.isVisionModeActive.collectAsState()
         val groupList by viewModel.groupList.collectAsState(initial = emptyList())
         val chatList = viewModel.chatList
         val isSpeaking by viewModel.isSpeaking.collectAsState()
@@ -219,7 +224,9 @@ fun SetupUI(viewModel: MainViewModel, settingsViewModel: SettingsViewModel) {
                 onToggleHandsFree = { viewModel.toggleHandsFreeMode() },
                 onExitHandsFree = { viewModel.setHandsFreeModeActive(false) },
                 isMicMuted = isMicMuted,
-                onToggleMicMute = { viewModel.toggleMicMute() }
+                onToggleMicMute = { viewModel.toggleMicMute() },
+                isVisionModeActive = isVisionModeActive,
+                onToggleVisionMode = onToggleVisionMode
             )
         }
     }
@@ -262,6 +269,8 @@ fun ChatScreenContent(
     isVoiceProcessing: Boolean = false,
     isMicMuted: Boolean = false,
     onToggleMicMute: () -> Unit = {},
+    isVisionModeActive: Boolean = false,
+    onToggleVisionMode: () -> Unit = {},
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -378,6 +387,8 @@ fun ChatScreenContent(
                     isVoiceProcessing = isVoiceProcessing,
                     isMicMuted = isMicMuted,
                     onToggleMicMute = onToggleMicMute,
+                    isVisionModeActive = isVisionModeActive,
+                    onToggleVisionMode = onToggleVisionMode,
                 )
             }
         }

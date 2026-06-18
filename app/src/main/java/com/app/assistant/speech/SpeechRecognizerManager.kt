@@ -53,6 +53,9 @@ class SpeechRecognizerManager(
     @Volatile
     private var isMicMuted = false
 
+    @Volatile
+    var speechStartTimestamp: Long = 0L
+
     private var audioHygieneProcessor: AudioHygieneProcessor? = null
     private var vadIntelligenceProcessor: VadIntelligenceProcessor? = null
     private var voiceStateMachine: VoiceStateMachine? = null
@@ -295,6 +298,7 @@ class SpeechRecognizerManager(
                     // Initialize the Intelligence Layer (Layer 2)
                     val vadProcessor = VadIntelligenceProcessor(activeVad, object : VadIntelligenceProcessor.VadListener {
                         override fun onSpeechStart() {
+                            speechStartTimestamp = System.currentTimeMillis()
                             stateMachine.onSpeechStartDetected()
                         }
 
@@ -417,6 +421,7 @@ class SpeechRecognizerManager(
                 }
 
                 override fun onBeginningOfSpeech() {
+                    speechStartTimestamp = System.currentTimeMillis()
                     isListening = true
                     listener.onBeginningOfSpeech()
                 }

@@ -169,7 +169,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            SetupUI(viewModel, settingsViewModel)
+            SetupUI(
+                viewModel = viewModel,
+                settingsViewModel = settingsViewModel,
+                onToggleVisionMode = {
+                    toggleVisionModeWithPermissionCheck()
+                }
+            )
         }
     }
 
@@ -225,7 +231,12 @@ class MainActivity : ComponentActivity() {
                         viewModel.setMicReady(false)
                     }
                     if (recognizedText.isNotBlank()) {
-                        viewModel.onSpeechRecognized(recognizedText)
+                        if (viewModel.isVisionModeActive.value) {
+                            val startTimestamp = speechRecognizerManager.speechStartTimestamp
+                            viewModel.onSpeechRecognizedWithVision(recognizedText, startTimestamp)
+                        } else {
+                            viewModel.onSpeechRecognized(recognizedText)
+                        }
                     }
                 }
 
@@ -359,6 +370,34 @@ class MainActivity : ComponentActivity() {
             }
         } catch (ex: Exception) {
             ex.message?.let { Log.d("Exception Occurred", it) }
+        }
+    }
+
+    private fun toggleVisionModeWithPermissionCheck() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 102)
+        } else {
+            viewModel.toggleVisionMode()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            101 -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startSpeechRecognition()
+                } else {
+                    Toast.makeText(this, "Audio permission is required for speech recognition", Toast.LENGTH_SHORT).show()
+                }
+            }
+            102 -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    viewModel.toggleVisionMode()
+                } else {
+                    Toast.makeText(this, "Camera permission is required for Vision Mode", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

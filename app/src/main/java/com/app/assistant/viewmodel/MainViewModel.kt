@@ -284,6 +284,13 @@ class MainViewModel(
     private val _isHandsFreeModeActive = MutableStateFlow(false)
     val isHandsFreeModeActive: StateFlow<Boolean> = _isHandsFreeModeActive.asStateFlow()
 
+    private val _isVisionModeActive = MutableStateFlow(false)
+    val isVisionModeActive: StateFlow<Boolean> = _isVisionModeActive.asStateFlow()
+
+    fun toggleVisionMode() {
+        _isVisionModeActive.value = !_isVisionModeActive.value
+    }
+
     private val _isMicReady = MutableStateFlow(false)
     val isMicReady: StateFlow<Boolean> = _isMicReady.asStateFlow()
 
@@ -334,6 +341,7 @@ class MainViewModel(
             _isVoiceProcessing.value = false
             _isMicReady.value = false
             _isMicMuted.value = false // Reset mic mute state when exiting Hands-Free mode
+            _isVisionModeActive.value = false // Deactivate vision mode when exiting Hands-Free mode
         }
     }
 
@@ -818,6 +826,55 @@ class MainViewModel(
         _question.value = recognizedText
         if (recognizedText.isNotBlank()) {
             processQuestion(speak = true)
+        }
+    }
+
+    fun onSpeechRecognizedWithVision(recognizedText: String, speechStartTimestamp: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val optimalFrame = com.app.assistant.camera.VisionBufferManager.getOptimalFrame(speechStartTimestamp)
+            if (optimalFrame != null) {
+                val attachment = saveFrameAsAttachment(optimalFrame.jpegBytes)
+                withContext(Dispatchers.Main) {
+                    if (attachment != null) {
+                        _selectedAttachments.value = listOf(attachment)
+                    }
+                    _question.value = recognizedText
+                    processQuestion(speak = true)
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    _question.value = recognizedText
+                    processQuestion(speak = true)
+                }
+            }
+        }
+    }
+
+    private fun saveFrameAsAttachment(jpegBytes: ByteArray): com.app.assistant.model.Attachment? {
+        return try {
+            val context = getApplication<Application>().applicationContext
+            val fileName = "vision_frame_${System.currentTimeMillis()}.jpg"
+            val mimeType = "image/jpeg"
+            val iv = com.app.assistant.db.EncryptionUtil.generateIV()
+            val encryptedBytes = com.app.assistant.db.EncryptionUtil.encryptFile(jpegBytes, iv)
+
+            val attachmentsDir = java.io.File(context.filesDir, "attachments")
+            if (!attachmentsDir.exists()) {
+                attachmentsDir.mkdirs()
+            }
+
+            val targetFile = java.io.File(attachmentsDir, "file_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}.enc")
+            targetFile.writeBytes(encryptedBytes)
+
+            com.app.assistant.model.Attachment(
+                filePath = targetFile.absolutePath,
+                mimeType = mimeType,
+                fileName = fileName,
+                iv = iv
+            )
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Failed to save vision frame as attachment", e)
+            null
         }
     }
 

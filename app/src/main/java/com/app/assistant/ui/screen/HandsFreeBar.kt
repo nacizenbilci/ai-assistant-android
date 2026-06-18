@@ -66,6 +66,8 @@ fun HandsFreeBar(
     onExitHandsFree: () -> Unit,
     isMuted: Boolean = false,
     onToggleMute: () -> Unit = {},
+    isVisionModeActive: Boolean = false,
+    onToggleVisionMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val currentState = remember(isSpeaking, isListening, isThinking, isMicReady) {
@@ -245,12 +247,12 @@ fun HandsFreeBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             IconButton(
-                onClick = { /* Add camera feature later */ }
+                onClick = onToggleVisionMode
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_camera),
                     contentDescription = "Camera (Hands-free)",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isVisionModeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

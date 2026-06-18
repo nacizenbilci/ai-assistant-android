@@ -100,7 +100,7 @@ class ProcessChatCommandUseCase(
                         false
                     } else {
                         when {
-                            att.mimeType.startsWith("image/") -> settingsRepository.getIsImageSupported()
+                            att.mimeType.startsWith("image/") -> settingsRepository.getIsImageSupported() || att.fileName.startsWith("vision_frame")
                             att.mimeType.startsWith("audio/") -> settingsRepository.getIsAudioSupported()
                             att.mimeType.startsWith("video/") -> settingsRepository.getIsVideoSupported()
                             att.mimeType.startsWith("application/pdf") -> settingsRepository.getIsDocumentSupported()

@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -22,23 +23,28 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.app.assistant.model.Conversation
+import com.app.assistant.R
 import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -82,10 +88,14 @@ fun ChatLayout(
     isMicReady: Boolean = false,
     isMicMuted: Boolean = false,
     onToggleMicMute: () -> Unit = {},
+    isVisionModeActive: Boolean = false,
+    onToggleVisionMode: () -> Unit = {},
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
+
+    var isCameraExpanded by remember(isVisionModeActive) { mutableStateOf(true) }
 
     val context = LocalContext.current
     val vibrator =
@@ -110,140 +120,203 @@ fun ChatLayout(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier =
-                Modifier
+    Box(modifier = modifier.fillMaxSize()) {
+        if (isVisionModeActive && isCameraExpanded) {
+            CameraPreviewContainer(
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
                     .weight(1f)
-                    .padding(0.dp, 0.dp, 0.dp, 0.dp),
-            verticalArrangement =
-                if (isCustomUI) {
-                    Arrangement.spacedBy(8.dp, Alignment.Bottom)
-                } else {
-                    Arrangement.spacedBy(8.dp)
-                },
-            state = scrollState,
-        ) {
-            itemsIndexed(chatList) { index, conversation ->
-                ConversationItem(
-                    conversation = conversation,
-                    index = index,
-                    isSelected = index == selectedItemIndex,
-                    onLongClick = { newIndex -> onSelectedItemChange(newIndex) },
-                    isTranslateEnabled = isTranslateEnabled,
-                )
-            }
-        }
-
-        var isDismissed by remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
-            mutableStateOf(false)
-        }
-
-        val showWarning = remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
-            chatList.any { conversation ->
-                conversation.attachments.any { att ->
-                    val isTextDoc = att.mimeType.startsWith("text/") || att.mimeType == "application/json"
-                    if (isTextDoc) {
-                        false
-                    } else {
-                        when {
-                            att.mimeType.startsWith("image/") -> !isImageSupported
-                            att.mimeType.startsWith("audio/") -> !isAudioSupported
-                            att.mimeType.startsWith("video/") -> !isVideoSupported
-                            att.mimeType.startsWith("application/pdf") -> !isDocumentSupported
-                            else -> true
+                    .fillMaxWidth()
+            ) {
+                if (!(isVisionModeActive && isCameraExpanded)) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .padding(0.dp, 0.dp, 0.dp, 0.dp),
+                            verticalArrangement =
+                                if (isCustomUI) {
+                                    Arrangement.spacedBy(8.dp, Alignment.Bottom)
+                                } else {
+                                    Arrangement.spacedBy(8.dp)
+                                },
+                            state = scrollState,
+                        ) {
+                            itemsIndexed(chatList) { index, conversation ->
+                                ConversationItem(
+                                    conversation = conversation,
+                                    index = index,
+                                    isSelected = index == selectedItemIndex,
+                                    onLongClick = { newIndex -> onSelectedItemChange(newIndex) },
+                                    isTranslateEnabled = isTranslateEnabled,
+                                )
+                            }
                         }
+
+                        var isDismissed by remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
+                            mutableStateOf(false)
+                        }
+
+                        val showWarning = remember(chatList.size, isImageSupported, isAudioSupported, isVideoSupported, isDocumentSupported) {
+                            chatList.any { conversation ->
+                                conversation.attachments.any { att ->
+                                    val isTextDoc = att.mimeType.startsWith("text/") || att.mimeType == "application/json"
+                                    if (isTextDoc) {
+                                        false
+                                    } else {
+                                        when {
+                                            att.mimeType.startsWith("image/") -> !isImageSupported
+                                            att.mimeType.startsWith("audio/") -> !isAudioSupported
+                                            att.mimeType.startsWith("video/") -> !isVideoSupported
+                                            att.mimeType.startsWith("application/pdf") -> !isDocumentSupported
+                                            else -> true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (showWarning && !isDismissed) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Warning",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Current model does not support some media in this chat. Incompatible past attachments will be ignored by the LLM.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { isDismissed = true },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Dismiss warning",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isVisionModeActive) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.Black)
+                            ) {
+                                CameraPreviewContainer(
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                IconButton(
+                                    onClick = { isCameraExpanded = true },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_fullscreen),
+                                        contentDescription = "Expand Camera Preview",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Expanded mode overlay button
+                    IconButton(
+                        onClick = { isCameraExpanded = false },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_fullscreen_exit),
+                            contentDescription = "Collapse Camera Preview",
+                            tint = Color.White
+                        )
                     }
                 }
             }
-        }
 
-        if (showWarning && !isDismissed) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "Warning",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Current model does not support some media in this chat. Incompatible past attachments will be ignored by the LLM.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { isDismissed = true },
-                    modifier = Modifier.size(20.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss warning",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        AnimatedContent(
-            targetState = isHandsFree,
-            transitionSpec = {
-                (slideInVertically(animationSpec = tween(300)) { height -> height } + fadeIn(animationSpec = tween(300)))
-                    .togetherWith(
-                        slideOutVertically(animationSpec = tween(300)) { height -> height } + fadeOut(animationSpec = tween(300))
-                    )
-            },
-            label = "InputFieldTransition",
-            modifier = Modifier.fillMaxWidth()
-        ) { handsFreeActive ->
-            if (handsFreeActive) {
-                HandsFreeBar(
-                    isSpeaking = isSpeaking,
-                    isListening = isListening,
-                    isThinking = isVoiceProcessing || chatList.any { it.isLoading || it.isStreaming },
-                    isMicReady = isMicReady,
-                    onExitHandsFree = onExitHandsFree,
-                    isMuted = isMicMuted,
-                    onToggleMute = onToggleMicMute,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp)
-                )
-            } else {
-                if (keyboardController != null) {
-                    UserInputField(
-                        focusManager = focusManager,
-                        keyboardController = keyboardController,
+            AnimatedContent(
+                targetState = isHandsFree,
+                transitionSpec = {
+                    (slideInVertically(animationSpec = tween(300)) { height -> height } + fadeIn(animationSpec = tween(300)))
+                        .togetherWith(
+                            slideOutVertically(animationSpec = tween(300)) { height -> height } + fadeOut(animationSpec = tween(300))
+                        )
+                },
+                label = "InputFieldTransition",
+                modifier = Modifier.fillMaxWidth()
+            ) { handsFreeActive ->
+                if (handsFreeActive) {
+                    HandsFreeBar(
                         isSpeaking = isSpeaking,
                         isListening = isListening,
-                        question = question,
-                        onQuestionChange = onQuestionChange,
-                        onStopSpeaking = onStopSpeaking,
-                        onStartListening = onStartListening,
-                        onProcessQuestion = onProcessQuestion,
-                        selectedAttachments = selectedAttachments,
-                        onRemoveAttachment = onRemoveAttachment,
-                        onAttachClick = onAttachClick,
-                        isImageSupported = isImageSupported,
-                        isAudioSupported = isAudioSupported,
-                        isVideoSupported = isVideoSupported,
-                        isDocumentSupported = isDocumentSupported,
-                        isHandsFree = isHandsFree,
-                        onToggleHandsFree = onToggleHandsFree,
-                        hasMessages = chatList.isNotEmpty(),
+                        isThinking = isVoiceProcessing || chatList.any { it.isLoading || it.isStreaming },
+                        isMicReady = isMicReady,
+                        onExitHandsFree = onExitHandsFree,
+                        isMuted = isMicMuted,
+                        onToggleMute = onToggleMicMute,
+                        isVisionModeActive = isVisionModeActive,
+                        onToggleVisionMode = onToggleVisionMode,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
                     )
+                } else {
+                    if (keyboardController != null) {
+                        UserInputField(
+                            focusManager = focusManager,
+                            keyboardController = keyboardController,
+                            isSpeaking = isSpeaking,
+                            isListening = isListening,
+                            question = question,
+                            onQuestionChange = onQuestionChange,
+                            onStopSpeaking = onStopSpeaking,
+                            onStartListening = onStartListening,
+                            onProcessQuestion = onProcessQuestion,
+                            selectedAttachments = selectedAttachments,
+                            onRemoveAttachment = onRemoveAttachment,
+                            onAttachClick = onAttachClick,
+                            isImageSupported = isImageSupported,
+                            isAudioSupported = isAudioSupported,
+                            isVideoSupported = isVideoSupported,
+                            isDocumentSupported = isDocumentSupported,
+                            isHandsFree = isHandsFree,
+                            onToggleHandsFree = onToggleHandsFree,
+                            hasMessages = chatList.isNotEmpty(),
+                        )
+                    }
                 }
             }
         }
