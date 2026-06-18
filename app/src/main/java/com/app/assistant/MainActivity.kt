@@ -151,13 +151,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        var wasHandsFreeActive = false
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isHandsFreeModeActive.collect { active ->
                     if (active) {
+                        wasHandsFreeActive = true
                         startSpeechRecognition(isHandsFree = true)
                     } else {
-                        speechRecognizerManager.stop()
+                        if (wasHandsFreeActive) {
+                            wasHandsFreeActive = false
+                            speechRecognizerManager.stop()
+                        }
                     }
                 }
             }

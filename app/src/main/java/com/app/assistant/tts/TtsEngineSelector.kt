@@ -7,43 +7,56 @@ import java.io.File
 class TtsEngineSelector(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
+    private val okHttpClient: okhttp3.OkHttpClient = com.app.assistant.viewmodel.MainViewModelFactory.okHttpClient,
     private val onSpeakingStateChanged: (isSpeaking: Boolean) -> Unit
 ) : TtsManager {
 
-    private val nativeTtsManager = NativeTtsManager(context, onSpeakingStateChanged)
-    private val offlineTtsManager = OfflineTtsManager(context, settingsRepository, onSpeakingStateChanged)
-    private val apiTtsManager = ApiTtsManager(context, settingsRepository, onSpeakingStateChanged)
+    private var nativeTtsManager: NativeTtsManager? = null
+    private var offlineTtsManager: OfflineTtsManager? = null
+    private var apiTtsManager: ApiTtsManager? = null
+
+    private fun getNativeTtsManager(): NativeTtsManager {
+        return nativeTtsManager ?: NativeTtsManager(context, onSpeakingStateChanged).also { nativeTtsManager = it }
+    }
+
+    private fun getOfflineTtsManager(): OfflineTtsManager {
+        return offlineTtsManager ?: OfflineTtsManager(context, settingsRepository, onSpeakingStateChanged).also { offlineTtsManager = it }
+    }
+
+    private fun getApiTtsManager(): ApiTtsManager {
+        return apiTtsManager ?: ApiTtsManager(context, settingsRepository, okHttpClient, onSpeakingStateChanged).also { apiTtsManager = it }
+    }
 
     override fun speak(text: String, queueMode: Int) {
         val mode = settingsRepository.getTtsMode()
         
         if (queueMode == TtsManager.QUEUE_FLUSH) {
-            nativeTtsManager.stop()
-            offlineTtsManager.stop()
-            apiTtsManager.stop()
+            nativeTtsManager?.stop()
+            offlineTtsManager?.stop()
+            apiTtsManager?.stop()
         }
 
         when (mode) {
             TtsMode.OFFLINE -> {
                 if (isOfflineModelInstalled()) {
-                    offlineTtsManager.speak(text, queueMode)
+                    getOfflineTtsManager().speak(text, queueMode)
                 } else {
-                    nativeTtsManager.speak(text, queueMode)
+                    getNativeTtsManager().speak(text, queueMode)
                 }
             }
             TtsMode.API -> {
-                apiTtsManager.speak(text, queueMode)
+                getApiTtsManager().speak(text, queueMode)
             }
             else -> {
-                nativeTtsManager.speak(text, queueMode)
+                getNativeTtsManager().speak(text, queueMode)
             }
         }
     }
 
     override fun stop() {
-        nativeTtsManager.stop()
-        offlineTtsManager.stop()
-        apiTtsManager.stop()
+        nativeTtsManager?.stop()
+        offlineTtsManager?.stop()
+        apiTtsManager?.stop()
     }
 
     override fun isSpeaking(): Boolean {
@@ -51,24 +64,24 @@ class TtsEngineSelector(
         return when (mode) {
             TtsMode.OFFLINE -> {
                 if (isOfflineModelInstalled()) {
-                    offlineTtsManager.isSpeaking()
+                    offlineTtsManager?.isSpeaking() ?: false
                 } else {
-                    nativeTtsManager.isSpeaking()
+                    nativeTtsManager?.isSpeaking() ?: false
                 }
             }
             TtsMode.API -> {
-                apiTtsManager.isSpeaking()
+                apiTtsManager?.isSpeaking() ?: false
             }
             else -> {
-                nativeTtsManager.isSpeaking()
+                nativeTtsManager?.isSpeaking() ?: false
             }
         }
     }
 
     override fun shutdown() {
-        nativeTtsManager.shutdown()
-        offlineTtsManager.shutdown()
-        apiTtsManager.shutdown()
+        nativeTtsManager?.shutdown()
+        offlineTtsManager?.shutdown()
+        apiTtsManager?.shutdown()
     }
 
     private fun isOfflineModelInstalled(): Boolean {

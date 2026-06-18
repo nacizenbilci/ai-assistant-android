@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 class EdgeTtsApiManager(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
+    okHttpClient: OkHttpClient,
     private val onSpeakingStateChanged: (isSpeaking: Boolean) -> Unit
 ) : TtsManager {
 
@@ -43,7 +44,7 @@ class EdgeTtsApiManager(
     private var playbackJob: Job? = null
     private var idleTimeoutJob: Job? = null
     
-    private val client = OkHttpClient.Builder()
+    private val client = okHttpClient.newBuilder()
         .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
         .writeTimeout(5, java.util.concurrent.TimeUnit.SECONDS)

@@ -161,14 +161,10 @@ class SpeechRecognizerManager(
 
     fun preLoadModelAsync() {
         val mode = settingsRepository.getSttMode()
-        if (modelManager.isModelDownloaded()) {
+        if (mode == SttMode.PARAKEET && modelManager.isModelDownloaded()) {
             scope.launch(Dispatchers.IO) {
-                if (mode == SttMode.PARAKEET || mode == SttMode.HYBRID || mode == SttMode.NATIVE) {
-                    initVad()
-                    initOfflineRecognizer()
-                } else if (mode == SttMode.API) {
-                    initVad()
-                }
+                initVad()
+                initOfflineRecognizer()
             }
         }
     }

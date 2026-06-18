@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 class GoogleTtsApiManager(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
+    okHttpClient: OkHttpClient,
     private val onSpeakingStateChanged: (isSpeaking: Boolean) -> Unit
 ) : TtsManager {
 
@@ -44,7 +45,7 @@ class GoogleTtsApiManager(
     private var generatorJob: Job? = null
     private var playbackJob: Job? = null
     
-    private val client = OkHttpClient.Builder()
+    private val client = okHttpClient.newBuilder()
         .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
         .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
