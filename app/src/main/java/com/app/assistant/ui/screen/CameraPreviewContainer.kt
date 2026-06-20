@@ -18,6 +18,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -42,9 +43,11 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+
 @Composable
 fun CameraPreviewContainer(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lensFacing: Int = CameraSelector.LENS_FACING_BACK
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -62,7 +65,7 @@ fun CameraPreviewContainer(
         }
     }
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, lensFacing) {
         var cameraExecutor: java.util.concurrent.ExecutorService? = null
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
@@ -113,7 +116,11 @@ fun CameraPreviewContainer(
                                 }
                             }
 
-                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                            val cameraSelector = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                CameraSelector.DEFAULT_BACK_CAMERA
+                            } else {
+                                CameraSelector.DEFAULT_FRONT_CAMERA
+                            }
 
                             cameraProvider.unbindAll()
                             val camera = cameraProvider.bindToLifecycle(

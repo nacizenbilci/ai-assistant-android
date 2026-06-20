@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import com.app.assistant.model.Conversation
 import com.app.assistant.R
+import androidx.camera.core.CameraSelector
 import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
 import androidx.compose.ui.focus.FocusManager
@@ -96,6 +97,7 @@ fun ChatLayout(
     val scrollState = rememberLazyListState()
 
     var isCameraExpanded by remember(isVisionModeActive) { mutableStateOf(true) }
+    var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
 
     val context = LocalContext.current
     val vibrator =
@@ -123,7 +125,8 @@ fun ChatLayout(
     Box(modifier = modifier.fillMaxSize()) {
         if (isVisionModeActive && isCameraExpanded) {
             CameraPreviewContainer(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                lensFacing = lensFacing
             )
         }
 
@@ -231,38 +234,85 @@ fun ChatLayout(
                                     .background(Color.Black)
                             ) {
                                 CameraPreviewContainer(
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    lensFacing = lensFacing
                                 )
-                                IconButton(
-                                    onClick = { isCameraExpanded = true },
+                                Column(
                                     modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(8.dp)
-                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                        .align(Alignment.BottomEnd)
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_fullscreen),
-                                        contentDescription = "Expand Camera Preview",
-                                        tint = Color.White
-                                    )
+                                    IconButton(
+                                        onClick = {
+                                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                                CameraSelector.LENS_FACING_FRONT
+                                            } else {
+                                                CameraSelector.LENS_FACING_BACK
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_switch_camera),
+                                            contentDescription = "Switch Camera",
+                                            tint = Color.White
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { isCameraExpanded = true },
+                                        modifier = Modifier
+                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_fullscreen),
+                                            contentDescription = "Expand Camera Preview",
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 } else {
-                    // Expanded mode overlay button
-                    IconButton(
-                        onClick = { isCameraExpanded = false },
+                    // Expanded mode overlay buttons stacked on bottom right
+                    Column(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(16.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_fullscreen_exit),
-                            contentDescription = "Collapse Camera Preview",
-                            tint = Color.White
-                        )
+                        IconButton(
+                            onClick = {
+                                lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                    CameraSelector.LENS_FACING_FRONT
+                                } else {
+                                    CameraSelector.LENS_FACING_BACK
+                                }
+                            },
+                            modifier = Modifier
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_switch_camera),
+                                contentDescription = "Switch Camera",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(
+                            onClick = { isCameraExpanded = false },
+                            modifier = Modifier
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_fullscreen_exit),
+                                contentDescription = "Collapse Camera Preview",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             }
