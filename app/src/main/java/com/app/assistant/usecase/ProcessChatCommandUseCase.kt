@@ -66,18 +66,22 @@ class ProcessChatCommandUseCase(
 
     suspend fun getAiChatResponse(
         systemContext: String,
-        chatHistory: List<Conversation>
+        chatHistory: List<Conversation>,
+        isHandsFreeActive: Boolean = false,
+        isVisionActive: Boolean = false
     ): String? = withContext(Dispatchers.IO) {
-        val messages = mapConversationsToLlmMessages(systemContext, chatHistory)
+        val messages = mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive)
         getAiResponseUseCase.execute(messages)
     }
 
     fun getAiChatResponseStream(
         systemContext: String,
-        chatHistory: List<Conversation>
+        chatHistory: List<Conversation>,
+        isHandsFreeActive: Boolean = false,
+        isVisionActive: Boolean = false
     ): kotlinx.coroutines.flow.Flow<String> = flow {
         val messages = withContext(Dispatchers.IO) {
-            mapConversationsToLlmMessages(systemContext, chatHistory)
+            mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive)
         }
         getAiResponseUseCase.executeStream(messages).collect {
             emit(it)
@@ -86,10 +90,20 @@ class ProcessChatCommandUseCase(
 
     private fun mapConversationsToLlmMessages(
         systemContext: String,
-        chatHistory: List<Conversation>
+        chatHistory: List<Conversation>,
+        isHandsFreeActive: Boolean = false,
+        isVisionActive: Boolean = false
     ): List<LlmMessage> {
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContext))
+
+        val latestImageAttachmentId = if (isHandsFreeActive && isVisionActive) {
+            chatHistory.flatMap { it.attachments }
+                .lastOrNull { it.mimeType.startsWith("image/") }
+                ?.id
+        } else {
+            null
+        }
 
         for (item in chatHistory) {
             if (item.isLoading) continue
@@ -100,7 +114,11 @@ class ProcessChatCommandUseCase(
                         false
                     } else {
                         when {
-                            att.mimeType.startsWith("image/") -> settingsRepository.getIsImageSupported() || att.fileName.startsWith("vision_frame")
+                            att.mimeType.startsWith("image/") -> {
+                                val isSupported = settingsRepository.getIsImageSupported() || att.fileName.startsWith("vision_frame")
+                                val isLatest = latestImageAttachmentId == null || att.id == latestImageAttachmentId
+                                isSupported && isLatest
+                            }
                             att.mimeType.startsWith("audio/") -> settingsRepository.getIsAudioSupported()
                             att.mimeType.startsWith("video/") -> settingsRepository.getIsVideoSupported()
                             att.mimeType.startsWith("application/pdf") -> settingsRepository.getIsDocumentSupported()

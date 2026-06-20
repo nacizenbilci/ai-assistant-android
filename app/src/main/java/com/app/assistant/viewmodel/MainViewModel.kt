@@ -22,6 +22,7 @@ import com.app.assistant.usecase.SetAlarmUseCase
 import com.app.assistant.usecase.SetReminderUseCase
 import com.app.assistant.util.Category
 import com.app.assistant.util.Constants.MAIN_CONTEXT
+import com.app.assistant.util.Constants.HANDS_FREE_MODE_IMAGE_CONTEXT
 import com.app.assistant.util.LockState
 import com.app.assistant.classifier.TextClassifierHelper
 import com.google.mediapipe.tasks.text.textclassifier.TextClassifierResult
@@ -612,8 +613,18 @@ class MainViewModel(
             var processedAnswerLength = 0
             var isFirstSentence = true
             
+            val systemContext = if (_isHandsFreeModeActive.value && _isVisionModeActive.value) {
+                HANDS_FREE_MODE_IMAGE_CONTEXT
+            } else {
+                MAIN_CONTEXT
+            }
             try {
-                processChatCommandUseCase.getAiChatResponseStream(MAIN_CONTEXT, chatList.toList())
+                processChatCommandUseCase.getAiChatResponseStream(
+                    systemContext = systemContext,
+                    chatHistory = chatList.toList(),
+                    isHandsFreeActive = _isHandsFreeModeActive.value,
+                    isVisionActive = _isVisionModeActive.value
+                )
                     .collect { chunk ->
                         if (!hasStarted) {
                             hasStarted = true
