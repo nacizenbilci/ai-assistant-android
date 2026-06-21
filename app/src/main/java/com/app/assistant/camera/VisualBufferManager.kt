@@ -13,7 +13,7 @@ import java.util.ArrayList
 
 data class CachedFrame(val jpegBytes: ByteArray, val timestamp: Long)
 
-object VisionBufferManager {
+object VisualBufferManager {
     private val buffer = Collections.synchronizedList(ArrayList<CachedFrame>())
     private const val MAX_SIZE = 15
 
@@ -102,7 +102,7 @@ fun imageProxyToRotatedJpeg(imageProxy: ImageProxy): ByteArray? {
         rotatedBitmap.recycle()
         return rotatedOut.toByteArray()
     } catch (e: Exception) {
-        android.util.Log.e("VisionBufferManager", "Error converting ImageProxy to rotated JPEG", e)
+        android.util.Log.e("VisualBufferManager", "Error converting ImageProxy to rotated JPEG", e)
         return null
     }
 }

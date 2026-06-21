@@ -91,6 +91,8 @@ fun ChatLayout(
     onToggleMicMute: () -> Unit = {},
     isVisionModeActive: Boolean = false,
     onToggleVisionMode: () -> Unit = {},
+    isScreenModeActive: Boolean = false,
+    onToggleScreenMode: () -> Unit = {},
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -339,6 +341,8 @@ fun ChatLayout(
                         onToggleMute = onToggleMicMute,
                         isVisionModeActive = isVisionModeActive,
                         onToggleVisionMode = onToggleVisionMode,
+                        isScreenModeActive = isScreenModeActive,
+                        onToggleScreenMode = onToggleScreenMode,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp)

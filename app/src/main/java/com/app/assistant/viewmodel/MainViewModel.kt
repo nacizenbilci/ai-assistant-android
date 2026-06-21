@@ -289,7 +289,32 @@ class MainViewModel(
     val isVisionModeActive: StateFlow<Boolean> = _isVisionModeActive.asStateFlow()
 
     fun toggleVisionMode() {
-        _isVisionModeActive.value = !_isVisionModeActive.value
+        val active = !_isVisionModeActive.value
+        _isVisionModeActive.value = active
+        if (active) {
+            _isScreenModeActive.value = false
+        }
+        com.app.assistant.camera.VisualBufferManager.clear()
+    }
+
+    private val _isScreenModeActive = MutableStateFlow(false)
+    val isScreenModeActive: StateFlow<Boolean> = _isScreenModeActive.asStateFlow()
+
+    fun toggleScreenMode() {
+        val active = !_isScreenModeActive.value
+        _isScreenModeActive.value = active
+        if (active) {
+            _isVisionModeActive.value = false
+        }
+        com.app.assistant.camera.VisualBufferManager.clear()
+    }
+
+    fun setScreenModeActive(active: Boolean) {
+        _isScreenModeActive.value = active
+        if (active) {
+            _isVisionModeActive.value = false
+        }
+        com.app.assistant.camera.VisualBufferManager.clear()
     }
 
     private val _isMicReady = MutableStateFlow(false)
@@ -343,6 +368,7 @@ class MainViewModel(
             _isMicReady.value = false
             _isMicMuted.value = false // Reset mic mute state when exiting Hands-Free mode
             _isVisionModeActive.value = false // Deactivate vision mode when exiting Hands-Free mode
+            _isScreenModeActive.value = false // Deactivate screen mode when exiting Hands-Free mode
         }
     }
 
@@ -613,7 +639,7 @@ class MainViewModel(
             var processedAnswerLength = 0
             var isFirstSentence = true
             
-            val systemContext = if (_isHandsFreeModeActive.value && _isVisionModeActive.value) {
+            val systemContext = if (_isHandsFreeModeActive.value && (_isVisionModeActive.value || _isScreenModeActive.value)) {
                 HANDS_FREE_MODE_IMAGE_CONTEXT
             } else {
                 MAIN_CONTEXT
@@ -623,7 +649,8 @@ class MainViewModel(
                     systemContext = systemContext,
                     chatHistory = chatList.toList(),
                     isHandsFreeActive = _isHandsFreeModeActive.value,
-                    isVisionActive = _isVisionModeActive.value
+                    isVisionActive = _isVisionModeActive.value,
+                    isScreenActive = _isScreenModeActive.value
                 )
                     .collect { chunk ->
                         if (!hasStarted) {
@@ -842,7 +869,7 @@ class MainViewModel(
 
     fun onSpeechRecognizedWithVision(recognizedText: String, speechStartTimestamp: Long) {
         viewModelScope.launch(Dispatchers.IO) {
-            val optimalFrame = com.app.assistant.camera.VisionBufferManager.getOptimalFrame(speechStartTimestamp)
+            val optimalFrame = com.app.assistant.camera.VisualBufferManager.getOptimalFrame(speechStartTimestamp)
             if (optimalFrame != null) {
                 val attachment = saveFrameAsAttachment(optimalFrame.jpegBytes)
                 withContext(Dispatchers.Main) {

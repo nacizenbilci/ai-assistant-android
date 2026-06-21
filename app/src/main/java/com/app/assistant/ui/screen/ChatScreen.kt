@@ -104,12 +104,14 @@ import androidx.compose.ui.platform.SoftwareKeyboardController
 fun SetupUI(
     viewModel: MainViewModel,
     settingsViewModel: SettingsViewModel,
-    onToggleVisionMode: () -> Unit
+    onToggleVisionMode: () -> Unit,
+    onToggleScreenMode: () -> Unit
 ) {
     AssistantTheme {
         val isCustomUI by viewModel.isCustomUI.collectAsState()
         val isCustomUIHalfPage by viewModel.isCustomUIHalfPage.collectAsState()
         val isVisionModeActive by viewModel.isVisionModeActive.collectAsState()
+        val isScreenModeActive by viewModel.isScreenModeActive.collectAsState()
         val groupList by viewModel.groupList.collectAsState(initial = emptyList())
         val chatList = viewModel.chatList
         val isSpeaking by viewModel.isSpeaking.collectAsState()
@@ -226,7 +228,9 @@ fun SetupUI(
                 isMicMuted = isMicMuted,
                 onToggleMicMute = { viewModel.toggleMicMute() },
                 isVisionModeActive = isVisionModeActive,
-                onToggleVisionMode = onToggleVisionMode
+                onToggleVisionMode = onToggleVisionMode,
+                isScreenModeActive = isScreenModeActive,
+                onToggleScreenMode = onToggleScreenMode
             )
         }
     }
@@ -271,6 +275,8 @@ fun ChatScreenContent(
     onToggleMicMute: () -> Unit = {},
     isVisionModeActive: Boolean = false,
     onToggleVisionMode: () -> Unit = {},
+    isScreenModeActive: Boolean = false,
+    onToggleScreenMode: () -> Unit = {},
 ) {
     var showCopyIcon by remember { mutableStateOf(false) }
     var selectedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -389,6 +395,8 @@ fun ChatScreenContent(
                     onToggleMicMute = onToggleMicMute,
                     isVisionModeActive = isVisionModeActive,
                     onToggleVisionMode = onToggleVisionMode,
+                    isScreenModeActive = isScreenModeActive,
+                    onToggleScreenMode = onToggleScreenMode,
                 )
             }
         }

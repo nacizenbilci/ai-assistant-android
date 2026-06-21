@@ -38,8 +38,12 @@ class SpeechRecognizerManager(
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
-    private var speechRecognizer: SpeechRecognizer? = null
+    private var speechRecognizer: android.speech.SpeechRecognizer? = null
     private var isListening = false
+
+    var shouldIgnoreUiHidden: () -> Boolean = { false }
+
+    fun isListeningActive(): Boolean = isListening
 
     private var vad: com.k2fsa.sherpa.onnx.Vad? = null
     private var offlineRecognizer: com.k2fsa.sherpa.onnx.OfflineRecognizer? = null
@@ -70,7 +74,9 @@ class SpeechRecognizerManager(
     private val componentCallbacks = object : ComponentCallbacks2 {
         override fun onTrimMemory(level: Int) {
             if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-                stop()
+                if (!shouldIgnoreUiHidden()) {
+                    stop()
+                }
             }
         }
         override fun onConfigurationChanged(newConfig: Configuration) {}

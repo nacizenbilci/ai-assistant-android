@@ -68,9 +68,10 @@ class ProcessChatCommandUseCase(
         systemContext: String,
         chatHistory: List<Conversation>,
         isHandsFreeActive: Boolean = false,
-        isVisionActive: Boolean = false
+        isVisionActive: Boolean = false,
+        isScreenActive: Boolean = false
     ): String? = withContext(Dispatchers.IO) {
-        val messages = mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive)
+        val messages = mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive, isScreenActive)
         getAiResponseUseCase.execute(messages)
     }
 
@@ -78,10 +79,11 @@ class ProcessChatCommandUseCase(
         systemContext: String,
         chatHistory: List<Conversation>,
         isHandsFreeActive: Boolean = false,
-        isVisionActive: Boolean = false
+        isVisionActive: Boolean = false,
+        isScreenActive: Boolean = false
     ): kotlinx.coroutines.flow.Flow<String> = flow {
         val messages = withContext(Dispatchers.IO) {
-            mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive)
+            mapConversationsToLlmMessages(systemContext, chatHistory, isHandsFreeActive, isVisionActive, isScreenActive)
         }
         getAiResponseUseCase.executeStream(messages).collect {
             emit(it)
@@ -92,12 +94,13 @@ class ProcessChatCommandUseCase(
         systemContext: String,
         chatHistory: List<Conversation>,
         isHandsFreeActive: Boolean = false,
-        isVisionActive: Boolean = false
+        isVisionActive: Boolean = false,
+        isScreenActive: Boolean = false
     ): List<LlmMessage> {
         val messages = mutableListOf<LlmMessage>()
         messages.add(LlmMessage(role = "system", content = systemContext))
 
-        val latestImageAttachmentId = if (isHandsFreeActive && isVisionActive) {
+        val latestImageAttachmentId = if (isHandsFreeActive && (isVisionActive || isScreenActive)) {
             chatHistory.flatMap { it.attachments }
                 .lastOrNull { it.mimeType.startsWith("image/") }
                 ?.id

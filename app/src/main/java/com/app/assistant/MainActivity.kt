@@ -70,6 +70,48 @@ class MainActivity : ComponentActivity() {
     private lateinit var textToSpeechManager: com.app.assistant.tts.TtsManager
     private lateinit var speechRecognizerManager: com.app.assistant.speech.SpeechRecognizerManager
 
+    private var isScreenServiceRunning = false
+    private var isActivityStarted = false
+    private var activeCollectionJob: kotlinx.coroutines.Job? = null
+
+    private val screenCaptureLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            val serviceIntent = Intent(this, com.app.assistant.camera.ScreenCaptureService::class.java).apply {
+                action = com.app.assistant.camera.ScreenCaptureService.ACTION_START
+                putExtra(com.app.assistant.camera.ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+                putExtra(com.app.assistant.camera.ScreenCaptureService.EXTRA_RESULT_DATA, result.data)
+            }
+            com.app.assistant.camera.ScreenCaptureServiceHelper.isMicMuted = viewModel.isMicMuted.value
+            com.app.assistant.camera.ScreenCaptureServiceHelper.isHandsFreeActive = viewModel.isHandsFreeModeActive.value
+            ContextCompat.startForegroundService(this, serviceIntent)
+            isScreenServiceRunning = true
+            viewModel.setScreenModeActive(true)
+        } else {
+            Toast.makeText(this, "Screen capture permission denied", Toast.LENGTH_SHORT).show()
+            isScreenServiceRunning = false
+            viewModel.setScreenModeActive(false)
+        }
+    }
+
+    private fun startScreenCaptureFlow() {
+        val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+        try {
+            screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to launch screen capture intent", e)
+            Toast.makeText(this, "Screen capture not supported or failed to launch", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun stopScreenCaptureService() {
+        val serviceIntent = Intent(this, com.app.assistant.camera.ScreenCaptureService::class.java).apply {
+            action = com.app.assistant.camera.ScreenCaptureService.ACTION_STOP
+        }
+        startService(serviceIntent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         allowOnLockScreen()
@@ -86,85 +128,40 @@ class MainActivity : ComponentActivity() {
         }
         speechRecognizerManager = com.app.assistant.speech.SpeechRecognizerManager(this, lifecycleScope)
         speechRecognizerManager.preLoadModelAsync()
+        speechRecognizerManager.shouldIgnoreUiHidden = {
+            viewModel.isScreenModeActive.value
+        }
 
-        lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isMicMuted.collect { muted ->
-                    if (::speechRecognizerManager.isInitialized) {
-                        speechRecognizerManager.setMicMuted(muted)
-                    }
-                }
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onServiceStopped = {
+            runOnUiThread {
+                isScreenServiceRunning = false
+                viewModel.setScreenModeActive(false)
+            }
+        }
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleMuteRequested = {
+            runOnUiThread {
+                viewModel.toggleMicMute()
+            }
+        }
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleHandsFreeRequested = {
+            runOnUiThread {
+                viewModel.toggleHandsFreeMode()
             }
         }
 
         lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiEvent.collect { event ->
-                    when (event) {
-                        is UIEvent.RequestPermissions -> {
-                            ActivityCompat.requestPermissions(this@MainActivity, event.permissions, event.requestCode)
-                        }
-
-                        is UIEvent.StartIntent -> {
-                            try {
-                                startActivity(event.intent)
-                            } catch (e: Exception) {
-                                Log.e("MainActivity", "Error starting intent", e)
-                            }
-                        }
-
-                        is UIEvent.ShowToast -> {
-                            Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_SHORT).show()
-                        }
-
-                        is UIEvent.SpeakText -> {
-                            if (!viewModel.isListening.value && !viewModel.isVoiceProcessing.value) {
-                                textToSpeechManager.speak(event.text, event.queueMode)
-                            }
-                        }
-
-                        is UIEvent.StopSpeaking -> {
-                            textToSpeechManager.stop()
-                        }
-
-                        is UIEvent.StartSpeechRecognition -> {
-                            startSpeechRecognition(isHandsFree = viewModel.isHandsFreeModeActive.value)
-                        }
-
-                        is UIEvent.StopSpeechRecognition -> {
-                            speechRecognizerManager.stop()
-                        }
-
-                        is UIEvent.GetLocationForWeather -> {
-                            getCurrentLocationForWeather(event)
-                        }
-
-                        is UIEvent.ResolveLocationSettings -> {
-                            try {
-                                event.exception.startResolutionForResult(this@MainActivity, 104)
-                            } catch (sendEx: IntentSender.SendIntentException) {
-                                Log.e("MainActivity", "Error showing location settings dialog: ${sendEx.message}")
-                            }
-                        }
+            viewModel.isScreenModeActive.collect { active ->
+                if (active) {
+                    if (!isScreenServiceRunning) {
+                        startScreenCaptureFlow()
+                    }
+                } else {
+                    if (isScreenServiceRunning) {
+                        isScreenServiceRunning = false
+                        stopScreenCaptureService()
                     }
                 }
-            }
-        }
-
-        var wasHandsFreeActive = false
-        lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isHandsFreeModeActive.collect { active ->
-                    if (active) {
-                        wasHandsFreeActive = true
-                        startSpeechRecognition(isHandsFree = true)
-                    } else {
-                        if (wasHandsFreeActive) {
-                            wasHandsFreeActive = false
-                            speechRecognizerManager.stop()
-                        }
-                    }
-                }
+                updateCollectionState()
             }
         }
 
@@ -174,8 +171,149 @@ class MainActivity : ComponentActivity() {
                 settingsViewModel = settingsViewModel,
                 onToggleVisionMode = {
                     toggleVisionModeWithPermissionCheck()
+                },
+                onToggleScreenMode = {
+                    toggleScreenModeWithPermissionCheck()
                 }
             )
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        isActivityStarted = true
+        updateCollectionState()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        isActivityStarted = false
+        updateCollectionState()
+    }
+
+    private fun updateCollectionState() {
+        val shouldCollect = isActivityStarted || viewModel.isScreenModeActive.value
+        if (shouldCollect) {
+            startActiveCollection()
+        } else {
+            stopActiveCollection()
+        }
+    }
+
+    private fun startActiveCollection() {
+        if (activeCollectionJob != null) return
+        
+        Log.d("MainActivity", "Starting active flow collection (Activity started: $isActivityStarted, Screen mode active: ${viewModel.isScreenModeActive.value})")
+        activeCollectionJob = lifecycleScope.launch {
+            // uiEvent collection
+            launch {
+                viewModel.uiEvent.collect { event ->
+                    handleUiEvent(event)
+                }
+            }
+            
+            // isMicMuted collection
+            launch {
+                viewModel.isMicMuted.collect { muted ->
+                    if (::speechRecognizerManager.isInitialized) {
+                        speechRecognizerManager.setMicMuted(muted)
+                    }
+                    com.app.assistant.camera.ScreenCaptureServiceHelper.isMicMuted = muted
+                    com.app.assistant.camera.ScreenCaptureServiceHelper.onStateChanged?.invoke()
+                }
+            }
+            
+            // isHandsFreeModeActive collection
+            launch {
+                var wasHandsFreeActive = false
+                viewModel.isHandsFreeModeActive.collect { active ->
+                    com.app.assistant.camera.ScreenCaptureServiceHelper.isHandsFreeActive = active
+                    com.app.assistant.camera.ScreenCaptureServiceHelper.onStateChanged?.invoke()
+                    
+                    if (active) {
+                        wasHandsFreeActive = true
+                        if (::speechRecognizerManager.isInitialized && !speechRecognizerManager.isListeningActive()) {
+                            startSpeechRecognition(isHandsFree = true)
+                        }
+                    } else {
+                        if (wasHandsFreeActive) {
+                            wasHandsFreeActive = false
+                            speechRecognizerManager.stop()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopActiveCollection() {
+        if (activeCollectionJob == null) return
+        Log.d("MainActivity", "Stopping active flow collection")
+        activeCollectionJob?.cancel()
+        activeCollectionJob = null
+    }
+
+    private fun handleUiEvent(event: UIEvent) {
+        when (event) {
+            is UIEvent.RequestPermissions -> {
+                ActivityCompat.requestPermissions(this@MainActivity, event.permissions, event.requestCode)
+            }
+
+            is UIEvent.StartIntent -> {
+                try {
+                    startActivity(event.intent)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error starting intent", e)
+                }
+            }
+
+            is UIEvent.ShowToast -> {
+                Toast.makeText(this@MainActivity, event.message, Toast.LENGTH_SHORT).show()
+            }
+
+            is UIEvent.SpeakText -> {
+                if (!viewModel.isListening.value && !viewModel.isVoiceProcessing.value) {
+                    textToSpeechManager.speak(event.text, event.queueMode)
+                }
+            }
+
+            is UIEvent.StopSpeaking -> {
+                textToSpeechManager.stop()
+            }
+
+            is UIEvent.StartSpeechRecognition -> {
+                startSpeechRecognition(isHandsFree = viewModel.isHandsFreeModeActive.value)
+            }
+
+            is UIEvent.StopSpeechRecognition -> {
+                speechRecognizerManager.stop()
+            }
+
+            is UIEvent.GetLocationForWeather -> {
+                getCurrentLocationForWeather(event)
+            }
+
+            is UIEvent.ResolveLocationSettings -> {
+                try {
+                    event.exception.startResolutionForResult(this@MainActivity, 104)
+                } catch (sendEx: IntentSender.SendIntentException) {
+                    Log.e("MainActivity", "Error showing location settings dialog: ${sendEx.message}")
+                }
+            }
+        }
+    }
+
+    private fun toggleScreenModeWithPermissionCheck() {
+        if (viewModel.isScreenModeActive.value) {
+            viewModel.setScreenModeActive(false)
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 103)
+                    return
+                }
+            }
+            startScreenCaptureFlow()
         }
     }
 
@@ -231,7 +369,7 @@ class MainActivity : ComponentActivity() {
                         viewModel.setMicReady(false)
                     }
                     if (recognizedText.isNotBlank()) {
-                        if (viewModel.isVisionModeActive.value) {
+                        if (viewModel.isVisionModeActive.value || viewModel.isScreenModeActive.value) {
                             val startTimestamp = speechRecognizerManager.speechStartTimestamp
                             viewModel.onSpeechRecognizedWithVision(recognizedText, startTimestamp)
                         } else {
@@ -398,11 +536,27 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, "Camera permission is required for Vision Mode", Toast.LENGTH_SHORT).show()
                 }
             }
+            103 -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startScreenCaptureFlow()
+                } else {
+                    Toast.makeText(this, "Notification permission is required to show controls in the status bar", Toast.LENGTH_LONG).show()
+                    startScreenCaptureFlow()
+                }
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onServiceStopped = null
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleMuteRequested = null
+        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleHandsFreeRequested = null
+        if (isFinishing) {
+            if (isScreenServiceRunning) {
+                stopScreenCaptureService()
+            }
+        }
         textToSpeechManager.shutdown()
         speechRecognizerManager.destroy()
     }

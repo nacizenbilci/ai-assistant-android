@@ -68,6 +68,8 @@ fun HandsFreeBar(
     onToggleMute: () -> Unit = {},
     isVisionModeActive: Boolean = false,
     onToggleVisionMode: () -> Unit = {},
+    isScreenModeActive: Boolean = false,
+    onToggleScreenMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val currentState = remember(isSpeaking, isListening, isThinking, isMicReady) {
@@ -257,12 +259,12 @@ fun HandsFreeBar(
             }
 
             IconButton(
-                onClick = { /* Add screen share feature later */ }
+                onClick = onToggleScreenMode
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_screen_share),
                     contentDescription = "Share Screen (Hands-free)",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isScreenModeActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

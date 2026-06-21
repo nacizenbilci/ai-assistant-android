@@ -37,7 +37,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.app.assistant.camera.VisionBufferManager
+import com.app.assistant.camera.VisualBufferManager
 import com.app.assistant.camera.imageProxyToRotatedJpeg
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
@@ -112,7 +112,7 @@ fun CameraPreviewContainer(
 
                                 if (jpegBytes != null) {
                                     val cachedFrame = com.app.assistant.camera.CachedFrame(jpegBytes, now)
-                                    VisionBufferManager.addFrame(cachedFrame)
+                                    VisualBufferManager.addFrame(cachedFrame)
                                 }
                             }
 
@@ -147,7 +147,7 @@ fun CameraPreviewContainer(
                     cameraExecutor?.shutdown()
                     cameraExecutor = null
                     activeCamera = null
-                    VisionBufferManager.clear()
+                    VisualBufferManager.clear()
                 }
                 else -> {}
             }
@@ -167,7 +167,7 @@ fun CameraPreviewContainer(
             }
             cameraExecutor?.shutdown()
             activeCamera = null
-            VisionBufferManager.clear()
+            VisualBufferManager.clear()
         }
     }
 
