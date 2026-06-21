@@ -22,13 +22,19 @@ import android.app.PendingIntent
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.app.assistant.R
+import android.widget.RemoteViews
+import android.util.TypedValue
+import android.view.ContextThemeWrapper
+import android.content.res.ColorStateList
+import android.graphics.Color
+import androidx.core.graphics.ColorUtils
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 object ScreenCaptureServiceHelper {
     var onServiceStopped: (() -> Unit)? = null
     var onToggleMuteRequested: (() -> Unit)? = null
-    var onToggleHandsFreeRequested: (() -> Unit)? = null
+
 
     @Volatile
     var isMicMuted: Boolean = false
@@ -44,7 +50,7 @@ class ScreenCaptureService : Service() {
         const val ACTION_START = "com.app.assistant.action.START_SCREEN_CAPTURE"
         const val ACTION_STOP = "com.app.assistant.action.STOP_SCREEN_CAPTURE"
         const val ACTION_TOGGLE_MUTE = "com.app.assistant.action.TOGGLE_MUTE"
-        const val ACTION_TOGGLE_HANDS_FREE = "com.app.assistant.action.TOGGLE_HANDS_FREE"
+
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_RESULT_DATA = "extra_result_data"
 
@@ -87,10 +93,6 @@ class ScreenCaptureService : Service() {
             return START_NOT_STICKY
         }
 
-        if (action == ACTION_TOGGLE_HANDS_FREE) {
-            ScreenCaptureServiceHelper.onToggleHandsFreeRequested?.invoke()
-            return START_NOT_STICKY
-        }
 
         if (action == ACTION_START) {
             val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
@@ -139,15 +141,22 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    private fun getThemeColor(attr: Int, defaultColor: Int): Int {
+        val typedValue = TypedValue()
+        val themeContext = ContextThemeWrapper(this, R.style.Theme_Assistant)
+        if (themeContext.theme.resolveAttribute(attr, typedValue, true)) {
+            return typedValue.data
+        }
+        return defaultColor
+    }
+
     private fun buildNotification(): Notification {
         val isMuted = ScreenCaptureServiceHelper.isMicMuted
         val isHandsFree = ScreenCaptureServiceHelper.isHandsFreeActive
 
         val muteText = if (isMuted) "Unmute" else "Mute"
-        val muteIcon = if (isMuted) R.drawable.ic_mic else R.drawable.ic_mic_off
+        val muteIcon = if (isMuted) R.drawable.ic_mic_off else R.drawable.ic_mic
 
-        val handsFreeText = if (isHandsFree) "Close Hands-Free" else "Start Hands-Free"
-        val handsFreeIcon = R.drawable.ic_mic
 
         val statusText = when {
             isMuted -> "Microphone Muted"
@@ -171,20 +180,72 @@ class ScreenCaptureService : Service() {
         }
         val mutePendingIntent = PendingIntent.getService(this, 2, muteIntent, flags)
 
-        val handsFreeIntent = Intent(this, ScreenCaptureService::class.java).apply {
-            action = ACTION_TOGGLE_HANDS_FREE
+
+        // Resolve wallpaper-based Material You accent or app theme accent
+        val dynamicPrimary = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getColor(android.R.color.system_accent1_600)
+        } else {
+            getThemeColor(android.R.attr.colorAccent, 0xFF6650a4.toInt())
         }
-        val handsFreePendingIntent = PendingIntent.getService(this, 3, handsFreeIntent, flags)
+
+        // Determine dark mode or light mode from configuration
+        val isDarkMode = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+        // Determine base text and accent colors depending on dark/light configuration
+        val primaryTextColor = if (isDarkMode) Color.WHITE else Color.BLACK
+        val secondaryTextColor = if (isDarkMode) 0xFFB0B0B0.toInt() else 0xFF666666.toInt()
+        val normalTint = if (isDarkMode) 0x1AFFFFFF else 0x1A000000
+        val activeTint = ColorUtils.setAlphaComponent(dynamicPrimary, if (isDarkMode) 0x66 else 0x4D) // higher opacity in dark mode for better visibility
+
+        val collapsedLayout = RemoteViews(packageName, R.layout.notification_screen_capture_collapsed).apply {
+            setTextViewText(R.id.tv_status_text, statusText)
+            setOnClickPendingIntent(R.id.btn_stop_compact, stopPendingIntent)
+            
+            // Apply text and stop icon/background colors dynamically
+            setTextColor(R.id.tv_title, primaryTextColor)
+            setTextColor(R.id.tv_status_text, secondaryTextColor)
+            setInt(R.id.btn_stop_compact, "setColorFilter", primaryTextColor)
+            setColorStateList(R.id.btn_stop_compact, "setBackgroundTintList", ColorStateList.valueOf(normalTint))
+        }
+
+        val expandedLayout = RemoteViews(packageName, R.layout.notification_screen_capture_expanded).apply {
+            setTextViewText(R.id.tv_status_text, statusText)
+            
+            // Apply header text colors dynamically
+            setTextColor(R.id.tv_title, primaryTextColor)
+            setTextColor(R.id.tv_status_text, secondaryTextColor)
+
+            // Setup Mute Button
+            setImageViewResource(R.id.iv_mute_icon, muteIcon)
+            setTextViewText(R.id.tv_mute_text, muteText)
+            setOnClickPendingIntent(R.id.btn_mute, mutePendingIntent)
+            
+            // Set mute button text, icon, and background colors dynamically
+            setTextColor(R.id.tv_mute_text, primaryTextColor)
+            setInt(R.id.iv_mute_icon, "setColorFilter", primaryTextColor)
+            setColorStateList(
+                R.id.btn_mute,
+                "setBackgroundTintList",
+                ColorStateList.valueOf(if (isMuted) activeTint else normalTint)
+            )
+
+
+            // Setup Stop Button
+            setOnClickPendingIntent(R.id.btn_stop, stopPendingIntent)
+            
+            // Set stop button text, icon, and background colors dynamically
+            setTextColor(R.id.tv_stop_text, primaryTextColor)
+            setInt(R.id.iv_stop_icon, "setColorFilter", primaryTextColor)
+            setColorStateList(R.id.btn_stop, "setBackgroundTintList", ColorStateList.valueOf(normalTint))
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Screen Sharing Active")
-            .setContentText(statusText)
             .setSmallIcon(R.drawable.ic_screen_share)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .addAction(muteIcon, muteText, mutePendingIntent)
-            .addAction(handsFreeIcon, handsFreeText, handsFreePendingIntent)
-            .addAction(R.drawable.ic_stop, "Stop Screen", stopPendingIntent)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedLayout)
+            .setCustomBigContentView(expandedLayout)
             .build()
     }
 

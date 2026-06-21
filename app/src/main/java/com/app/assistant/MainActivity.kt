@@ -98,7 +98,13 @@ class MainActivity : ComponentActivity() {
     private fun startScreenCaptureFlow() {
         val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
         try {
-            screenCaptureLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val config = android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay()
+                mediaProjectionManager.createScreenCaptureIntent(config)
+            } else {
+                mediaProjectionManager.createScreenCaptureIntent()
+            }
+            screenCaptureLauncher.launch(intent)
         } catch (e: Exception) {
             Log.e("MainActivity", "Failed to launch screen capture intent", e)
             Toast.makeText(this, "Screen capture not supported or failed to launch", Toast.LENGTH_SHORT).show()
@@ -143,11 +149,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.toggleMicMute()
             }
         }
-        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleHandsFreeRequested = {
-            runOnUiThread {
-                viewModel.toggleHandsFreeMode()
-            }
-        }
+
 
         lifecycleScope.launch {
             viewModel.isScreenModeActive.collect { active ->
@@ -551,7 +553,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         com.app.assistant.camera.ScreenCaptureServiceHelper.onServiceStopped = null
         com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleMuteRequested = null
-        com.app.assistant.camera.ScreenCaptureServiceHelper.onToggleHandsFreeRequested = null
+
         if (isFinishing) {
             if (isScreenServiceRunning) {
                 stopScreenCaptureService()
