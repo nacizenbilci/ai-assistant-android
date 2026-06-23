@@ -201,4 +201,12 @@
     <string name="api_stt_desc">Uses the cloud STT API (Groq Whisper) for highly accurate speech transcription.</string>
     <string name="use_api_tts">Use TTS API (Cloud)</string>
     <string name="api_tts_desc">Uses the cloud TTS API (Edge-TTS) for high-quality natural voice generation.</string>
+
+    <!-- Default Assistant Settings -->
+    <string name="default_assistant_title">Default Assistant App</string>
+    <string name="default_assistant_desc">Configure this app as your default system-wide voice and digital assistant.</string>
+    <string name="default_assistant_status_active">Current Status: Default Assistant</string>
+    <string name="default_assistant_status_inactive">Current Status: Not Default Assistant</string>
+    <string name="default_assistant_btn_set">Set as Default Assistant</string>
+    <string name="default_assistant_btn_open_settings">Open Assistant Settings</string>
 </resources>

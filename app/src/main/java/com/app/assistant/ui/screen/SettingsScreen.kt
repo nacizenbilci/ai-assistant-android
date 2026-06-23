@@ -76,6 +76,15 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import android.app.role.RoleManager
+import android.content.Intent
+import android.content.Context
+import android.provider.Settings
+import android.os.Build
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,6 +123,7 @@ fun SettingsScreen(
     val downloadedTranslationLanguages by settingsViewModel.downloadedTranslationLanguages.collectAsState()
     val downloadingTranslationLanguages by settingsViewModel.downloadingTranslationLanguages.collectAsState()
     val translationLanguages = settingsViewModel.translationLanguages
+    val isDefaultAssistant by settingsViewModel.isDefaultAssistant.collectAsState()
 
     SettingsScreenContent(
         settingsViewModel = settingsViewModel,
@@ -144,6 +154,7 @@ fun SettingsScreen(
         downloadedTranslationLanguages = downloadedTranslationLanguages,
         downloadingTranslationLanguages = downloadingTranslationLanguages,
         translationLanguages = translationLanguages,
+        isDefaultAssistant = isDefaultAssistant,
         onBack = onBack,
         onResetVerificationState = { settingsViewModel.resetVerificationState() },
         onFetchModelsForProvider = { provider, key, url, headers ->
@@ -198,6 +209,7 @@ fun SettingsScreenContent(
     downloadedTranslationLanguages: Set<String>,
     downloadingTranslationLanguages: Set<String>,
     translationLanguages: List<Pair<String, String>>,
+    isDefaultAssistant: Boolean,
     onBack: () -> Unit,
     onResetVerificationState: () -> Unit,
     onFetchModelsForProvider: (LlmProvider, String, String, String) -> Unit,
@@ -242,6 +254,19 @@ fun SettingsScreenContent(
                 ttsMode = com.app.assistant.tts.TtsMode.NATIVE
                 settingsViewModel.updateTtsMode(com.app.assistant.tts.TtsMode.NATIVE)
             }
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                settingsViewModel.checkDefaultAssistantStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -944,7 +969,119 @@ fun SettingsScreenContent(
                 }
             }
 
+            //Hiding for now due to complexity of response stream its difficult to implement offline translation, but it will be added in future for sure
             // CARD 6: OFFLINE TRANSLATION SETTINGS
+//            Card(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(vertical = 8.dp),
+//                shape = RoundedCornerShape(16.dp),
+//                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+//                colors = CardDefaults.cardColors(
+//                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+//                ),
+//                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+//            ) {
+//                Column(modifier = Modifier.padding(16.dp)) {
+//                    SettingsSectionHeader(
+//                        title = "Offline Translation Settings",
+//                        description = "Translate queries and responses offline using Google ML Kit models.",
+//                        icon = R.drawable.ic_translate
+//                    )
+//                    Spacer(modifier = Modifier.height(8.dp))
+//
+//                    Row(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .padding(vertical = 8.dp),
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        Column(modifier = Modifier.weight(1f)) {
+//                            Text(
+//                                text = "Enable Translation",
+//                                style = MaterialTheme.typography.bodyLarge,
+//                                fontWeight = FontWeight.Bold
+//                            )
+//                            Text(
+//                                text = "Translate chat messages and voice input",
+//                                style = MaterialTheme.typography.bodySmall,
+//                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+//                            )
+//                        }
+//                        Switch(
+//                            checked = isTranslationEnabled,
+//                            onCheckedChange = onTranslationEnabledChange
+//                        )
+//                    }
+//
+//                    if (isTranslationEnabled) {
+//                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+//
+//                        val activeLangName = remember(activeLanguageCode, translationLanguages) {
+//                            translationLanguages.find { it.second == activeLanguageCode }?.first?.let { formatLanguageName(it) } ?: activeLanguageCode.uppercase()
+//                        }
+//
+//                        Card(
+//                            onClick = { showTranslationSheet = true },
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .padding(vertical = 6.dp),
+//                            shape = RoundedCornerShape(12.dp),
+//                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+//                            colors = CardDefaults.cardColors(
+//                                containerColor = MaterialTheme.colorScheme.surface
+//                            )
+//                        ) {
+//                            Row(
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .padding(14.dp),
+//                                verticalAlignment = Alignment.CenterVertically
+//                            ) {
+//                                Icon(
+//                                    painter = painterResource(id = R.drawable.ic_translate),
+//                                    contentDescription = null,
+//                                    tint = MaterialTheme.colorScheme.primary,
+//                                    modifier = Modifier.size(24.dp)
+//                                )
+//                                Spacer(modifier = Modifier.width(16.dp))
+//                                Column(modifier = Modifier.weight(1f)) {
+//                                    Text(
+//                                        text = "Default Language",
+//                                        style = MaterialTheme.typography.bodyLarge,
+//                                        fontWeight = FontWeight.Bold,
+//                                        color = MaterialTheme.colorScheme.onSurface
+//                                    )
+//                                    Spacer(modifier = Modifier.height(2.dp))
+//                                    Text(
+//                                        text = "Selected: $activeLangName",
+//                                        style = MaterialTheme.typography.bodySmall,
+//                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+//                                    )
+//                                }
+//                                Icon(
+//                                    painter = painterResource(id = R.drawable.ic_arrow_drop_down),
+//                                    contentDescription = "Select language",
+//                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+//                                    modifier = Modifier.size(24.dp)
+//                                )
+//                            }
+//                        }
+//
+//                        Spacer(modifier = Modifier.height(8.dp))
+//
+//                        Button(
+//                            onClick = { showTranslationSheet = true },
+//                            shape = RoundedCornerShape(8.dp),
+//                            modifier = Modifier.fillMaxWidth().height(40.dp)
+//                        ) {
+//                            Text("Manage Translation Models", style = MaterialTheme.typography.labelMedium)
+//                        }
+//                    }
+//                }
+//            }
+
+            // CARD 7: DEFAULT ASSISTANT SETTINGS
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -958,11 +1095,11 @@ fun SettingsScreenContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     SettingsSectionHeader(
-                        title = "Offline Translation Settings",
-                        description = "Translate queries and responses offline using Google ML Kit models.",
-                        icon = R.drawable.ic_translate
+                        title = stringResource(id = R.string.default_assistant_title),
+                        description = stringResource(id = R.string.default_assistant_desc),
+                        icon = R.drawable.ic_settings
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier
@@ -972,85 +1109,56 @@ fun SettingsScreenContent(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Enable Translation",
+                                text = if (isDefaultAssistant) {
+                                    stringResource(id = R.string.default_assistant_status_active)
+                                } else {
+                                    stringResource(id = R.string.default_assistant_status_inactive)
+                                },
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Translate chat messages and voice input",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDefaultAssistant) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                }
                             )
                         }
-                        Switch(
-                            checked = isTranslationEnabled,
-                            onCheckedChange = onTranslationEnabledChange
-                        )
+                        if (isDefaultAssistant) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Active",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Inactive",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
 
-                    if (isTranslationEnabled) {
-                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        
-                        val activeLangName = remember(activeLanguageCode, translationLanguages) {
-                            translationLanguages.find { it.second == activeLanguageCode }?.first?.let { formatLanguageName(it) } ?: activeLanguageCode.uppercase()
-                        }
-                        
-                        Card(
-                            onClick = { showTranslationSheet = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_translate),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Default Language",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Selected: $activeLangName",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                                    )
-                                }
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_arrow_drop_down),
-                                    contentDescription = "Select language",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = { showTranslationSheet = true },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().height(40.dp)
-                        ) {
-                            Text("Manage Translation Models", style = MaterialTheme.typography.labelMedium)
-                        }
+                    Button(
+                        onClick = {
+                            openAssistantSettings(context)
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Text(
+                            text = if (isDefaultAssistant) {
+                                stringResource(id = R.string.default_assistant_btn_open_settings)
+                            } else {
+                                stringResource(id = R.string.default_assistant_btn_set)
+                            },
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
@@ -1681,6 +1789,7 @@ fun SettingsScreenContentPreview() {
             downloadedTranslationLanguages = emptySet(),
             downloadingTranslationLanguages = emptySet(),
             translationLanguages = emptyList(),
+            isDefaultAssistant = false,
             onBack = {},
             onResetVerificationState = {},
             onFetchModelsForProvider = { _, _, _, _ -> },
@@ -1746,6 +1855,7 @@ fun SettingsScreenContentCustomPreview() {
             downloadedTranslationLanguages = emptySet(),
             downloadingTranslationLanguages = emptySet(),
             translationLanguages = emptyList(),
+            isDefaultAssistant = true,
             onBack = {},
             onResetVerificationState = {},
             onFetchModelsForProvider = { _, _, _, _ -> },
@@ -1929,6 +2039,28 @@ fun TranslationLanguageManagerBottomSheet(
 
 fun formatLanguageName(name: String): String {
     return name.lowercase().split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+}
+
+private fun openAssistantSettings(context: Context) {
+    try {
+        val intent = Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (ex: Exception) {
+            try {
+                val intent = Intent(Settings.ACTION_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (exc: Exception) {
+                // Ignore
+            }
+        }
+    }
 }
 
 

@@ -22,6 +22,11 @@ import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
 import java.lang.reflect.Modifier
+import android.content.Context
+import android.app.role.RoleManager
+import android.content.ComponentName
+import android.provider.Settings
+import android.os.Build
 
 sealed class DownloadState {
     object Idle : DownloadState()
@@ -65,10 +70,33 @@ class SettingsViewModel(
     var translationLanguages: List<Pair<String, String>> = emptyList()
         private set
 
+    private val _isDefaultAssistant = MutableStateFlow(false)
+    val isDefaultAssistant: StateFlow<Boolean> = _isDefaultAssistant.asStateFlow()
+
     init {
         translationLanguages = getPublicStaticFinalStringsWithNames(TranslateLanguage::class.java)
         refreshDownloadedTranslationModels()
+        checkDefaultAssistantStatus()
     }
+
+    fun checkDefaultAssistantStatus() {
+        val context = settingsRepository.context
+        val isDefault = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+            roleManager?.isRoleHeld(RoleManager.ROLE_ASSISTANT) == true
+        } else {
+            val assistantSetting = Settings.Secure.getString(context.contentResolver, "assistant")
+            if (assistantSetting.isNullOrEmpty()) {
+                false
+            } else {
+                val currentAssistant = ComponentName.unflattenFromString(assistantSetting)
+                val myAssistant = ComponentName(context, com.app.assistant.AssistActivity::class.java)
+                currentAssistant == myAssistant
+            }
+        }
+        _isDefaultAssistant.value = isDefault
+    }
+
     val isModelInstalled: StateFlow<Boolean> = _isModelInstalled.asStateFlow()
 
     private val _ttsModelDownloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
