@@ -34,7 +34,8 @@ import com.app.assistant.config.SpeechConfig
 
 class SpeechRecognizerManager(
     private val context: Context,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val okHttpClient: okhttp3.OkHttpClient = com.app.assistant.viewmodel.MainViewModelFactory.okHttpClient,
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val settingsRepository = com.app.assistant.repository.SettingsRepository(context)
@@ -641,7 +642,6 @@ class SpeechRecognizerManager(
     }
 
     private suspend fun transcribeWithGroq(wavBytes: ByteArray): String = withContext(Dispatchers.IO) {
-        val client = okhttp3.OkHttpClient()
         val requestBody = okhttp3.MultipartBody.Builder()
             .setType(okhttp3.MultipartBody.FORM)
             .addFormDataPart("model", com.app.assistant.config.SpeechConfig.GroqWhisper.MODEL)
@@ -658,7 +658,7 @@ class SpeechRecognizerManager(
             .post(requestBody)
             .build()
 
-        client.newCall(request).execute().use { response ->
+        okHttpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw Exception("Unsuccessful response from Groq: ${response.code} - ${response.message}")
             }

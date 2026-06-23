@@ -157,6 +157,27 @@ class DynamicConversationRepository(
         }
     }
 
+    suspend fun deleteGroup(groupId: Long) {
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val filePaths = dao.getAttachmentFilePathsForGroup(groupId)
+                filePaths.forEach { filePath ->
+                    try {
+                        val file = java.io.File(filePath)
+                        if (file.exists()) {
+                            file.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                dao.deleteAttachmentsForGroup(groupId)
+                dao.deleteMessagesForGroup(groupId)
+                dao.deleteGroupById(groupId)
+            }
+        }
+    }
+
     suspend fun loadAllGroups(): MutableList<Group> {
         return withContext(Dispatchers.IO) {
             dao.getAllGroups().map { entity ->

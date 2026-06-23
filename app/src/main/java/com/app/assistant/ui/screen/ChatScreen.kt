@@ -121,6 +121,7 @@ fun SetupUI(
         val isMicMuted by viewModel.isMicMuted.collectAsState()
         val question by viewModel.question.collectAsState()
         val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
+        val isDeletingChat by viewModel.isDeletingChat.collectAsState()
 
 
         var currentScreen by remember { mutableStateOf("chat") }
@@ -180,6 +181,8 @@ fun SetupUI(
                 isVoiceProcessing = isVoiceProcessing,
                 question = question,
                 isTranslationEnabled = isTranslationEnabled,
+                isDeletingChat = isDeletingChat,
+                onDeleteGroupClick = { viewModel.deleteGroup(it) },
                 onGroupClick = { viewModel.loadMessagesFromGroup(it) },
                 onSettingsClick = { currentScreen = "settings" },
                 onNewChatClick = { viewModel.newChat() },
@@ -247,6 +250,7 @@ fun ChatScreenContent(
     isListening: Boolean,
     question: String,
     isTranslationEnabled: Boolean,
+    isDeletingChat: Boolean,
     onGroupClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit,
@@ -260,6 +264,7 @@ fun ChatScreenContent(
     onStartListening: () -> Unit,
     onProcessQuestion: (FocusManager, SoftwareKeyboardController, Boolean) -> Unit,
     onBackPressed: () -> Unit,
+    onDeleteGroupClick: (Long) -> Unit,
     selectedAttachments: List<com.app.assistant.model.Attachment> = emptyList(),
     onRemoveAttachment: (com.app.assistant.model.Attachment) -> Unit = {},
     onAttachClick: (String) -> Unit = {},
@@ -298,6 +303,7 @@ fun ChatScreenContent(
             if (!isCustomUI) {
                 ChatDrawerContent(
                     groupList = groupList,
+                    isDeletingChat = isDeletingChat,
                     onGroupClick = { groupId ->
                         onGroupClick(groupId)
                         scope.launch { drawerState.close() }
@@ -309,7 +315,8 @@ fun ChatScreenContent(
                     onNewChatClick = {
                         onNewChatClick()
                         scope.launch { drawerState.close() }
-                    }
+                    },
+                    onDeleteGroupClick = onDeleteGroupClick
                 )
             }
         },
@@ -506,6 +513,7 @@ fun ChatScreenContentPreview() {
             isHandsFree = true,
             question = "",
             isTranslationEnabled = false,
+            isDeletingChat = false,
             onGroupClick = {},
             onSettingsClick = {},
             onNewChatClick = {},
@@ -518,7 +526,8 @@ fun ChatScreenContentPreview() {
             onStopSpeaking = {},
             onStartListening = {},
             onProcessQuestion = { _, _, _ -> },
-            onBackPressed = {}
+            onBackPressed = {},
+            onDeleteGroupClick = {}
         )
     }
 }

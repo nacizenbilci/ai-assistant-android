@@ -375,6 +375,9 @@ class MainViewModel(
     private val _groupList = MutableStateFlow<List<Group>>(emptyList())
     val groupList: StateFlow<List<Group>> = _groupList.asStateFlow()
 
+    private val _isDeletingChat = MutableStateFlow(false)
+    val isDeletingChat: StateFlow<Boolean> = _isDeletingChat.asStateFlow()
+
     // UI Event flow
     internal val _uiEvent = Channel<UIEvent>(Channel.BUFFERED)
     val uiEvent: Flow<UIEvent> = _uiEvent.receiveAsFlow()
@@ -845,6 +848,19 @@ class MainViewModel(
         viewModelScope.launch {
             chatList.clear()
             repository.currentGroupId = -1L
+        }
+    }
+
+    fun deleteGroup(groupId: Long) {
+        viewModelScope.launch {
+            _isDeletingChat.value = true
+            repository.deleteGroup(groupId)
+            if (repository.currentGroupId == groupId) {
+                chatList.clear()
+                repository.currentGroupId = -1L
+            }
+            loadGroup()
+            _isDeletingChat.value = false
         }
     }
 

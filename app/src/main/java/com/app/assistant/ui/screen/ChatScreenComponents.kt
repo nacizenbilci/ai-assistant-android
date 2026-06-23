@@ -22,7 +22,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
@@ -47,18 +53,105 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.app.assistant.R
 import com.app.assistant.model.Group
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.app.assistant.ui.theme.AssistantTheme
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ChatDrawerItem(
+    group: Group,
+    isDeletingChat: Boolean,
+    onGroupClick: (Long) -> Unit,
+    onDeleteGroupClick: (Long) -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .combinedClickable(
+                enabled = !isDeletingChat,
+                onClick = { onGroupClick(group.groupId) },
+                onLongClick = { showMenu = true }
+            )
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Text(
+            text = group.title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(id = R.string.delete)) },
+                onClick = {
+                    showMenu = false
+                    showConfirmDialog = true
+                }
+            )
+        }
+    }
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            text = { Text(stringResource(id = R.string.clear_chat_history_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmDialog = false
+                        onDeleteGroupClick(group.groupId)
+                    }
+                ) {
+                    Text(stringResource(id = R.string.yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text(stringResource(id = R.string.no))
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatDrawerContent(
     groupList: List<Group>,
+    isDeletingChat: Boolean,
     onGroupClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onNewChatClick: () -> Unit,
+    onDeleteGroupClick: (Long) -> Unit,
 ) {
     ModalDrawerSheet {
-        Text(stringResource(id = R.string.chats), modifier = Modifier.padding(16.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(id = R.string.chats))
+        }
+
+        if (isDeletingChat) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
         Column(
             modifier =
                 Modifier
@@ -67,10 +160,11 @@ fun ChatDrawerContent(
                     .verticalScroll(rememberScrollState()),
         ) {
             groupList.forEach { group ->
-                NavigationDrawerItem(
-                    label = { Text(text = group.title) },
-                    selected = false,
-                    onClick = { onGroupClick(group.groupId) },
+                ChatDrawerItem(
+                    group = group,
+                    isDeletingChat = isDeletingChat,
+                    onGroupClick = onGroupClick,
+                    onDeleteGroupClick = onDeleteGroupClick
                 )
             }
         }
@@ -84,7 +178,11 @@ fun ChatDrawerContent(
                 )
             },
             selected = false,
-            onClick = onSettingsClick,
+            onClick = {
+                if (!isDeletingChat) {
+                    onSettingsClick()
+                }
+            },
         )
         NavigationDrawerItem(
             label = { Text(text = stringResource(id = R.string.start_new_chat)) },
@@ -95,7 +193,11 @@ fun ChatDrawerContent(
                 )
             },
             selected = false,
-            onClick = onNewChatClick,
+            onClick = {
+                if (!isDeletingChat) {
+                    onNewChatClick()
+                }
+            },
         )
     }
 }
@@ -236,9 +338,11 @@ fun ChatDrawerContentPreview() {
                 Group(1L, "Recent Conversation 1"),
                 Group(2L, "Recent Conversation 2")
             ),
+            isDeletingChat = false,
             onGroupClick = {},
             onSettingsClick = {},
-            onNewChatClick = {}
+            onNewChatClick = {},
+            onDeleteGroupClick = {}
         )
     }
 }

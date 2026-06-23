@@ -246,7 +246,7 @@ fun HandsFreeBar(
         // Left actions: Camera and Share Screen
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             IconButton(
                 onClick = onToggleVisionMode
@@ -448,7 +448,7 @@ fun HandsFreeBar(
         // Right actions: Mic and Close
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             IconButton(
                 onClick = onToggleMute

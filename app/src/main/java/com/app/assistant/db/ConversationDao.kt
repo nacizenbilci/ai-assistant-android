@@ -26,6 +26,15 @@ interface ConversationDao {
     @Query("DELETE FROM messages WHERE id IN (:ids)")
     suspend fun deleteMessagesByIds(ids: List<Long>)
 
+    @Query("SELECT file_path FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE group_id = :groupId)")
+    suspend fun getAttachmentFilePathsForGroup(groupId: Long): List<String>
+
+    @Query("DELETE FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE group_id = :groupId)")
+    suspend fun deleteAttachmentsForGroup(groupId: Long)
+
+    @Query("DELETE FROM messages WHERE group_id = :groupId")
+    suspend fun deleteMessagesForGroup(groupId: Long)
+
     @Query("DELETE FROM `groups` WHERE group_id = :groupId")
     suspend fun deleteGroupById(groupId: Long)
 
