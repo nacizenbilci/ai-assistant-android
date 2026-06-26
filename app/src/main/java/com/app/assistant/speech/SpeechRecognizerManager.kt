@@ -95,6 +95,7 @@ class SpeechRecognizerManager(
         fun onError(errorCode: Int)
         fun onResults(recognizedText: String)
         fun onPartialResults(recognizedText: String)
+        fun onAudioLevelChanged(level: Float) {}
     }
 
     @Synchronized
@@ -317,6 +318,11 @@ class SpeechRecognizerManager(
 
                     // Initialize the Audio Hygiene Layer (Layer 1)
                     val audioProcessor = AudioHygieneProcessor(context, scope, isHandsFree) { floatSamples ->
+                        val rms = calculateRMS(floatSamples)
+                        val normalized = (rms / 0.15f).coerceIn(0f, 1f)
+                        scope.launch(Dispatchers.Main) {
+                            listener.onAudioLevelChanged(normalized)
+                        }
                         // Pass samples directly up to Layer 2
                         vadProcessor.acceptSamples(floatSamples)
                     }
@@ -433,7 +439,10 @@ class SpeechRecognizerManager(
                     listener.onBeginningOfSpeech()
                 }
 
-                override fun onRmsChanged(v: Float) {}
+                override fun onRmsChanged(v: Float) {
+                    val normalized = ((v + 2f) / 12f).coerceIn(0f, 1f)
+                    listener.onAudioLevelChanged(normalized)
+                }
                 override fun onBufferReceived(bytes: ByteArray?) {}
 
                 override fun onEndOfSpeech() {
@@ -666,5 +675,14 @@ class SpeechRecognizerManager(
             val jsonElement = kotlinx.serialization.json.Json.parseToJsonElement(bodyStr)
             jsonElement.jsonObject["text"]?.jsonPrimitive?.content ?: ""
         }
+    }
+
+    private fun calculateRMS(samples: FloatArray): Float {
+        if (samples.isEmpty()) return 0f
+        var sum = 0.0f
+        for (sample in samples) {
+            sum += sample * sample
+        }
+        return kotlin.math.sqrt(sum / samples.size)
     }
 }

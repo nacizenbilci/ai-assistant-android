@@ -69,6 +69,7 @@ fun ChatLayout(
     chatList: List<Conversation>,
     isSpeaking: Boolean,
     isListening: Boolean,
+    audioAmplitude: Float = 0f,
     question: String,
     onQuestionChange: (String) -> Unit,
     onStopSpeaking: () -> Unit,
@@ -334,6 +335,7 @@ fun ChatLayout(
                     HandsFreeBar(
                         isSpeaking = isSpeaking,
                         isListening = isListening,
+                        audioAmplitude = audioAmplitude,
                         isThinking = isVoiceProcessing || chatList.any { it.isLoading || it.isStreaming },
                         isMicReady = isMicReady,
                         onExitHandsFree = onExitHandsFree,

@@ -122,6 +122,7 @@ fun SetupUI(
         val question by viewModel.question.collectAsState()
         val isTranslationEnabled by settingsViewModel.isTranslationEnabled.collectAsState()
         val isDeletingChat by viewModel.isDeletingChat.collectAsState()
+        val audioAmplitude by viewModel.audioAmplitude.collectAsState()
 
 
         var currentScreen by remember { mutableStateOf("chat") }
@@ -177,6 +178,7 @@ fun SetupUI(
                 chatList = chatList,
                 isSpeaking = isSpeaking,
                 isListening = isListening,
+                audioAmplitude = audioAmplitude,
                 isHandsFree = isHandsFree,
                 isVoiceProcessing = isVoiceProcessing,
                 question = question,
@@ -248,6 +250,7 @@ fun ChatScreenContent(
     chatList: List<Conversation>,
     isSpeaking: Boolean,
     isListening: Boolean,
+    audioAmplitude: Float = 0f,
     question: String,
     isTranslationEnabled: Boolean,
     isDeletingChat: Boolean,
@@ -381,6 +384,7 @@ fun ChatScreenContent(
                     chatList = chatList,
                     isSpeaking = isSpeaking,
                     isListening = isListening,
+                    audioAmplitude = audioAmplitude,
                     question = question,
                     onQuestionChange = onQuestionChange,
                     onStopSpeaking = onStopSpeaking,

@@ -10,6 +10,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +72,7 @@ fun HandsFreeBar(
     onToggleVisionMode: () -> Unit = {},
     isScreenModeActive: Boolean = false,
     onToggleScreenMode: () -> Unit = {},
+    audioAmplitude: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     val currentState = remember(isSpeaking, isListening, isThinking, isMicReady) {
@@ -93,6 +96,15 @@ fun HandsFreeBar(
         targetValue = if (currentState == HandsFreeState.LISTENING) 1f else 0f,
         animationSpec = tween(durationMillis = 350),
         label = "listeningProgress"
+    )
+
+    val animatedAmplitude by animateFloatAsState(
+        targetValue = if (currentState == HandsFreeState.LISTENING) audioAmplitude else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "animatedAmplitude"
     )
 
     val thinkingProgress by animateFloatAsState(
@@ -161,6 +173,17 @@ fun HandsFreeBar(
             repeatMode = RepeatMode.Restart
         ),
         label = "wavePhase"
+    )
+
+    // Breathing phase animation for organic pulsing
+    val breathingPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "breathingPhase"
     )
 
     // Starting state animations
@@ -343,12 +366,13 @@ fun HandsFreeBar(
                     // C. LISTENING state morphing blob (gradient with white outline)
                     if (listeningProgress > 0f) {
                         // 1. Soft glowing background aura inside the capsule
-                        val auraRadius = (height / 2) * 0.85f
+                        val auraRadius = (height / 2) * (0.85f + 0.4f * animatedAmplitude)
+                        val auraAlpha = (0.25f + 0.25f * animatedAmplitude).coerceIn(0f, 1f)
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    colorTertiary.copy(alpha = 0.3f * listeningProgress),
-                                    colorPrimary.copy(alpha = 0.1f * listeningProgress),
+                                    colorTertiary.copy(alpha = auraAlpha * listeningProgress),
+                                    colorPrimary.copy(alpha = (auraAlpha * 0.3f) * listeningProgress),
                                     Color.Transparent
                                 ),
                                 center = Offset(centerX, centerY),
@@ -358,18 +382,25 @@ fun HandsFreeBar(
                             center = Offset(centerX, centerY)
                         )
 
-                        // 2. Morphing Blob Path calculation
-                        val baseRadius = lerp(6.dp.toPx(), height * 0.32f, listeningProgress)
-                        val amp1 = lerp(0f, 2.dp.toPx(), listeningProgress)
-                        val amp2 = lerp(0f, 1.5.dp.toPx(), listeningProgress)
+                        // 2. Slow breathing animation
+                        val breathe = kotlin.math.sin(breathingPhase.toDouble()).toFloat() * 1.5f.dp.toPx() * (1f - animatedAmplitude)
+
+                        // 3. Dynamic morphing blob path calculation (Single organic blob)
+                        val baseRadius = lerp(6.dp.toPx(), height * 0.32f, listeningProgress) + (height * 0.08f * animatedAmplitude)
+                        
+                        // Modest ripple amplitudes to keep the shape smooth
+                        val amp1 = lerp(0.8f.dp.toPx(), 2.2f.dp.toPx(), listeningProgress) + (5.dp.toPx() * animatedAmplitude)
+                        val amp2 = lerp(0.6f.dp.toPx(), 1.6f.dp.toPx(), listeningProgress) + (4.dp.toPx() * animatedAmplitude)
+                        val amp3 = 3.dp.toPx() * animatedAmplitude // only when speaking to represent absorbing voice
 
                         val blobPath = Path()
                         val steps = 72
                         for (i in 0..steps) {
                             val angle = (i * 2 * Math.PI / steps).toFloat()
-                            val r = baseRadius +
-                                    amp1 * kotlin.math.sin(2 * angle + wavePhase) +
-                                    amp2 * kotlin.math.cos(3 * angle - wavePhase)
+                            val r = baseRadius + breathe +
+                                    amp1 * kotlin.math.sin(2f * angle + wavePhase) +
+                                    amp2 * kotlin.math.cos(3f * angle - wavePhase) +
+                                    amp3 * kotlin.math.sin(4f * angle + wavePhase * 1.3f)
                             val x = centerX + r * kotlin.math.cos(angle)
                             val y = centerY + r * kotlin.math.sin(angle)
                             if (i == 0) {
@@ -392,8 +423,8 @@ fun HandsFreeBar(
                         // Thin white outline
                         drawPath(
                             path = blobPath,
-                            color = Color.White.copy(alpha = 0.4f * listeningProgress),
-                            style = Stroke(width = 1.dp.toPx())
+                            color = Color.White.copy(alpha = (0.35f + 0.15f * animatedAmplitude) * listeningProgress),
+                            style = Stroke(width = (1f + 0.5f * animatedAmplitude).dp.toPx())
                         )
                     }
 

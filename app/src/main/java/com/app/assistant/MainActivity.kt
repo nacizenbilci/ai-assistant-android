@@ -336,6 +336,10 @@ class MainActivity : ComponentActivity() {
                     viewModel.setMicReady(true)
                 }
 
+                override fun onAudioLevelChanged(level: Float) {
+                    viewModel.setAudioAmplitude(level)
+                }
+
                 override fun onBeginningOfSpeech() {
                     viewModel.setListening(true)
                     viewModel.setVoiceProcessing(false)
@@ -347,6 +351,7 @@ class MainActivity : ComponentActivity() {
                 override fun onEndOfSpeech() {
                     viewModel.setListening(false)
                     viewModel.setVoiceProcessing(true)
+                    viewModel.setAudioAmplitude(0f)
                     triggerVibration()
                 }
 
@@ -354,6 +359,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.setListening(false)
                     viewModel.setVoiceProcessing(false)
                     viewModel.setMicReady(false)
+                    viewModel.setAudioAmplitude(0f)
                     if (viewModel.isHandsFreeModeActive.value) {
                         lifecycleScope.launch {
                             delay(500)
@@ -367,6 +373,7 @@ class MainActivity : ComponentActivity() {
                 override fun onResults(recognizedText: String) {
                     viewModel.setListening(false)
                     viewModel.setVoiceProcessing(false)
+                    viewModel.setAudioAmplitude(0f)
                     if (!viewModel.isHandsFreeModeActive.value) {
                         viewModel.setMicReady(false)
                     }

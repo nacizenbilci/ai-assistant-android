@@ -279,6 +279,13 @@ class MainViewModel(
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
+    private val _audioAmplitude = MutableStateFlow(0f)
+    val audioAmplitude: StateFlow<Float> = _audioAmplitude.asStateFlow()
+
+    fun setAudioAmplitude(amplitude: Float) {
+        _audioAmplitude.value = amplitude
+    }
+
     private val _isVoiceProcessing = MutableStateFlow(false)
     val isVoiceProcessing: StateFlow<Boolean> = _isVoiceProcessing.asStateFlow()
 
