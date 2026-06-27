@@ -9,6 +9,7 @@ import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.location.LocationManager
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
@@ -263,7 +264,13 @@ class MainActivity : ComponentActivity() {
 
             is UIEvent.StartIntent -> {
                 try {
-                    startActivity(event.intent)
+                    val intent = event.intent
+                    if (intent.action == Intent.ACTION_CALL) {
+                        if (!isExternalAudioDeviceConnected()) {
+                            intent.putExtra("android.telecom.extra.START_CALL_WITH_SPEAKERPHONE", true)
+                        }
+                    }
+                    startActivity(intent)
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Error starting intent", e)
                 }
@@ -554,6 +561,35 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun isExternalAudioDeviceConnected(): Boolean {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        for (device in devices) {
+            val type = device.type
+            if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                type == AudioDeviceInfo.TYPE_USB_HEADSET
+            ) {
+                return true
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (type == AudioDeviceInfo.TYPE_BLE_HEADSET) {
+                    return true
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (type == AudioDeviceInfo.TYPE_BLE_SPEAKER ||
+                    type == AudioDeviceInfo.TYPE_BLE_BROADCAST
+                ) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     override fun onDestroy() {
