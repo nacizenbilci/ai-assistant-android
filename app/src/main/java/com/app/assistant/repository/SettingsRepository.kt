@@ -35,6 +35,7 @@ class SettingsRepository(
     fun saveKeys(
         youtubeApiKey: String,
         chatApiKey: String,
+        edgeTtsSubscriptionKey: String = "",
     ) {
         with(securedPreferences.edit()) {
             if (youtubeApiKey.isNotBlank()) {
@@ -43,6 +44,9 @@ class SettingsRepository(
             if (chatApiKey.isNotBlank()) {
                 putString("chat_api_key", chatApiKey)
             }
+            if (edgeTtsSubscriptionKey.isNotBlank()) {
+                putString("edge_tts_subscription_key", edgeTtsSubscriptionKey)
+            }
             apply()
         }
     }
@@ -50,6 +54,8 @@ class SettingsRepository(
     fun getYoutubeApiKey(): String? = securedPreferences.getString("youtube_api_key", null)
 
     fun getChatApiKey(): String? = securedPreferences.getString("chat_api_key", null)
+
+    fun getEdgeTtsSubscriptionKey(): String? = securedPreferences.getString("edge_tts_subscription_key", null)
 
     fun getLlmProvider(): String = sharedPreferences.getString("llm_provider", "GROQ") ?: "GROQ"
 

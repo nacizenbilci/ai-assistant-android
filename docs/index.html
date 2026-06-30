@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - Secure API Key QR Generator</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom Properties for theme */
+        :root {
+            --bg-color: #080c14;
+            --card-bg: rgba(17, 24, 39, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --primary-glow: rgba(99, 102, 241, 0.15);
+            --input-bg: rgba(31, 41, 55, 0.5);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --transition-speed: 0.3s;
+        }
+
+        /* General resetting & styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Glowing background blobs */
+        body::before, body::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: #6366f1;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.15;
+        }
+        body::before {
+            top: 10%;
+            left: 10%;
+        }
+        body::after {
+            bottom: 10%;
+            right: 10%;
+            background: #a855f7;
+        }
+
+        /* Main Container */
+        .container {
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+            z-index: 1;
+        }
+
+        /* Header Styling */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #e0e7ff, #f3e8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        /* Card Layout */
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 1.25rem;
+            padding: 2rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: border-color var(--transition-speed);
+        }
+
+        .card:hover {
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        /* Forms and inputs */
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.85rem 2.75rem 0.85rem 1rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 0.75rem;
+            outline: none;
+            transition: all var(--transition-speed);
+        }
+
+        input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        .visibility-btn {
+            position: absolute;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem;
+            transition: color var(--transition-speed);
+        }
+
+        .visibility-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .help-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.35rem;
+            display: block;
+        }
+
+        /* Buttons styling */
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.85rem 1.5rem;
+            border-radius: 0.75rem;
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            color: #ffffff;
+            flex: 2;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Security Info Banner */
+        .security-badge {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #a7f3d0;
+            padding: 0.875rem;
+            border-radius: 0.75rem;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            margin-bottom: 1.5rem;
+        }
+
+        .security-badge svg {
+            flex-shrink: 0;
+            color: var(--success-color);
+            margin-top: 0.1rem;
+        }
+
+        /* QR Code Output styling */
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 250px;
+        }
+
+        .qr-placeholder {
+            text-align: center;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 2rem;
+            border: 2px dashed rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            width: 100%;
+            aspect-ratio: 1;
+            justify-content: center;
+        }
+
+        .qr-placeholder svg {
+            color: rgba(255, 255, 255, 0.1);
+            width: 64px;
+            height: 64px;
+        }
+
+        #qrcode-container {
+            background: #ffffff;
+            padding: 1rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: none;
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        #qrcode-container canvas, #qrcode-container img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }
+
+        /* JSON Preview Codebox */
+        .json-preview-container {
+            width: 100%;
+            margin-top: 1rem;
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .json-preview-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .json-codebox {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            color: #818cf8;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 120px;
+        }
+
+        /* Action buttons for generated QR */
+        .qr-actions {
+            display: none;
+            width: 100%;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .qr-actions .btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0;
+            transform: translateY(1rem);
+            animation: toastIn 0.3s forwards, toastOut 0.3s 2.7s forwards;
+            pointer-events: auto;
+        }
+
+        .toast-success {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .toast-success svg {
+            color: var(--success-color);
+        }
+
+        @keyframes toastIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes toastOut {
+            to { opacity: 0; transform: translateY(-1rem); }
+        }
+
+        /* Footer styling */
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            z-index: 1;
+        }
+
+        footer a {
+            color: #818cf8;
+            text-decoration: none;
+            transition: color var(--transition-speed);
+        }
+
+        footer a:hover {
+            color: var(--text-primary);
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>AI Assistant Configuration</h1>
+            <p class="subtitle">Securely generate an API keys QR code completely in your browser. Disconnect from the internet anytime for maximum privacy.</p>
+        </header>
+
+        <div class="card-grid">
+            <!-- Left Side: Inputs Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Configure API Keys
+                </div>
+
+                <div class="security-badge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <div>
+                        <strong>Client-Side Security</strong><br>
+                        No data is transmitted over the network. The script relies on the local library, making it safe to save as a local file and run fully offline.
+                    </div>
+                </div>
+
+                <form id="key-form" onsubmit="event.preventDefault();">
+                    <!-- Chat API Key -->
+                    <div class="form-group">
+                        <label for="chat-key">Chat API Key (LLM)</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="chat-key" autocomplete="new-password" placeholder="Enter Gemini, Groq, or OpenAI API key">
+                            <button type="button" class="visibility-btn" onclick="toggleVisibility('chat-key')" aria-label="Toggle password visibility">
+                                <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
+                        <span class="help-text">Used for general text and screen vision queries. Saved in secure device storage.</span>
+                    </div>
+
+                    <!-- YouTube API Key -->
+                    <div class="form-group">
+                        <label for="youtube-key">YouTube API Key</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="youtube-key" autocomplete="new-password" placeholder="Enter YouTube Data API v3 key">
+                            <button type="button" class="visibility-btn" onclick="toggleVisibility('youtube-key')" aria-label="Toggle password visibility">
+                                <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
+                        <span class="help-text">Optional. Enables the assistant to search and play music from YouTube.</span>
+                    </div>
+
+                    <!-- Edge TTS Key -->
+                    <div class="form-group">
+                        <label for="edgetts-key">Edge TTS Key</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="edgetts-key" autocomplete="new-password" placeholder="Enter Edge TTS Subscription key">
+                            <button type="button" class="visibility-btn" onclick="toggleVisibility('edgetts-key')" aria-label="Toggle password visibility">
+                                <svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            </button>
+                        </div>
+                        <span class="help-text">Optional. Enables Edge-based high quality Text-to-Speech voices.</span>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+                        <button type="button" class="btn btn-primary" onclick="generateQR()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
+                            Generate QR
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Right Side: Output Card -->
+            <div class="card card-output">
+                <div class="card-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    QR Code Preview
+                </div>
+
+                <div class="qr-section">
+                    <!-- Placeholder state -->
+                    <div id="qr-placeholder" class="qr-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><path d="M14 14h3v3h-3z"></path></svg>
+                        <p>Fill in one or more API keys and click "Generate QR" to preview</p>
+                    </div>
+
+                    <!-- Rendered QR -->
+                    <div id="qrcode-container"></div>
+
+                    <!-- Actions -->
+                    <div class="qr-actions" id="qr-actions">
+                        <button type="button" class="btn btn-secondary" onclick="copyJSON()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            Copy JSON
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="downloadQR()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download PNG
+                        </button>
+                    </div>
+
+                    <!-- JSON Data Preview -->
+                    <div class="json-preview-container" id="json-preview-container">
+                        <div class="json-preview-title">
+                            <span>Encoded Data Payload</span>
+                        </div>
+                        <pre class="json-codebox" id="json-codebox"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <footer>
+        <p>AI Assistant is an offline-first open source application. View the <a href="https://github.com/souravanand001/ai-assistant-android" target="_blank" rel="noopener">Source Code</a>.</p>
+    </footer>
+
+    <!-- Offline Local QR Code Library -->
+    <script src="qrcode.min.js"></script>
+    <script>
+        let qrcodeInstance = null;
+
+        // Toggle Key Input Visibility
+        function toggleVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            const btn = input.nextElementSibling;
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = `<svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+            } else {
+                input.type = 'password';
+                btn.innerHTML = `<svg class="eye-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'toast-success' : ''}`;
+            
+            const iconSvg = type === 'success' 
+                ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+                : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+            
+            toast.innerHTML = `${iconSvg} <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            // Remove toast after animation completes
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Build keys JSON object
+        function getKeysPayload() {
+            const chatKey = document.getElementById('chat-key').value.trim();
+            const youtubeKey = document.getElementById('youtube-key').value.trim();
+            const edgeTtsKey = document.getElementById('edgetts-key').value.trim();
+            
+            const payload = {};
+            if (chatKey) payload.chat_api_key = chatKey;
+            if (youtubeKey) payload.youtube_api_key = youtubeKey;
+            if (edgeTtsKey) payload.edge_tts_subscription_key = edgeTtsKey;
+            
+            return payload;
+        }
+
+        // Generate QR code representation
+        function generateQR() {
+            const payload = getKeysPayload();
+            
+            if (Object.keys(payload).length === 0) {
+                showToast('Please enter at least one API key!', 'error');
+                return;
+            }
+            
+            const jsonString = JSON.stringify(payload, null, 2);
+            
+            // Show details
+            document.getElementById('qr-placeholder').style.display = 'none';
+            const qrContainer = document.getElementById('qrcode-container');
+            qrContainer.style.display = 'block';
+            qrContainer.innerHTML = ''; // Clear previous QR code
+            
+            document.getElementById('qr-actions').style.display = 'flex';
+            document.getElementById('json-preview-container').style.display = 'block';
+            document.getElementById('json-codebox').textContent = jsonString;
+            
+            // Generate QR Code
+            try {
+                qrcodeInstance = new QRCode(qrContainer, {
+                    text: JSON.stringify(payload),
+                    width: 256,
+                    height: 256,
+                    colorDark: '#080c14',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                showToast('QR Code generated successfully!');
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to generate QR Code.', 'error');
+            }
+        }
+
+        // Copy raw JSON to clipboard
+        function copyJSON() {
+            const jsonString = document.getElementById('json-codebox').textContent;
+            navigator.clipboard.writeText(jsonString)
+                .then(() => {
+                    showToast('Copied JSON payload to clipboard!');
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Failed to copy text.', 'error');
+                });
+        }
+
+        // Download generated QR Code as PNG
+        function downloadQR() {
+            const container = document.getElementById('qrcode-container');
+            const canvas = container.querySelector('canvas');
+            const img = container.querySelector('img');
+            
+            let dataUrl = '';
+            if (canvas) {
+                dataUrl = canvas.toDataURL('image/png');
+            } else if (img && img.src) {
+                dataUrl = img.src;
+            }
+            
+            if (!dataUrl) {
+                showToast('Could not download QR Code.', 'error');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.download = 'ai_assistant_keys_qr.png';
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('QR Code downloaded!');
+        }
+
+        // Clear all inputs and state
+        function clearAll() {
+            document.getElementById('chat-key').value = '';
+            document.getElementById('youtube-key').value = '';
+            document.getElementById('edgetts-key').value = '';
+            
+            document.getElementById('qr-placeholder').style.display = 'flex';
+            document.getElementById('qrcode-container').style.display = 'none';
+            document.getElementById('qrcode-container').innerHTML = '';
+            document.getElementById('qr-actions').style.display = 'none';
+            document.getElementById('json-preview-container').style.display = 'none';
+            document.getElementById('json-codebox').textContent = '';
+            
+            qrcodeInstance = null;
+            showToast('Inputs and generated QR code cleared.');
+        }
+    </script>
+</body>
+</html>

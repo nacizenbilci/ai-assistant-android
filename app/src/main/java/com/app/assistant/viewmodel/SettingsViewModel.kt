@@ -130,6 +130,11 @@ class SettingsViewModel(
         val key = settingsRepository.getChatApiKey()
         return if (key.isNullOrBlank()) BuildConfig.GROQ_API_KEY else key
     }
+
+    fun loadEdgeTtsSubscriptionKey(): String {
+        val key = settingsRepository.getEdgeTtsSubscriptionKey()
+        return if (key.isNullOrBlank()) BuildConfig.EDGE_TTS_SUBSCRIPTION_KEY else key
+    }
     
     fun loadLlmProvider(): LlmProvider {
         val name = settingsRepository.getLlmProvider()
@@ -241,6 +246,7 @@ class SettingsViewModel(
     fun saveSettings(
         youtubeApiKey: String,
         chatApiKey: String,
+        edgeTtsSubscriptionKey: String,
         provider: LlmProvider,
         model: String,
         customUrl: String,
@@ -254,7 +260,7 @@ class SettingsViewModel(
         sttMode: com.app.assistant.speech.SttMode,
         ttsMode: com.app.assistant.tts.TtsMode
     ) {
-        settingsRepository.saveKeys(youtubeApiKey, chatApiKey)
+        settingsRepository.saveKeys(youtubeApiKey, chatApiKey, edgeTtsSubscriptionKey)
         settingsRepository.setLlmProvider(provider.name)
         settingsRepository.setLlmModel(model)
         settingsRepository.setLlmCustomUrl(customUrl)
@@ -270,11 +276,27 @@ class SettingsViewModel(
     }
 
     fun updateYoutubeApiKey(key: String) {
-        settingsRepository.saveKeys(youtubeApiKey = key, chatApiKey = settingsRepository.getChatApiKey() ?: "")
+        settingsRepository.saveKeys(
+            youtubeApiKey = key,
+            chatApiKey = settingsRepository.getChatApiKey() ?: "",
+            edgeTtsSubscriptionKey = settingsRepository.getEdgeTtsSubscriptionKey() ?: ""
+        )
     }
 
     fun updateChatApiKey(key: String) {
-        settingsRepository.saveKeys(youtubeApiKey = settingsRepository.getYoutubeApiKey() ?: "", chatApiKey = key)
+        settingsRepository.saveKeys(
+            youtubeApiKey = settingsRepository.getYoutubeApiKey() ?: "",
+            chatApiKey = key,
+            edgeTtsSubscriptionKey = settingsRepository.getEdgeTtsSubscriptionKey() ?: ""
+        )
+    }
+
+    fun updateEdgeTtsSubscriptionKey(key: String) {
+        settingsRepository.saveKeys(
+            youtubeApiKey = settingsRepository.getYoutubeApiKey() ?: "",
+            chatApiKey = settingsRepository.getChatApiKey() ?: "",
+            edgeTtsSubscriptionKey = key
+        )
     }
 
     fun updateLlmProvider(provider: LlmProvider) {

@@ -320,7 +320,7 @@ class EdgeTtsApiManager(
         val connectionId = UUID.randomUUID().toString().replace("-", "").uppercase()
         val secMsGec = generateSecMsGec()
         val url = "${SpeechConfig.EdgeTts.WSS_URL}" +
-                "?Ocp-Apim-Subscription-Key=${SpeechConfig.EdgeTts.SUBSCRIPTION_KEY}" +
+                "?Ocp-Apim-Subscription-Key=${SpeechConfig.EdgeTts.getSubscriptionKey(settingsRepository)}" +
                 "&ConnectionId=$connectionId" +
                 "&Sec-MS-GEC=$secMsGec" +
                 "&Sec-MS-GEC-Version=1-130.0.2849.68"
@@ -493,7 +493,7 @@ class EdgeTtsApiManager(
         var ticks = unixTime
         ticks -= ticks % 300
         val winTicks = (ticks + 11644473600L) * 10000000L
-        val strToHash = "${winTicks}${SpeechConfig.EdgeTts.SUBSCRIPTION_KEY}"
+        val strToHash = "${winTicks}${SpeechConfig.EdgeTts.getSubscriptionKey(settingsRepository)}"
         val md = MessageDigest.getInstance("SHA-256")
         val digest = md.digest(strToHash.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02X".format(it) }

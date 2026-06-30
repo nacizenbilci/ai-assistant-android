@@ -95,6 +95,7 @@ fun SettingsScreen(
     onLanguageSelected: (String) -> Unit,
 ) {
     val initialYoutubeKey = remember { settingsViewModel.loadYoutubeKey() }
+    val initialEdgeTtsKey = remember { settingsViewModel.loadEdgeTtsSubscriptionKey() }
     val initialChatKey = remember { settingsViewModel.loadChatKey() }
     val initialProvider = remember { settingsViewModel.loadLlmProvider() }
     val initialModel = remember { settingsViewModel.loadLlmModel() }
@@ -128,6 +129,7 @@ fun SettingsScreen(
     SettingsScreenContent(
         settingsViewModel = settingsViewModel,
         initialYoutubeKey = initialYoutubeKey,
+        initialEdgeTtsKey = initialEdgeTtsKey,
         initialChatKey = initialChatKey,
         initialProvider = initialProvider,
         initialModel = initialModel,
@@ -183,6 +185,7 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     settingsViewModel: SettingsViewModel,
     initialYoutubeKey: String,
+    initialEdgeTtsKey: String,
     initialChatKey: String,
     initialProvider: LlmProvider,
     initialModel: String,
@@ -228,6 +231,7 @@ fun SettingsScreenContent(
     onDeleteTranslationModel: (String) -> Unit
 ) {
     var apiKey1 by rememberSaveable { mutableStateOf(initialYoutubeKey) }
+    var edgeTtsKey by rememberSaveable { mutableStateOf(initialEdgeTtsKey) }
     var apiKey2 by rememberSaveable { mutableStateOf(initialChatKey) }
     var provider by rememberSaveable { mutableStateOf(initialProvider) }
     var model by rememberSaveable { mutableStateOf(initialModel) }
@@ -947,6 +951,20 @@ fun SettingsScreenContent(
                         },
                         title = stringResource(id = R.string.use_api_tts),
                         description = stringResource(id = R.string.api_tts_desc) + " (Configured: ${SpeechConfig.ACTIVE_TTS_PROVIDER})"
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = edgeTtsKey,
+                        onValueChange = { 
+                            edgeTtsKey = it
+                            settingsViewModel.updateEdgeTtsSubscriptionKey(it)
+                        },
+                        label = { Text(stringResource(id = R.string.edge_tts_subscription_key)) },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -1763,6 +1781,7 @@ fun SettingsScreenContentPreview() {
         SettingsScreenContent(
             settingsViewModel = dummyViewModel,
             initialYoutubeKey = "AIzaSy...",
+            initialEdgeTtsKey = "EdgeKey...",
             initialChatKey = "gsk_...",
             initialProvider = LlmProvider.GROQ,
             initialModel = LlmProvider.GROQ.defaultModel,
@@ -1822,6 +1841,7 @@ fun SettingsScreenContentCustomPreview() {
         SettingsScreenContent(
             settingsViewModel = dummyViewModel,
             initialYoutubeKey = "",
+            initialEdgeTtsKey = "",
             initialChatKey = "",
             initialProvider = LlmProvider.CUSTOM,
             initialModel = "my-custom-model",

@@ -21,7 +21,10 @@ object SpeechConfig {
     // Edge TTS Configurations
     object EdgeTts {
         const val WSS_URL = "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1"
-        val SUBSCRIPTION_KEY = BuildConfig.EDGE_TTS_SUBSCRIPTION_KEY
+        fun getSubscriptionKey(settingsRepository: SettingsRepository): String {
+            val key = settingsRepository.getEdgeTtsSubscriptionKey()
+            return if (key.isNullOrBlank()) BuildConfig.EDGE_TTS_SUBSCRIPTION_KEY else key
+        }
         const val VOICE = "en-GB-SoniaNeural"
         const val OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3"
     }

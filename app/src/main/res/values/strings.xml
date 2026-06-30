@@ -2,6 +2,7 @@
     <string name="app_name">Assistant</string>
     <string name="settings_title">Settings</string>
     <string name="youtube_api_key">YouTube API Key</string>
+    <string name="edge_tts_subscription_key">Edge TTS Subscription Key</string>
     <string name="chat_api_key">Chat API Key</string>
     <string name="llm_provider">LLM Provider</string>
     <string name="llm_model">Model Name</string>
