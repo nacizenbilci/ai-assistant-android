@@ -661,9 +661,10 @@ class SpeechRecognizerManager(
             )
             .build()
 
+        val apiKey = com.app.assistant.config.SpeechConfig.GroqWhisper.getApiKey(settingsRepository)
         val request = okhttp3.Request.Builder()
             .url(com.app.assistant.config.SpeechConfig.GroqWhisper.BASE_URL)
-            .addHeader("Authorization", "Bearer ${com.app.assistant.config.SpeechConfig.GroqWhisper.API_KEY}")
+            .addHeader("Authorization", "Bearer $apiKey")
             .post(requestBody)
             .build()
 

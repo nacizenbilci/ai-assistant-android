@@ -3,6 +3,8 @@ package com.app.assistant.config
 import com.app.assistant.BuildConfig
 import com.app.assistant.repository.SettingsRepository
 
+import com.app.assistant.llm.LlmProvider
+
 enum class TtsApiProvider {
     EDGE_TTS,
     GOOGLE_TTS
@@ -45,9 +47,19 @@ object SpeechConfig {
         const val BASE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
         const val MODEL = "whisper-large-v3"
         
-        // Retrieve key from BuildConfig (local.properties)
-        val API_KEY: String
-            get() = BuildConfig.GROQ_API_KEY
+        fun getApiKey(settingsRepository: SettingsRepository): String {
+            var apiKey = settingsRepository.getChatApiKey()
+            val providerStr = settingsRepository.getLlmProvider()
+            val provider = try {
+                LlmProvider.valueOf(providerStr)
+            } catch (e: Exception) {
+                LlmProvider.GROQ
+            }
+            if (apiKey.isNullOrBlank() && provider == LlmProvider.GROQ) {
+                apiKey = BuildConfig.GROQ_API_KEY
+            }
+            return apiKey ?: ""
+        }
     }
 
     // Google STT Configurations
