@@ -238,6 +238,9 @@ fun SettingsScreenContent(
     var sttMode by rememberSaveable { mutableStateOf(initialSttMode) }
     var ttsMode by rememberSaveable { mutableStateOf(initialTtsMode) }
 
+    var showQrScanner by remember { mutableStateOf(false) }
+    var targetKeyField by remember { mutableStateOf<String?>(null) } // "chat", "youtube", "edge_tts"
+
     
     var customUrl by rememberSaveable { mutableStateOf(initialCustomUrl) }
     var customHeaders by rememberSaveable { mutableStateOf(initialCustomHeaders) }
@@ -559,6 +562,19 @@ fun SettingsScreenContent(
                           },
                           label = { Text(stringResource(id = R.string.chat_api_key)) },
                           visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                          trailingIcon = {
+                              IconButton(
+                                  onClick = {
+                                      targetKeyField = "chat"
+                                      showQrScanner = true
+                                  }
+                              ) {
+                                  Icon(
+                                      painter = painterResource(id = R.drawable.ic_qr_code_scanner),
+                                      contentDescription = "Scan Chat API Key"
+                                  )
+                              }
+                          },
                           shape = RoundedCornerShape(12.dp),
                           modifier = Modifier.fillMaxWidth()
                       )
@@ -752,6 +768,19 @@ fun SettingsScreenContent(
                         },
                         label = { Text(stringResource(id = R.string.youtube_api_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    targetKeyField = "youtube"
+                                    showQrScanner = true
+                                }
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_qr_code_scanner),
+                                    contentDescription = "Scan YouTube API Key"
+                                )
+                            }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -963,6 +992,19 @@ fun SettingsScreenContent(
                         },
                         label = { Text(stringResource(id = R.string.edge_tts_subscription_key)) },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    targetKeyField = "edge_tts"
+                                    showQrScanner = true
+                                }
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_qr_code_scanner),
+                                    contentDescription = "Scan Edge TTS Key"
+                                )
+                            }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1216,6 +1258,122 @@ fun SettingsScreenContent(
                 onDeleteTranslationModel(it)
             },
             onDismissRequest = { showTranslationSheet = false }
+        )
+    }
+
+    if (showQrScanner) {
+        QrScannerDialog(
+            onDismissRequest = {
+                showQrScanner = false
+                targetKeyField = null
+            },
+            onCodeScanned = { rawCode ->
+                showQrScanner = false
+                val trimmed = rawCode.trim()
+                try {
+                    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                        val jsonObject = org.json.JSONObject(trimmed)
+                        val importedKeys = mutableListOf<String>()
+                        
+                        val chatKeys = listOf("chat_api_key", "chatApiKey", "gemini_api_key", "groq_api_key", "api_key", "apiKey", "gemini_key", "groq_key")
+                        for (key in chatKeys) {
+                            if (jsonObject.has(key)) {
+                                val value = jsonObject.getString(key)
+                                if (value.isNotBlank()) {
+                                    apiKey2 = value
+                                    settingsViewModel.updateChatApiKey(value)
+                                    onResetVerificationState()
+                                    importedKeys.add("Chat API Key")
+                                }
+                                break
+                            }
+                        }
+                        
+                        val youtubeKeys = listOf("youtube_api_key", "youtubeApiKey", "youtube_key", "youtubeKey")
+                        for (key in youtubeKeys) {
+                            if (jsonObject.has(key)) {
+                                val value = jsonObject.getString(key)
+                                if (value.isNotBlank()) {
+                                    apiKey1 = value
+                                    settingsViewModel.updateYoutubeApiKey(value)
+                                    importedKeys.add("YouTube API Key")
+                                }
+                                break
+                            }
+                        }
+                        
+                        val ttsKeys = listOf("edge_tts_key", "edgeTtsKey", "edge_tts_subscription_key", "tts_key", "ttsKey")
+                        for (key in ttsKeys) {
+                            if (jsonObject.has(key)) {
+                                val value = jsonObject.getString(key)
+                                if (value.isNotBlank()) {
+                                    edgeTtsKey = value
+                                    settingsViewModel.updateEdgeTtsSubscriptionKey(value)
+                                    importedKeys.add("Edge TTS Key")
+                                }
+                                break
+                            }
+                        }
+                        
+                        if (importedKeys.isNotEmpty()) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Successfully imported: ${importedKeys.joinToString(", ")}",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            android.widget.Toast.makeText(
+                                context,
+                                "QR code scanned but no matching API keys found in JSON",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } else {
+                        if (trimmed.isNotBlank()) {
+                            when (targetKeyField) {
+                                "chat" -> {
+                                    apiKey2 = trimmed
+                                    settingsViewModel.updateChatApiKey(trimmed)
+                                    onResetVerificationState()
+                                    android.widget.Toast.makeText(context, "Imported Chat API Key", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                "youtube" -> {
+                                    apiKey1 = trimmed
+                                    settingsViewModel.updateYoutubeApiKey(trimmed)
+                                    android.widget.Toast.makeText(context, "Imported YouTube API Key", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                "edge_tts" -> {
+                                    edgeTtsKey = trimmed
+                                    settingsViewModel.updateEdgeTtsSubscriptionKey(trimmed)
+                                    android.widget.Toast.makeText(context, "Imported Edge TTS Key", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (trimmed.isNotBlank()) {
+                        when (targetKeyField) {
+                            "chat" -> {
+                                apiKey2 = trimmed
+                                settingsViewModel.updateChatApiKey(trimmed)
+                                onResetVerificationState()
+                                android.widget.Toast.makeText(context, "Imported Chat API Key", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                            "youtube" -> {
+                                apiKey1 = trimmed
+                                settingsViewModel.updateYoutubeApiKey(trimmed)
+                                android.widget.Toast.makeText(context, "Imported YouTube API Key", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                            "edge_tts" -> {
+                                edgeTtsKey = trimmed
+                                settingsViewModel.updateEdgeTtsSubscriptionKey(trimmed)
+                                android.widget.Toast.makeText(context, "Imported Edge TTS Key", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+                targetKeyField = null
+            }
         )
     }
 }

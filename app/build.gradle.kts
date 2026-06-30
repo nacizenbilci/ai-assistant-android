@@ -106,6 +106,7 @@ dependencies {
     }
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.barcode.scanning)
     implementation(libs.commonmark)
     //implementation ("com.github.jeziellago:compose-markdown:0.5.4")
     implementation(libs.coil.compose)

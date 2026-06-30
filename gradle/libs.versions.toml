@@ -27,6 +27,7 @@ androidxComposeCompiler = "1.5.1"
 spotless = "8.4.0"
 room = "2.6.1"
 camerax = "1.4.0"
+mlkitBarcodeScanning = "17.3.0"
 
 
 [libraries]
@@ -49,6 +50,7 @@ androidx-material3-adaptive-navigation-suite = { group = "androidx.compose.mater
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkitTranslate" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
 commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
