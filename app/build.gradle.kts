@@ -16,8 +16,9 @@ android {
         applicationId = "com.app.assistant"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        val runNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0
+        versionCode = 2 + runNumber
+        versionName = if (runNumber > 0) "2.1.$runNumber" else "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -46,6 +47,27 @@ android {
         )
     }
 
+    val keystoreFilePath = System.getenv("KEYSTORE_FILE_PATH")
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+    val keystoreKeyAlias = System.getenv("KEYSTORE_KEY_ALIAS")
+    val keystoreKeyPassword = System.getenv("KEYSTORE_KEY_PASSWORD")
+
+    val hasSigningConfig = !keystoreFilePath.isNullOrEmpty() &&
+            !keystorePassword.isNullOrEmpty() &&
+            !keystoreKeyAlias.isNullOrEmpty() &&
+            !keystoreKeyPassword.isNullOrEmpty()
+
+    signingConfigs {
+        if (hasSigningConfig) {
+            create("release") {
+                storeFile = file(keystoreFilePath)
+                storePassword = keystorePassword
+                keyAlias = keystoreKeyAlias
+                keyPassword = keystoreKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -53,8 +75,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // You might want to also define buildConfigFields for release
-            // if you have different keys for release builds, or if local.properties is not available in CI
+            if (hasSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             // BuildConfigFields from defaultConfig are inherited.

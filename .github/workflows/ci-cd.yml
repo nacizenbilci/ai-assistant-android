@@ -1,0 +1,89 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - version_2.1
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Run Spotless Check
+        run: ./gradlew spotlessCheck
+
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build Debug APK
+        if: github.event_name == 'pull_request'
+        run: ./gradlew assembleDebug
+
+      # Decode Keystore - only runs on push events to main or version_2.1
+      - name: Decode Keystore
+        if: github.event_name == 'push'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Error: KEYSTORE_BASE64 secret is not defined."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "${{ runner.temp }}/keystore.jks"
+
+      # Build Release APK - only runs on push events to main or version_2.1
+      - name: Build Release APK
+        if: github.event_name == 'push'
+        env:
+          KEYSTORE_FILE_PATH: ${{ runner.temp }}/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEYSTORE_KEY_ALIAS" ] || [ -z "$KEYSTORE_KEY_PASSWORD" ]; then
+            echo "Error: Keystore signing secrets are missing."
+            exit 1
+          fi
+          ./gradlew assembleRelease
+
+      # Rename Release APK - only runs on push events to main or version_2.1
+      - name: Rename Release APK with Version
+        if: github.event_name == 'push'
+        run: |
+          VERSION_NAME="2.1.${{ github.run_number }}"
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/assistant-v${VERSION_NAME}.apk
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+
+      # Create GitHub Release - only runs on push events to main or version_2.1
+      - name: Create GitHub Release and Upload APK
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: Release v${{ env.VERSION_NAME }}
+          draft: false
+          prerelease: ${{ github.ref_name != 'main' }}
+          files: app/build/outputs/apk/release/assistant-v${{ env.VERSION_NAME }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
