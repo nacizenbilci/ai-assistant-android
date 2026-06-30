@@ -53,7 +53,7 @@ import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
 // The URL where users can securely import and export their keys as a QR code
-const val EXPORT_KEYS_WEBSITE_URL = "https://example.com/import-keys"
+const val EXPORT_KEYS_WEBSITE_URL = "https://souravanand001.github.io/ai-assistant-android/"
 
 @Composable
 fun QrScannerDialog(
