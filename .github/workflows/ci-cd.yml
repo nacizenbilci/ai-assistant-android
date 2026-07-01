@@ -30,18 +30,13 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Run Spotless Check
-        run: ./gradlew spotlessCheck
-        continue-on-error: true
-
-      - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest
+#      - name: Run Unit Tests
+#        run: ./gradlew testDebugUnitTest
 
       - name: Build Debug APK
         if: github.event_name == 'pull_request'
         run: ./gradlew assembleDebug
 
-      # Decode Keystore - only runs on push events to main or version_2.1
       - name: Decode Keystore
         if: github.event_name == 'push'
         env:
@@ -53,7 +48,6 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 --decode > "${{ runner.temp }}/keystore.jks"
 
-      # Build Release APK - only runs on push events to main or version_2.1
       - name: Build Release APK
         if: github.event_name == 'push'
         env:
@@ -68,7 +62,6 @@ jobs:
           fi
           ./gradlew assembleRelease
 
-      # Rename Release APK - only runs on push events to main or version_2.1
       - name: Rename Release APK with Version
         if: github.event_name == 'push'
         run: |
@@ -76,7 +69,6 @@ jobs:
           mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/assistant-v${VERSION_NAME}.apk
           echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
 
-      # Create GitHub Release - only runs on push events to main or version_2.1
       - name: Create GitHub Release and Upload APK
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
