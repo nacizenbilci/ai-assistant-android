@@ -1,173 +1,435 @@
-# AI Assistant Android App
+# AI Assistant for Android
 
-![MIT License](https://img.shields.io/badge/License-MIT-green.svg)
-![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blue)
-![Compose](https://img.shields.io/badge/Jetpack-Compose-purple)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-ML-brightgreen)
-![TensorFlow Lite](https://img.shields.io/badge/TensorFlow-Lite-FF6F00)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blue.svg)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack%20Compose-UI-purple.svg)](https://developer.android.com/jetpack/compose)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe-ML-brightgreen.svg)](https://developers.google.com/mediapipe)
+[![TensorFlow Lite](https://img.shields.io/badge/TensorFlow-Lite-FF6F00.svg)](https://www.tensorflow.org/lite)
+[![Sherpa ONNX](https://img.shields.io/badge/Sherpa-ONNX-blue.svg)](https://github.com/k2-fsa/sherpa-onnx)
 
-## Demo & Screenshots
+An offline-first Android assistant that runs locally on your device. It supports screen vision, live camera sharing with real-time voice chat, encrypted data storage, and lets you connect your own LLM API keys. You can set it as your default phone assistant.
 
-<p align="center">
-  <b>App Overview:</b> <br/>
-  <img src="screenshots/gif1.gif" alt="App Overview GIF">
+<div align="center">
+
+<p>
+  <img src="screenshots/gif1.gif" alt="App Overview" width="300">
 </p>
 
-<p align="center">
-  <b>Screenshots:</b> <br/>
-</p>
-
-<table align="center">
-  <tr>
-    <td>
-      <img src="screenshots/image1.png" alt="Screenshot 1" width="250">
-    </td>
-    <td>
-      <img src="screenshots/image2.png" alt="Screenshot 2" width="250">
-    </td>
-    <td>
-      <img src="screenshots/image3.png" alt="Screenshot 3" width="250">
-    </td>
+<table>
+  <tr align="center">
+    <th width="33%">Conversational Chat UI</th>
+    <th width="33%">Hands Free Floating Orb</th>
+    <th width="33%">System Settings</th>
+  </tr>
+  <tr align="center">
+    <td width="33%"><img src="screenshots/image1.png" width="100%"></td>
+    <td width="33%"><img src="screenshots/image2.png" width="100%"></td>
+    <td width="33%"><img src="screenshots/image3.png" width="100%"></td>
   </tr>
 </table>
 
+</div>
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture Overview](#architecture-overview)
+- [Request Processing Flow](#request-processing-flow)
+- [Technologies Used](#technologies-used)
+- [Project Structure](#project-structure)
+- [Setup](#setup)
+- [API Configuration](#api-configuration)
+- [Permissions](#permissions)
+- [Supported Features Table](#supported-features-table)
+- [Privacy & Security](#privacy--security)
+- [Known Issues](#known-issues)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## Overview
 
-Assistant is an Android application designed to act as a personal voice assistant. It can understand spoken commands, process them, and perform various actions like making calls, playing music, setting alarms, providing weather information, and more. The app integrates with several external services and uses on-device machine learning for intent recognition.
+This app is a private voice assistant for Android. It runs offline as much as possible, encrypts your conversations, and reads your screen when asked. You can connect it to any OpenAI-compatible LLM endpoint.
+
+Unlike standard assistants, it does not send your voice data to external servers. It replaces Android's default assistant, so you can launch it with a long press on the home button.
+
+---
 
 ## Features
 
-*   **Voice Commands:** Interact with the assistant using natural language.
-*   **Text-to-Speech & Speech-to-Text:** Converts spoken language to text and vice-versa for interaction.
-*   **Intent Classification:** Understands user intent and categorizes requests (e.g., Call, Music, Weather, Navigation, Alarm, Reminder).
-*   **Phone Calls:** Can initiate phone calls to contacts.
-*   **Music Playback:** Plays music via YouTube.
-*   **Alarms & Reminders:** Set alarms and reminders.
-*   **Navigation:** Provides navigation directions using Google Maps.
-*   **Weather Information:** Fetches and displays weather forecasts for specified locations or current location.
-*   **Large Language Model (LLM) Integration:** Uses Groq API for advanced query understanding and responses (can be changed as per requirement).
-*   **Translation:** Supports language translation for input queries and responses.
-*   **Conversation History:** Stores and displays past interactions.
-*   **Customizable UI:** Offers options for UI presentation.
+### AI & LLM
+- **Custom LLM Providers:** Works with Groq, OpenAI, Anthropic, Gemini, Ollama, LM Studio, etc.
+- **Vision Auto-Detection:** Automatically tests if your model supports images and enables screen vision and live camera features if it does.
+- **Fast Speech Output:** Starts speaking sentences before the model finishes generating the full response.
 
-## Default Assistant App
+### Voice Pipeline
+- **Voice Activation (VAD):** Detects when you start and stop talking locally on your device.
+- **Interruption Support:** You can speak over the assistant to interrupt it.
+- **Hands-Free Mode:** Automatically listens for your next response after speaking.
+- **Audio Routing:** Supports Bluetooth headsets and speakerphone.
 
-This application can be set as the default assistant app on your Android device. This allows you to launch the app by long-pressing the home button or using other system-level gestures for invoking the assistant.
+### Screen Vision
+- **Screen Capture:** Captures screen frames locally in the background.
+- **Smart Frame Syncing:** Matches the captured frame to the exact moment you started speaking.
+- **Camera Sharing:** Share your live camera feed to discuss your real-world surroundings with the assistant.
+- **Privacy Controls:** Easily pause or stop screen capture from a system notification.
 
-## Process Flow
+### Privacy & Encryption
+- **Secure Storage:** Encrypts conversations and attachments using AES-256-GCM.
+- **Safe Deletion:** Securely deletes files from the device when you delete a message or chat.
 
+### Offline Tools
+- **Offline Actions:** Processes commands (like calling or navigation) offline using an on-device model.
+- **Offline Speech & Voice:** Handles speech-to-text and text-to-speech without internet.
+- **Offline Translation:** Translates input to English locally using Google ML Kit.
+
+### Android Integration
+- **Default Assistant:** Launch by long-pressing the home button or swiping.
+- **Lock Screen Support:** Answer voice queries without unlocking your phone.
+- **System Actions:** Set alarms, dial contacts (with fuzzy name matching), search YouTube music, and check the weather.
+
+---
+
+
+## Architecture Overview
+
+The app is built around offline first, modular components. Each layer can be swapped independently.
+
+```mermaid
+graph TD
+    A[User — Voice / Text / File] --> B[MainViewModel]
+
+    subgraph Input Processing
+        B --> C[TranslatorManager\nML Kit Offline]
+        C --> D[TextClassifierHelper\nMediaPipe TFLite]
+    end
+
+    subgraph Screen Context
+        SC[ScreenCaptureService\n~6 FPS] --> VB[VisualBufferManager\nCircular Frame Buffer]
+        VB --> B
+    end
+
+    subgraph Intent Routing
+        D -->|CALL / SONGS / ALARM\nNAVIGATION / WEATHER / REMINDER| E[Native Action Executor]
+        D -->|OTHER / SETTINGS| F[FlexibleLlmAdapter\nStreaming REST]
+    end
+
+    subgraph Lock State Machine
+        E -->|Missing detail| LS[LockState\nMulti-Turn Collector]
+        LS --> B
+    end
+
+    subgraph TTS Layer
+        F -->|Streaming tokens| SB[Sentence Boundary Detector]
+        E --> SB
+        SB --> TTS[TtsEngineSelector]
+        TTS --> T1[EdgeTTS — Free\nNeural WebSocket]
+        TTS --> T2[Google Cloud TTS]
+        TTS --> T3[Offline VITS\nSherpa-ONNX]
+        TTS --> T4[System Native TTS]
+    end
+
+    subgraph Storage
+        B --> DB[(Room DB\nAES-256-GCM\nEncrypted)]
+    end
+
+    subgraph Voice Pipeline
+        MIC[Microphone] --> AH[AudioHygieneProcessor\nAEC · NS · AGC]
+        AH --> VAD[VadIntelligenceProcessor\nSilero VAD]
+        VAD --> VSM[VoiceStateMachine\nIDLE · LISTENING\nPROCESSING · BOT_SPEAKING]
+        VSM --> B
+    end
 ```
-Start (User Input on ChatScreen: Voice/Text)
-  │
-  V
-MainViewModel (Input Processing, Permissions, Translation, Cleaning)
-  │
-  ├─+------------------------------------─> Lock Active? (e.g., Call/Song specific flow)
-  │                                         │ (Yes)
-  V (No / General Flow)                     │
-Text Classification (Determine User Intent) Process Input based on Active Lock
-  │                                         │
-  V                                         │
-Action Execution <──────────────────────────+
-  (Based on Intent or Lock:
-   - Make Call
-   - Play Song
-   - Navigate
-   - Get Weather
-   - Set Alarm/Reminder
-   - Query General AI (Groq)
-   - etc.)
-  │
-  V
-Process Action Result (e.g., Format AI response, Translate back)
-  │
-  V
-Update UI (ChatScreen displays conversation)
-  │
-  V
-Speak Response (TextToSpeech, if enabled)
-  │
-  V
-End
-```
 
-1.  **User Input:** The user provides input via voice or text in the `ChatScreen`.
-2.  **Input Handling (`MainViewModel`):**
-    *   The input is sent to the `MainViewModel`.
-    *   Permissions (like microphone for voice input) are checked.
-    *   If the input is not in English, it's translated to English.    *   The text is cleaned and punctuated.
-3.  **Lock State Management (`MainViewModel`):**
-    *   The current lock state is checked.
-    *   If a specific lock is active (e.g., "call lock," "song lock"), the input is processed according to that lock.
-    *   If no lock is active or the input is negative (e.g., "cancel"), the input proceeds to general classification.
-4.  **Text Classification (`TextClassifierHelper` via `MainViewModel`):**
-    *   The input text is classified to determine the user's intent (e.g., make a call, play a song, navigate, get weather, set alarm/reminder, or general query).
-5.  **Action Execution (`CallCommand` & `MainViewModel`):**
-    *   Based on the classified category, the `MainViewModel` (often via a `CallCommand` utility) triggers the appropriate action:
-        *   **Call:** Initiates a phone call.
-        *   **Songs:** Plays a song.
-        *   **Navigation:** Starts navigation.
-        *   **Weather:** Fetches weather information.
-        *   **Alarm:** Sets an alarm.
-        *   **Reminder:** Sets a reminder.
-        *   **Other/Settings/General AI:** For other queries, or if the intent is unclear or relates to settings, the input is sent to a general AI (Groq API).
-6.  **AI Response Processing (if applicable via `MainViewModel`):**
-    *   The response from the Groq API is received.
-    *   The response is processed and formatted.
-    *   If the original input was not in English, the AI's English response is translated back to the original language.
-7.  **Updating UI (`ChatScreen`):**
-    *   The result of the action (e.g., confirmation of a call, song playing, navigation started, weather info, alarm/reminder set, or AI response) is added to the chat list in the `MainViewModel`.
-    *   The `ChatScreen` observes changes in the chat list and updates to display the conversation.
-8.  **Speech Output (if enabled via `MainViewModel`):**
-    *   The response or confirmation is converted to speech using TextToSpeech.
-    *   The synthesized speech is played back to the user.
+**Design details:**
+- **Flexible LLM Adapter:** Uses templates to support any OpenAI-compatible API endpoint.
+- **Intent Verification:** Checks user queries against keyword lists to prevent incorrect system actions.
+- **Local Encryption:** All conversation history and files are encrypted before saving to disk.
+
+---
+
+## Request Processing Flow
+
+<details>
+<summary><strong>Voice / Text Input</strong></summary>
+
+When you speak or type, the app processes the audio locally:
+1. It records and cleans up the audio.
+2. It detects when you start and stop speaking.
+3. If you speak while the assistant is answering, it stops talking and listens to you.
+
+</details>
+
+<details>
+<summary><strong>Audio Processing & STT</strong></summary>
+
+The app converts your speech to text using either Android's built-in system, an offline voice model, or a cloud API.
+
+</details>
+
+<details>
+<summary><strong>Translation & Classification</strong></summary>
+
+1. If you speak a non-English language, the app translates it to English offline using Google ML Kit.
+2. It classifies the text to determine your intent (e.g., call, alarm, navigation, or general question).
+3. It double-checks keywords to make sure it doesn't run a system command by mistake.
+
+</details>
+
+<details>
+<summary><strong>Native Actions & Lock States</strong></summary>
+
+When the app identifies a command, it runs the matching phone action:
+- **Calls:** Searches contacts and dials the number.
+- **Music:** Searches and plays songs on YouTube.
+- **Alarms/Reminders:** Sets system alarms using natural time phrasing.
+- **Navigation:** Launches Google Maps navigation.
+- **Weather:** Gets your location and displays the forecast.
+
+If a command is missing information (like a name for a call), the app will ask you for it directly on the next turn.
+
+</details>
+
+<details>
+<summary><strong>LLM & Vision</strong></summary>
+
+General questions go to your selected LLM. If you use screen vision or live camera sharing, the app attaches the latest captured frame from your screen or camera when you start speaking, provided your selected LLM supports images.
+
+</details>
+
+<details>
+<summary><strong>Streaming TTS</strong></summary>
+
+As the LLM generates a response, the app parses it sentence-by-sentence. Once a sentence is ready, the voice engine starts speaking it immediately so you don't have to wait for the full response to load.
+
+</details>
+
+<details>
+<summary><strong>Conversation Storage</strong></summary>
+
+All messages are encrypted and saved locally. Attached files are also encrypted before saving. Deleting a message or chat deletes all associated files permanently.
+
+</details>
+
+---
 
 ## Technologies Used
 
-*   **Kotlin:** Primary programming language.
-*   **Jetpack Compose:** For building the user interface.
-*   **Android Jetpack:**
-    *   ViewModel: For managing UI-related data in a lifecycle-conscious way.
-*   **Speech Recognition & Synthesis:** Android's built-in `SpeechRecognizer` and `TextToSpeech` engines.
-*   **Text Classification:** MediaPipe, utilizing a custom-trained TensorFlow Lite (TFLite) model for on-device text classification.
-*   **Offline Translation:** Google ML Kit for on-device language identification and translation, enabling completely offline functionality.
-*   **Networking:** OkHttp for making API calls.
-*   **APIs:**
-    *   Groq API (for LLM, can be changed as per requirement)
-    *   YouTube Data API v3 (for music search)
-*   **Coroutines:** For asynchronous programming.
+| Category | Technology |
+|---|---|
+| Language | Kotlin |
+| UI | Jetpack Compose, Material You |
+| Architecture | MVVM, ViewModel, Coroutines, Flow |
+| On-Device ML | MediaPipe Text Classifier, TensorFlow Lite, Sherpa-ONNX (Silero VAD, Parakeet STT, VITS TTS) |
+| Translation | Google ML Kit On-Device Translation |
+| Database | Room (encrypted via Android KeyStore + AES-256-GCM) |
+| Networking | OkHttp, Retrofit |
+| TTS | Edge TTS (WebSocket), Google Cloud TTS, Sherpa-ONNX VITS, Android TextToSpeech |
+| APIs | Groq (default LLM), YouTube Data API v3, Open-Meteo (weather) |
+| Location | GMS Fused Location Provider |
+
+---
+
+## Project Structure
+
+```
+app/src/main/java/com/app/assistant/
+│
+├── AssistActivity.kt            # Entry point for system assistant integration
+├── MainActivity.kt              # Main UI activity and lifecycle management
+│
+├── api/                         # HTTP clients and API services
+│
+├── camera/
+│   ├── ScreenCaptureService.kt  # Captures screenshots periodically
+│   └── VisualBufferManager.kt   # Stores captured frames with timestamps
+│
+├── classifier/
+│   └── TextClassifierHelper.kt  # Local TFLite intent classifier
+│
+├── db/
+│   ├── AppDatabase.kt           # Room database setup
+│   ├── EncryptionUtil.kt        # Encryption helpers (AES-GCM + KeyStore)
+│   ├── DynamicConversationRepo  # Handles encrypted database operations
+│   └── *Entity.kt               # Database schemas
+│
+├── llm/
+│   ├── FlexibleLlmAdapter.kt    # API adapter for various LLMs
+│   ├── ModelCapabilityProber.kt # Detects model vision capability
+│   └── LlmMessage.kt            # LLM data schemas
+│
+├── repository/
+│   ├── ContactsRepository.kt    # Matches contact names offline
+│   ├── SettingsRepository.kt    # App settings manager
+│   └── WeatherRepository.kt     # Location and weather logic
+│
+├── speech/
+│   ├── AudioHygieneProcessor.kt    # Audio recording and processing
+│   ├── VadIntelligenceProcessor.kt # On-device speech detection (VAD)
+│   ├── VoiceStateMachine.kt        # Manages voice states (listening, speaking)
+│   └── SpeechRecognizerManager.kt  # Manages speech-to-text engines
+│
+├── translation/
+│   └── TranslatorManager.kt     # Manages offline translation
+│
+├── tts/
+│   ├── TtsEngineSelector.kt     # Switches between TTS engines
+│   ├── EdgeTtsApiManager.kt     # Microsoft Edge TTS integration
+│   ├── GoogleTtsApiManager.kt   # Google Cloud TTS integration
+│   ├── OfflineTtsManager.kt     # On-device TTS integration
+│   └── NativeTtsManager.kt      # Default system TTS fallback
+│
+└── ui/
+    ├── screen/
+    │   ├── ChatScreen.kt         # Main chat screen logic
+    │   ├── ChatLayout.kt         # Layout definitions for chat
+    │   ├── ConversationItem.kt   # Chat item UI elements
+    │   ├── HandsFreeBar.kt       # Voice UI overlay
+    │   ├── SettingsScreen.kt     # Settings layout and configuration
+    │   └── UserInputField.kt     # Text input and file picker UI
+    └── theme/                    # Theme, styling, and typography
+```
+
+---
 
 ## Setup
 
-1.  **Clone the repository:**
-2.  **API Keys:**
-    This project requires API keys for YouTube and Groq services.
+**Prerequisites**
+- Android Studio
+- Device or emulator (Android 8.0+ / API 26+)
+- Groq API key (or another OpenAI-compatible endpoint key)
+- YouTube Data API v3 key
 
-    **Option A: Using the `local.properties` file (Recommended for development)**
-    You need to create a `local.properties` file in the root directory of your project (if it doesn't already exist) and add your keys there:
-    ```properties
-    YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY
-    GROQ_API_KEY=YOUR_GROQ_API_KEY
-    ```
-    These keys are then accessed via `BuildConfig` fields in the app.
+**Steps**
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/your-username/ai-assistant-android.git
+   cd ai-assistant-android
+   ```
+2. Open the project in Android Studio and let files sync.
+3. Configure your API keys (see details in the API Configuration section).
+4. Run the app on your device.
+5. (Optional) Set the app as your default assistant under **Settings → Apps → Default Apps → Digital assistant app**.
 
-    **Option B: Entering Keys via the App UI (Recommended for quick testing/user setup)**
-    Alternatively, after installing the app, you can enter the API keys directly within the application. Navigate to the **Menu** and then to the **Settings** page within the UI, and input your `YOUTUBE_API_KEY` and `GROQ_API_KEY` there.
-3.  **Ensure `local.properties` is in `.gitignore`:** The `.gitignore` file should include `local.properties` to prevent your API keys from being checked into version control.
+---
 
-## How to Build and Run
+## API Configuration
 
-1.  Open the project in Android Studio.
-2.  Let Android Studio sync the project and download necessary dependencies.
-3.  Ensure you have an Android device or emulator connected/running.
-4.  Click the "Run" button (green play icon) in Android Studio.
+Choose one of these methods to configure your API keys:
 
-## Notes
+**Option 1: Using `local.properties`**
+Add the keys to your `local.properties` file:
+```properties
+YOUTUBE_API_KEY=YOUR_YOUTUBE_API_KEY
+GROQ_API_KEY=YOUR_GROQ_API_KEY
+EDGE_TTS_SUBSCRIPTION_KEY=YOUR_EDGE_TTS_SUBSCRIPTION_KEY
+```
+Gradle will load these during the build. (Make sure this file is not committed to git).
 
-*   The app requests various permissions at runtime (e.g., Record Audio, Read Contacts, Call Phone, Location) as needed for its features.
-*   Bluetooth SCO is managed for better compatibility with Bluetooth headsets during speech recognition.
+**Option 2: In-App Settings**
+Open the app, go to **Settings**, and paste your keys directly into the input fields. This does not require rebuilding the app.
+
+**Customizing the LLM Endpoint**
+In the settings page, you can change the default URL to any OpenAI-compatible server (like Ollama, LM Studio, Anthropic, or Gemini). The app automatically checks if the custom endpoint supports images.
+
+---
+
+## Permissions
+
+| Permission | Required For |
+|---|---|
+| `RECORD_AUDIO` | Listening to voice input |
+| `CAMERA` | Accessing the camera for live camera sharing |
+| `READ_CONTACTS` | Searching contact names to make calls |
+| `CALL_PHONE` | Making phone calls |
+| `ACCESS_FINE_LOCATION` | Checking weather and generating navigation routes |
+| `MEDIA_PROJECTION` | Recording the screen for screen vision |
+| `BLUETOOTH` / `BLUETOOTH_CONNECT` | Supporting Bluetooth headsets |
+| `POST_NOTIFICATIONS` | Showing the screen capture status bar notification |
+
+---
+
+## Supported Features Table
+
+| Feature | Offline | Cloud | Native Android | AI / LLM |
+|---|:---:|:---:|:---:|:---:|
+| Voice activity detection (VAD) | ✅ | | | |
+| Speech-to-text (Parakeet) | ✅ | | | |
+| Speech-to-text (Cloud) | | ✅ | | |
+| Intent classification | ✅ | | | |
+| Language translation | ✅ | | | |
+| Offline TTS (VITS) | ✅ | | | |
+| Neural TTS (Edge) | | ✅ | | |
+| Encrypted storage | ✅ | | | |
+| Phone calls | | | ✅ | |
+| Alarms & reminders | | | ✅ | |
+| Google Maps navigation | | | ✅ | |
+| YouTube music playback | | ✅ | | |
+| Weather forecasts | | ✅ | | |
+| Contact matching | ✅ | | ✅ | |
+| Screen vision | | | ✅ | ✅ |
+| Live camera sharing | | | ✅ | ✅ |
+| General chat | | | | ✅ |
+| Custom LLM endpoints | | ✅ | | ✅ |
+| Image & file attachments | | | | ✅ |
+
+---
+
+## Privacy & Security
+
+Your data stays on your device unless it is sent to your selected LLM provider.
+
+**Database Encryption**
+The app generates an AES-256 encryption key inside Android's secure hardware Keystore. All messages and chat titles are encrypted before saving. Each record uses a unique initialization vector.
+
+**File Encryption**
+All saved images, documents, and screenshots are encrypted before they are written to disk.
+
+**Secure Deletion**
+When you delete a message or chat, the app deletes the database records and removes the associated files from disk.
+
+**Voice Processing**
+Your raw voice audio is never stored or sent anywhere. Voice detection is handled entirely in memory on the device, and only the transcribed text is processed.
+
+---
+
+## Known Issues
+
+- **Barge-In Interruption:** Sometimes the barge-in/interruption feature does not trigger correctly when speaking over the assistant. Work is underway to refine this.
+- **Translation Disabled:** The translation feature is currently disabled due to conflicts with streaming text output. A new approach is being developed.
+- **Settings Classification:** Settings-related commands (unlike Call, Play Song, etc., which work) do not have a separate action yet. Instead, they are classified under `OTHER` and sent directly to the LLM. A new approach is being worked on to support settings actions natively.
+
+---
+
+## Roadmap
+
+- [ ] Android XR support for smart glasses
+- [ ] Wear OS support for wrist control
+- [ ] Category for sending text messages through actions
+- [ ] Automatic summary of older conversations
+- [ ] Screen capture using Accessibility Services to avoid permission prompts
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss new features before making changes, or open a pull request directly for bug fixes.
+
+1. Fork the repository and create a branch.
+2. Follow the project's coding style (standard Kotlin, MVVM architecture).
+3. Submit a pull request explaining your changes.
+
+Make sure your changes do not store unencrypted user data or bypass security features.
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-Copyright (c) 2025 Sourav Anand
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright © 2026 Sourav Anand.

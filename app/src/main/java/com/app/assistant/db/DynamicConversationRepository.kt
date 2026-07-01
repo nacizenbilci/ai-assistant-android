@@ -1,46 +1,32 @@
 package com.app.assistant.db
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.Cursor
-import android.text.format.DateFormat
-import android.util.Log
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.app.assistant.model.Conversation
 import com.app.assistant.model.Group
+import com.app.assistant.model.Attachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URI
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 
-class DynamicConversationRepository(private val context: Context) {
-
-    companion object {
-        private const val TABLE_GROUPS = "groups"
-        private const val COLUMN_GROUP_ID = "group_id"
-        private const val COLUMN_TITLE = "title"
-        private const val COLUMN_CREATED_AT = "created_at"
-        private const val TABLE_MESSAGES = "messages"
-        private const val COLUMN_MESSAGE_ID = "id"
-    }
-
-    private val dbHelper = DynamicConversationDbHelper(context)
+class DynamicConversationRepository(
+    context: Context,
+) {
+    private val db = AppDatabase.getDatabase(context)
+    private val dao = db.conversationDao()
     var currentGroupId: Long = -1L
+    private val writeMutex = Mutex()
 
     private suspend fun startNewChat(msg: String): Long {
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.writableDatabase
-            val contentValues = ContentValues().apply {
-                put(COLUMN_TITLE, generateChatTitle(msg))
-                put(COLUMN_CREATED_AT, System.nanoTime())
-            }
-            currentGroupId = db.insert(TABLE_GROUPS, null, contentValues)
+        return withContext(Dispatchers.IO) {
+            val title = generateChatTitle(msg)
+            val group = GroupEntity(title = title, createdAt = System.nanoTime())
+            currentGroupId = dao.insertGroup(group)
+            currentGroupId
         }
-        return currentGroupId
     }
 
     private fun generateChatTitle(msg: String): String {
@@ -51,151 +37,181 @@ class DynamicConversationRepository(private val context: Context) {
     }
 
     suspend fun addMessage(conversation: Conversation) {
-        withContext(Dispatchers.IO) {
-            if (currentGroupId == -1L) {
-                currentGroupId = startNewChat(conversation.englishText.takeIf { it.isNotEmpty() } ?: conversation.translatedText)
-            }
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                if (currentGroupId == -1L) {
+                    currentGroupId = startNewChat(conversation.text)
+                }
 
-            val db = dbHelper.writableDatabase
-            val (encryptedMap, iv) = encryptConversation(conversation)
-            val values = ContentValues().apply {
-                encryptedMap.forEach { (key, value) -> put(key, value) }
-                put("iv", iv)
-                put(COLUMN_GROUP_ID, currentGroupId)
-            }
-            try{
-            db.insert(TABLE_MESSAGES, null, values)
-            }catch (e: Exception){
-                e.message?.let { Log.d("Test", it) }
+                val iv = EncryptionUtil.generateIV()
+                val (encryptedText, _) = EncryptionUtil.encrypt(conversation.text, iv)
+
+                val messageEntity = MessageEntity(
+                    id = conversation.id,
+                    text = encryptedText,
+                    isMe = conversation.isMe,
+                    category = conversation.category,
+                    contentURL = conversation.contentURL,
+                    navigationURI = conversation.navigationURI,
+                    iv = iv,
+                    groupId = currentGroupId
+                )
+                dao.insertMessage(messageEntity)
+
+                // Insert attachments
+                conversation.attachments.forEach { attachment ->
+                    val attachmentEntity = AttachmentEntity(
+                        id = attachment.id,
+                        messageId = conversation.id,
+                        filePath = attachment.filePath,
+                        mimeType = attachment.mimeType,
+                        fileName = attachment.fileName,
+                        iv = attachment.iv
+                    )
+                    dao.insertAttachment(attachmentEntity)
+                }
             }
         }
     }
 
     suspend fun deleteMessage(id: Long) {
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.writableDatabase
-            db.delete(
-                TABLE_MESSAGES,
-                "id = ?",
-                arrayOf(id.toString())
-            )
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val attachmentEntities = dao.getAttachmentsForMessage(id)
+                attachmentEntities.forEach { att ->
+                    try {
+                        val file = java.io.File(att.filePath)
+                        if (file.exists()) {
+                            file.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                dao.deleteAttachmentsForMessage(id)
+                dao.deleteMessageById(id)
+            }
         }
     }
 
-    suspend fun updateMessage(oldConversation: Conversation, newConversation: Conversation) {
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.writableDatabase
-            val (encryptedMap, iv) = encryptConversation(newConversation)
-            val values = ContentValues().apply {
-                encryptedMap.forEach { (key, value) -> put(key, value) }
-                put("iv", iv)
+    suspend fun updateMessage(
+        oldConversation: Conversation,
+        newConversation: Conversation,
+    ) {
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val iv = EncryptionUtil.generateIV()
+                val (encryptedText, _) = EncryptionUtil.encrypt(newConversation.text, iv)
+
+                val messageEntity = MessageEntity(
+                    id = newConversation.id,
+                    text = encryptedText,
+                    isMe = newConversation.isMe,
+                    category = newConversation.category,
+                    contentURL = newConversation.contentURL,
+                    navigationURI = newConversation.navigationURI,
+                    iv = iv,
+                    groupId = currentGroupId
+                )
+                dao.updateMessage(messageEntity)
+
+                // Delete old attachments first and insert new ones
+                dao.deleteAttachmentsForMessage(newConversation.id)
+                newConversation.attachments.forEach { attachment ->
+                    val attachmentEntity = AttachmentEntity(
+                        id = attachment.id,
+                        messageId = newConversation.id,
+                        filePath = attachment.filePath,
+                        mimeType = attachment.mimeType,
+                        fileName = attachment.fileName,
+                        iv = attachment.iv
+                    )
+                    dao.insertAttachment(attachmentEntity)
+                }
             }
-            db.update(
-                TABLE_MESSAGES,
-                values,
-                "id = ?",
-                arrayOf(oldConversation.id.toString())
-            )
         }
     }
 
     suspend fun clearMessages(conversations: List<Conversation>) {
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.writableDatabase
-            val ids = conversations.joinToString(",") { it.id.toString() }
-            db.execSQL("DELETE FROM $TABLE_MESSAGES WHERE id IN ($ids)")
-            db.execSQL("DELETE FROM $TABLE_GROUPS WHERE $COLUMN_GROUP_ID == $currentGroupId")
-            currentGroupId = -1L
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                conversations.forEach { conversation ->
+                    val attachmentEntities = dao.getAttachmentsForMessage(conversation.id)
+                    attachmentEntities.forEach { att ->
+                        try {
+                            val file = java.io.File(att.filePath)
+                            if (file.exists()) {
+                                file.delete()
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    dao.deleteAttachmentsForMessage(conversation.id)
+                }
+                val ids = conversations.map { it.id }
+                dao.deleteMessagesByIds(ids)
+                dao.deleteGroupById(currentGroupId)
+                currentGroupId = -1L
+            }
+        }
+    }
+
+    suspend fun deleteGroup(groupId: Long) {
+        writeMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val filePaths = dao.getAttachmentFilePathsForGroup(groupId)
+                filePaths.forEach { filePath ->
+                    try {
+                        val file = java.io.File(filePath)
+                        if (file.exists()) {
+                            file.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                dao.deleteAttachmentsForGroup(groupId)
+                dao.deleteMessagesForGroup(groupId)
+                dao.deleteGroupById(groupId)
+            }
         }
     }
 
     suspend fun loadAllGroups(): MutableList<Group> {
-        val groupList = mutableListOf<Group>()
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.readableDatabase
-            val cursor: Cursor = db.query(
-                TABLE_GROUPS,
-                arrayOf(COLUMN_GROUP_ID, COLUMN_TITLE),
-                null,
-                null,
-                null,
-                null,
-                "$COLUMN_GROUP_ID DESC" // Sort by latest created
-            )
-
-            while (cursor.moveToNext()) {
-                val groupId = cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_GROUP_ID))
-                val title = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE))
-                groupList.add(Group(groupId, title))
-            }
-            cursor.close()
+        return withContext(Dispatchers.IO) {
+            dao.getAllGroups().map { entity ->
+                Group(groupId = entity.groupId, title = entity.title)
+            }.toMutableList()
         }
-        return groupList
     }
-
 
     suspend fun loadMessagesForGroup(groupId: Long): MutableList<Conversation> {
-        val tempList = mutableListOf<Conversation>()
-        withContext(Dispatchers.IO) {
-            val db = dbHelper.readableDatabase
-            val cursor: Cursor = db.query(
-                TABLE_MESSAGES,
-                null,
-                "$COLUMN_GROUP_ID = ?",
-                arrayOf(groupId.toString()),
-                null,
-                null,
-                COLUMN_MESSAGE_ID // Sort by latest created
-            )
+        return withContext(Dispatchers.IO) {
+            dao.getMessagesForGroup(groupId).map { entity ->
+                val decryptedText = EncryptionUtil.decrypt(entity.text, entity.iv)
+                val attachmentEntities = dao.getAttachmentsForMessage(entity.id)
+                val attachments = attachmentEntities.map { attEntity ->
+                    Attachment(
+                        id = attEntity.id,
+                        filePath = attEntity.filePath,
+                        mimeType = attEntity.mimeType,
+                        fileName = attEntity.fileName,
+                        iv = attEntity.iv
+                    )
+                }
 
-            while (cursor.moveToNext()) {
-                val conversation = cursorToConversation(cursor)
-                tempList.add(conversation)
-            }
-            cursor.close()
+                Conversation(
+                    id = entity.id,
+                    text = decryptedText,
+                    isMe = entity.isMe,
+                    isLoading = false,
+                    category = entity.category,
+                    contentURL = entity.contentURL,
+                    navigationURI = entity.navigationURI,
+                    attachments = attachments
+                )
+            }.toMutableList()
         }
-        return tempList
-    }
-
-    private fun cursorToConversation(cursor: Cursor): Conversation {
-        val properties = Conversation::class.memberProperties
-        val fieldMap = mutableMapOf<String, Any?>()
-        val iv = cursor.getString(cursor.getColumnIndexOrThrow("iv"))
-
-        properties.filter { it.name != "isLoading" }.forEach { property ->
-            val columnName = property.name
-            val columnIndex = cursor.getColumnIndexOrThrow(columnName)
-            val value = when (property.returnType.toString()) {
-                "kotlin.String" -> cursor.getString(columnIndex)//?.let { EncryptionUtil.decrypt(it, iv) }
-                "kotlin.Int" -> cursor.getInt(columnIndex)
-                "kotlin.Long" -> cursor.getLong(columnIndex)
-                "kotlin.Boolean" -> cursor.getString(columnIndex).toBooleanStrictOrNull() ?: false
-                "java.net.URI" -> URI(cursor.getString(columnIndex))
-                else -> null
-            }
-            fieldMap[columnName] = value
-        }
-
-        return Conversation::class.constructors.first().callBy(
-            Conversation::class.primaryConstructor!!.parameters
-                .filter { it.name != "isLoading" }  // Ignore "isLoading"
-                .associateWith { parameter -> fieldMap[parameter.name] }
-        )
-    }
-
-    private fun encryptConversation(conversation: Conversation): Pair<Map<String, String>, String> {
-        val properties = Conversation::class.memberProperties
-        val encryptedMap = mutableMapOf<String, String>()
-        val iv = EncryptionUtil.generateIV()
-
-        properties.forEach { property ->
-            val key = property.name
-            val value = property.getter.call(conversation)?.toString()
-            if (value != null && key!="isLoading") {
-                //encryptedMap[key] = EncryptionUtil.encrypt(value, iv).first
-                encryptedMap[key] = value
-            }
-        }
-        return Pair(encryptedMap, iv)
     }
 }
