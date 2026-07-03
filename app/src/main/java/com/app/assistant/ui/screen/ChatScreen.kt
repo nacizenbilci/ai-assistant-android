@@ -92,7 +92,10 @@ import com.app.assistant.viewmodel.MainViewModel
 import com.app.assistant.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.collectLatest
 import com.app.assistant.model.Group
 import com.app.assistant.model.Conversation
@@ -139,6 +142,8 @@ fun SetupUI(
             uri?.let { viewModel.addSelectedAttachment(it) }
         }
 
+        val context = LocalContext.current
+
         var tempCameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
         val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
             contract = androidx.activity.result.contract.ActivityResultContracts.TakePicture()
@@ -150,7 +155,29 @@ fun SetupUI(
             }
         }
 
-        val context = LocalContext.current
+        fun launchCamera() {
+            try {
+                val file = java.io.File(context.cacheDir, "camera_capture_${System.currentTimeMillis()}.jpg")
+                val authority = "${context.packageName}.fileprovider"
+                val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
+                tempCameraUri = uri
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                android.util.Log.e("ChatScreen", "Failed to launch camera", e)
+                Toast.makeText(context, "Failed to launch camera", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                launchCamera()
+            } else {
+                Toast.makeText(context, "Camera permission is required to take photos", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         LaunchedEffect(Unit) {
             viewModel.showToastEvent.collectLatest { message: String ->
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -210,15 +237,14 @@ fun SetupUI(
                 onRemoveAttachment = { viewModel.removeSelectedAttachment(it) },
                 onAttachClick = { type ->
                     if (type == "camera") {
-                        try {
-                            val file = java.io.File(context.cacheDir, "camera_capture_${System.currentTimeMillis()}.jpg")
-                            val authority = "${context.packageName}.fileprovider"
-                            val uri = androidx.core.content.FileProvider.getUriForFile(context, authority, file)
-                            tempCameraUri = uri
-                            cameraLauncher.launch(uri)
-                        } catch (e: Exception) {
-                            android.util.Log.e("ChatScreen", "Failed to launch camera", e)
-                            Toast.makeText(context, "Failed to launch camera", Toast.LENGTH_SHORT).show()
+                        val hasCameraPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (hasCameraPermission) {
+                            launchCamera()
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     } else {
                         pickerLauncher.launch(type)

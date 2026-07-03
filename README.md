@@ -32,8 +32,38 @@ An offline-first Android assistant that runs locally on your device. It supports
 
 ---
 
+## Demo
+
+<table>
+  <tr align="center">
+    <th>Camera Mode</th>
+    <th>Hands Free Mode</th>
+    <th>Screen Share Mode</th>
+  </tr>
+  <tr align="center">
+    <td>
+      <iframe width="260" height="460" src="https://www.youtube.com/embed/mW73nf2VnjQ" title="Camera Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      <br/>
+      <a href="https://youtube.com/shorts/mW73nf2VnjQ">Watch on YouTube</a>
+    </td>
+    <td>
+      <iframe width="260" height="460" src="https://www.youtube.com/embed/YhoV7nkrrZ0" title="Hands Free Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      <br/>
+      <a href="https://youtube.com/shorts/YhoV7nkrrZ0">Watch on YouTube</a>
+    </td>
+    <td>
+      <iframe width="260" height="460" src="https://www.youtube.com/embed/sEarhFhOarM" title="Screen Share Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      <br/>
+      <a href="https://youtube.com/shorts/sEarhFhOarM">Watch on YouTube</a>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Table of Contents
 
+- [Demo](#demo)
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture Overview](#architecture-overview)

@@ -50,25 +50,36 @@ object VisualBufferManager {
 
 fun imageProxyToRotatedJpeg(imageProxy: ImageProxy): ByteArray? {
     try {
+        val width = imageProxy.width
+        val height = imageProxy.height
+
         val yBuffer = imageProxy.planes[0].buffer
         val uBuffer = imageProxy.planes[1].buffer
         val vBuffer = imageProxy.planes[2].buffer
 
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-
+        // Correct size for NV21 format: width * height * 3 / 2
+        val ySize = width * height
         val nv21 = ByteArray(ySize + ySize / 2)
-        yBuffer.get(nv21, 0, ySize)
+
+        // 1. Copy Y plane, stripping row stride padding if present
+        val yRowStride = imageProxy.planes[0].rowStride
+        val yBufferPos = yBuffer.position()
+        if (yRowStride == width) {
+            yBuffer.get(nv21, 0, ySize)
+        } else {
+            for (row in 0 until height) {
+                yBuffer.position(row * yRowStride)
+                yBuffer.get(nv21, row * width, width)
+            }
+        }
+        yBuffer.position(yBufferPos)
 
         val uRowStride = imageProxy.planes[1].rowStride
         val uPixelStride = imageProxy.planes[1].pixelStride
         val vRowStride = imageProxy.planes[2].rowStride
         val vPixelStride = imageProxy.planes[2].pixelStride
 
-        val width = imageProxy.width
-        val height = imageProxy.height
-
+        // 2. Interleave U and V planes into NV21 format (V, U, V, U...)
         var pos = ySize
         for (row in 0 until height / 2) {
             for (col in 0 until width / 2) {
