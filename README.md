@@ -34,27 +34,27 @@ An offline-first Android assistant that runs locally on your device. It supports
 
 ## Demo
 
-<table>
+<table width="100%">
   <tr align="center">
-    <th>Camera Mode</th>
-    <th>Hands Free Mode</th>
-    <th>Screen Share Mode</th>
+    <th width="33%">Camera Mode</th>
+    <th width="33%">Hands Free Mode</th>
+    <th width="33%">Screen Share Mode</th>
   </tr>
   <tr align="center">
-    <td>
-      <a href="https://youtube.com/shorts/mW73nf2VnjQ">
-        <img src="https://img.youtube.com/vi/mW73nf2VnjQ/hqdefault.jpg" alt="Camera Mode Demo" width="240" />
-      </a>
+    <td width="33%">
+      <video src="screenshots/Camera%20Mode.mp4" width="100%" controls>
+        <a href="screenshots/Camera%20Mode.mp4">Download/Play video</a>
+      </video>
     </td>
-    <td>
-      <a href="https://youtube.com/shorts/YhoV7nkrrZ0">
-        <img src="https://img.youtube.com/vi/YhoV7nkrrZ0/hqdefault.jpg" alt="Hands Free Mode Demo" width="240" />
-      </a>
+    <td width="33%">
+      <video src="screenshots/Hands%20Free%20Mode.mp4" width="100%" controls>
+        <a href="screenshots/Hands%20Free%20Mode.mp4">Download/Play video</a>
+      </video>
     </td>
-    <td>
-      <a href="https://youtube.com/shorts/sEarhFhOarM">
-        <img src="https://img.youtube.com/vi/sEarhFhOarM/hqdefault.jpg" alt="Screen Share Mode Demo" width="240" />
-      </a>
+    <td width="33%">
+      <video src="screenshots/Screen%20Share%20Mode.mp4" width="100%" controls>
+        <a href="screenshots/Screen%20Share%20Mode.mp4">Download/Play video</a>
+      </video>
     </td>
   </tr>
 </table>
