@@ -42,19 +42,19 @@ An offline-first Android assistant that runs locally on your device. It supports
   </tr>
   <tr align="center">
     <td>
-      <iframe width="260" height="460" src="https://www.youtube.com/embed/mW73nf2VnjQ" title="Camera Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-      <br/>
-      <a href="https://youtube.com/shorts/mW73nf2VnjQ">Watch on YouTube</a>
+      <a href="https://youtube.com/shorts/mW73nf2VnjQ">
+        <img src="https://img.youtube.com/vi/mW73nf2VnjQ/hqdefault.jpg" alt="Camera Mode Demo" width="240" />
+      </a>
     </td>
     <td>
-      <iframe width="260" height="460" src="https://www.youtube.com/embed/YhoV7nkrrZ0" title="Hands Free Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-      <br/>
-      <a href="https://youtube.com/shorts/YhoV7nkrrZ0">Watch on YouTube</a>
+      <a href="https://youtube.com/shorts/YhoV7nkrrZ0">
+        <img src="https://img.youtube.com/vi/YhoV7nkrrZ0/hqdefault.jpg" alt="Hands Free Mode Demo" width="240" />
+      </a>
     </td>
     <td>
-      <iframe width="260" height="460" src="https://www.youtube.com/embed/sEarhFhOarM" title="Screen Share Mode" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-      <br/>
-      <a href="https://youtube.com/shorts/sEarhFhOarM">Watch on YouTube</a>
+      <a href="https://youtube.com/shorts/sEarhFhOarM">
+        <img src="https://img.youtube.com/vi/sEarhFhOarM/hqdefault.jpg" alt="Screen Share Mode Demo" width="240" />
+      </a>
     </td>
   </tr>
 </table>

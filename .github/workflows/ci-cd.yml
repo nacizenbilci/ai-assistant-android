@@ -4,11 +4,9 @@ on:
   pull_request:
     branches:
       - main
-      - version_2.1
   push:
     branches:
       - main
-      - version_2.1
 
 permissions:
   contents: write
