@@ -36,24 +36,19 @@ An offline-first Android assistant that runs locally on your device. It supports
 
 <table width="100%">
   <tr align="center">
-    <th width="33%">Camera Mode</th>
-    <th width="33%">Hands Free Mode</th>
-    <th width="33%">Screen Share Mode</th>
-  </tr>
-  <tr align="center">
     <td width="33%">
-      <video src="screenshots/Camera%20Mode.mp4" width="100%" controls>
-        <a href="screenshots/Camera%20Mode.mp4">Download/Play video</a>
+      <video src="https://github.com/user-attachments/assets/209f907a-494c-4c7a-b81d-275a61301a7a" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/209f907a-494c-4c7a-b81d-275a61301a7a">Download/Play video</a>
       </video>
     </td>
     <td width="33%">
-      <video src="screenshots/Hands%20Free%20Mode.mp4" width="100%" controls>
-        <a href="screenshots/Hands%20Free%20Mode.mp4">Download/Play video</a>
+      <video src="https://github.com/user-attachments/assets/4b81ecef-11e2-4918-a628-b7f5bca900b0" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/4b81ecef-11e2-4918-a628-b7f5bca900b0">Download/Play video</a>
       </video>
     </td>
     <td width="33%">
-      <video src="screenshots/Screen%20Share%20Mode.mp4" width="100%" controls>
-        <a href="screenshots/Screen%20Share%20Mode.mp4">Download/Play video</a>
+      <video src="https://github.com/user-attachments/assets/6ef9f91c-93fd-4b68-8dd2-980b7f750a72" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/6ef9f91c-93fd-4b68-8dd2-980b7f750a72">Download/Play video</a>
       </video>
     </td>
   </tr>
