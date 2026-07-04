@@ -32,8 +32,33 @@ An offline-first Android assistant that runs locally on your device. It supports
 
 ---
 
+## Demo
+
+<table width="100%">
+  <tr align="center">
+    <td width="33%">
+      <video src="https://github.com/user-attachments/assets/209f907a-494c-4c7a-b81d-275a61301a7a" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/209f907a-494c-4c7a-b81d-275a61301a7a">Download/Play video</a>
+      </video>
+    </td>
+    <td width="33%">
+      <video src="https://github.com/user-attachments/assets/4b81ecef-11e2-4918-a628-b7f5bca900b0" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/4b81ecef-11e2-4918-a628-b7f5bca900b0">Download/Play video</a>
+      </video>
+    </td>
+    <td width="33%">
+      <video src="https://github.com/user-attachments/assets/6ef9f91c-93fd-4b68-8dd2-980b7f750a72" width="100%" controls>
+        <a href="https://github.com/user-attachments/assets/6ef9f91c-93fd-4b68-8dd2-980b7f750a72">Download/Play video</a>
+      </video>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## Table of Contents
 
+- [Demo](#demo)
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture Overview](#architecture-overview)
