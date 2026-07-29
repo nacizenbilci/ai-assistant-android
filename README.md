@@ -1,11 +1,6 @@
 # AI Assistant for Android
 
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blue.svg)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack%20Compose-UI-purple.svg)](https://developer.android.com/jetpack/compose)
-[![MediaPipe](https://img.shields.io/badge/MediaPipe-ML-brightgreen.svg)](https://developers.google.com/mediapipe)
-[![TensorFlow Lite](https://img.shields.io/badge/TensorFlow-Lite-FF6F00.svg)](https://www.tensorflow.org/lite)
-[![Sherpa ONNX](https://img.shields.io/badge/Sherpa-ONNX-blue.svg)](https://github.com/k2-fsa/sherpa-onnx)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![Kotlin](https://img.shields.io/badge/Kotlin-1.9-blue.svg)](https://kotlinlang.org) [![Compose](https://img.shields.io/badge/Jetpack%20Compose-UI-purple.svg)](https://developer.android.com/jetpack/compose) [![MediaPipe](https://img.shields.io/badge/MediaPipe-ML-brightgreen.svg)](https://developers.google.com/mediapipe) [![TensorFlow Lite](https://img.shields.io/badge/TensorFlow-Lite-FF6F00.svg)](https://www.tensorflow.org/lite) [![Sherpa ONNX](https://img.shields.io/badge/Sherpa-ONNX-blue.svg)](https://github.com/k2-fsa/sherpa-onnx)
 
 An offline-first Android assistant that runs locally on your device. It supports screen vision, live camera sharing with real-time voice chat, encrypted data storage, and lets you connect your own LLM API keys. You can set it as your default phone assistant.
 
