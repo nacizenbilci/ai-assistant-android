@@ -17,6 +17,7 @@ class NativeTtsManager(
 
     private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
+    private var sabanVoiceName: String? = null
 
     private val activeUtterances =
         Collections.newSetFromMap(
@@ -170,43 +171,43 @@ class NativeTtsManager(
 
         // Google Android TTS'de bilinen Türkçe erkek
         // seslerini öncelikli kullan.
-        val preferredPrefixes = listOf(
-            "tr-tr-x-ama",
-            "tr-tr-x-tmc"
+        // ŞABAN için yalnızca bilinen Türkçe ERKEK Google seslerini seç.
+        // Öncelik: TMC, sonra AMA. Önce local, sonra network.
+        val maleVoiceNames = listOf(
+            "tr-tr-x-tmc-local",
+            "tr-tr-x-ama-local",
+            "tr-tr-x-tmc-network",
+            "tr-tr-x-ama-network"
         )
 
         var selectedVoice =
-            preferredPrefixes.firstNotNullOfOrNull {
-                prefix ->
-
+            maleVoiceNames.firstNotNullOfOrNull { wanted ->
                 voices.firstOrNull {
-                    it.name.startsWith(
-                        prefix,
-                        ignoreCase = true
-                    )
+                    it.name.equals(wanted, ignoreCase = true)
                 }
             }
 
-        // Erkek ses adı cihazdaki sürümde farklıysa
-        // önce Türkiye Türkçesi olan sesi dene.
+        // Bazı Google TTS sürümlerinde isim son eki farklı olabilir.
         if (selectedVoice == null) {
+            selectedVoice = voices.firstOrNull {
+                it.name.contains("x-tmc", ignoreCase = true)
+            }
+        }
 
-            selectedVoice =
-                voices.firstOrNull {
-                    it.locale.country.equals(
-                        "TR",
-                        ignoreCase = true
-                    )
-                }
+        if (selectedVoice == null) {
+            selectedVoice = voices.firstOrNull {
+                it.name.contains("x-ama", ignoreCase = true)
+            }
         }
 
         if (selectedVoice != null) {
 
+            sabanVoiceName = selectedVoice.name
             tts.voice = selectedVoice
 
             Log.d(
                 TAG,
-                "SABAN voice selected: ${selectedVoice.name}"
+                "SABAN MALE voice selected: ${selectedVoice.name}"
             )
 
         } else {
@@ -279,10 +280,6 @@ class NativeTtsManager(
             textToSpeech
                 ?: return
 
-        // Her konuşmada Türkçe ayarının korunmasını sağla.
-        tts.language =
-            Locale("tr", "TR")
-
         val audioManager =
             context.getSystemService(
                 Context.AUDIO_SERVICE
@@ -313,6 +310,20 @@ class NativeTtsManager(
         tts.setAudioAttributes(
             audioAttributes
         )
+
+        // Google TTS bazen dili/AudioAttributes değişince varsayılan
+        // kadın sesine dönebiliyor. Her konuşmada ŞABAN erkek sesini
+        // yeniden zorla uygula.
+        sabanVoiceName?.let { wantedName ->
+            tts.voices
+                ?.firstOrNull {
+                    it.name.equals(wantedName, ignoreCase = true)
+                }
+                ?.let { maleVoice ->
+                    tts.voice = maleVoice
+                    Log.d(TAG, "SABAN voice reapplied: ${maleVoice.name}")
+                }
+        }
 
         val mode =
             if (
