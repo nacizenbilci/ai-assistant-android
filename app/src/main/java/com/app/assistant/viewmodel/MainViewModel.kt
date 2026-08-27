@@ -289,7 +289,7 @@ class MainViewModel(
     private val _isVoiceProcessing = MutableStateFlow(false)
     val isVoiceProcessing: StateFlow<Boolean> = _isVoiceProcessing.asStateFlow()
 
-    private val _isHandsFreeModeActive = MutableStateFlow(false)
+    private val _isHandsFreeModeActive = MutableStateFlow(true)
     val isHandsFreeModeActive: StateFlow<Boolean> = _isHandsFreeModeActive.asStateFlow()
 
     private val _isVisionModeActive = MutableStateFlow(false)

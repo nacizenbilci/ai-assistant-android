@@ -332,7 +332,7 @@ fun ChatLayout(
                 modifier = Modifier.fillMaxWidth()
             ) { handsFreeActive ->
                 if (handsFreeActive) {
-                    HandsFreeBar(
+                    FullScreenHandsFreeDialog(
                         isSpeaking = isSpeaking,
                         isListening = isListening,
                         audioAmplitude = audioAmplitude,
