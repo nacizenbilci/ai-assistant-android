@@ -7,157 +7,406 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Collections
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 class NativeTtsManager(
     private val context: Context,
     private val onSpeakingStateChanged: (isSpeaking: Boolean) -> Unit
 ) : TtsManager {
+
     private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
 
-    // Track active/queued utterances to prevent premature transition to LISTENING state
-    private val activeUtterances = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+    private val activeUtterances =
+        Collections.newSetFromMap(
+            ConcurrentHashMap<String, Boolean>()
+        )
 
-    // Buffer incoming speak requests while the platform TTS engine is initializing
-    private val pendingUtterances = Collections.synchronizedList(mutableListOf<Pair<String, Int>>())
+    private val pendingUtterances =
+        Collections.synchronizedList(
+            mutableListOf<Pair<String, Int>>()
+        )
 
     init {
-        textToSpeech = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                isInitialized = true
-                Log.d("NativeTtsManager", "Initialization Success")
-                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {
-                        onSpeakingStateChanged(true)
-                    }
+        // Samsung sistem ayarını tamamen bypass et.
+        // Uygulama doğrudan Google TTS motorunu kullanacak.
+        textToSpeech = TextToSpeech(
+            context.applicationContext,
+            { status ->
 
-                    override fun onDone(utteranceId: String?) {
-                        utteranceId?.let { activeUtterances.remove(it) }
-                        if (activeUtterances.isEmpty()) {
-                            onSpeakingStateChanged(false)
+                if (status == TextToSpeech.SUCCESS) {
+
+                    isInitialized = true
+
+                    configureSabanVoice()
+
+                    Log.d(
+                        TAG,
+                        "Google TTS initialization success"
+                    )
+
+                    textToSpeech?.setOnUtteranceProgressListener(
+                        object : UtteranceProgressListener() {
+
+                            override fun onStart(
+                                utteranceId: String?
+                            ) {
+                                onSpeakingStateChanged(true)
+                            }
+
+                            override fun onDone(
+                                utteranceId: String?
+                            ) {
+                                utteranceId?.let {
+                                    activeUtterances.remove(it)
+                                }
+
+                                if (activeUtterances.isEmpty()) {
+                                    onSpeakingStateChanged(false)
+                                }
+                            }
+
+                            @Deprecated("Deprecated in Java")
+                            override fun onError(
+                                utteranceId: String?
+                            ) {
+                                utteranceId?.let {
+                                    activeUtterances.remove(it)
+                                }
+
+                                if (activeUtterances.isEmpty()) {
+                                    onSpeakingStateChanged(false)
+                                }
+                            }
+
+                            override fun onStop(
+                                utteranceId: String?,
+                                interrupted: Boolean
+                            ) {
+                                utteranceId?.let {
+                                    activeUtterances.remove(it)
+                                }
+
+                                if (activeUtterances.isEmpty()) {
+                                    onSpeakingStateChanged(false)
+                                }
+                            }
                         }
-                    }
+                    )
 
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(utteranceId: String?) {
-                        utteranceId?.let { activeUtterances.remove(it) }
-                        if (activeUtterances.isEmpty()) {
-                            onSpeakingStateChanged(false)
+                    synchronized(pendingUtterances) {
+
+                        for (pair in pendingUtterances) {
+                            speakInternal(
+                                pair.first,
+                                pair.second
+                            )
                         }
+
+                        pendingUtterances.clear()
                     }
 
-                    override fun onStop(utteranceId: String?, interrupted: Boolean) {
-                        utteranceId?.let { activeUtterances.remove(it) }
-                        if (activeUtterances.isEmpty()) {
-                            onSpeakingStateChanged(false)
-                        }
-                    }
-                })
+                } else {
 
-                // Flush any buffered utterances now that the TTS service is bound
-                synchronized(pendingUtterances) {
-                    for (pair in pendingUtterances) {
-                        speakInternal(pair.first, pair.second)
+                    Log.e(
+                        TAG,
+                        "Google TTS initialization failed: $status"
+                    )
+
+                    synchronized(pendingUtterances) {
+                        pendingUtterances.clear()
                     }
-                    pendingUtterances.clear()
+
+                    onSpeakingStateChanged(false)
                 }
-            } else {
-                Log.e("NativeTtsManager", "Initialization Failed")
-                synchronized(pendingUtterances) {
-                    pendingUtterances.clear()
-                }
-                onSpeakingStateChanged(false)
-            }
-        }
+            },
+            GOOGLE_TTS_ENGINE
+        )
     }
 
-    override fun speak(text: String, queueMode: Int) {
+    private fun configureSabanVoice() {
+
+        val tts = textToSpeech ?: return
+
+        val turkishLocale =
+            Locale("tr", "TR")
+
+        val languageResult =
+            tts.setLanguage(turkishLocale)
+
+        if (
+            languageResult ==
+            TextToSpeech.LANG_MISSING_DATA ||
+            languageResult ==
+            TextToSpeech.LANG_NOT_SUPPORTED
+        ) {
+
+            Log.e(
+                TAG,
+                "Google TTS Turkish language is unavailable"
+            )
+
+            return
+        }
+
+        val voices =
+            tts.voices
+                ?.filter {
+                    it.locale.language.equals(
+                        "tr",
+                        ignoreCase = true
+                    )
+                }
+                ?: emptyList()
+
+        Log.d(
+            TAG,
+            "Available Turkish voices: " +
+                voices.joinToString {
+                    it.name
+                }
+        )
+
+        // Google Android TTS'de bilinen Türkçe erkek
+        // seslerini öncelikli kullan.
+        val preferredPrefixes = listOf(
+            "tr-tr-x-ama",
+            "tr-tr-x-tmc"
+        )
+
+        var selectedVoice =
+            preferredPrefixes.firstNotNullOfOrNull {
+                prefix ->
+
+                voices.firstOrNull {
+                    it.name.startsWith(
+                        prefix,
+                        ignoreCase = true
+                    )
+                }
+            }
+
+        // Erkek ses adı cihazdaki sürümde farklıysa
+        // önce Türkiye Türkçesi olan sesi dene.
+        if (selectedVoice == null) {
+
+            selectedVoice =
+                voices.firstOrNull {
+                    it.locale.country.equals(
+                        "TR",
+                        ignoreCase = true
+                    )
+                }
+        }
+
+        if (selectedVoice != null) {
+
+            tts.voice = selectedVoice
+
+            Log.d(
+                TAG,
+                "SABAN voice selected: ${selectedVoice.name}"
+            )
+
+        } else {
+
+            Log.w(
+                TAG,
+                "Specific Turkish voice not found; " +
+                    "using Google Turkish default."
+            )
+        }
+
+        // Şaban için biraz daha sıcak ve erkek karakter.
+        tts.setPitch(0.88f)
+        tts.setSpeechRate(0.96f)
+    }
+
+    override fun speak(
+        text: String,
+        queueMode: Int
+    ) {
+
         val tts = textToSpeech
+
         if (tts == null) {
-            Log.w("NativeTtsManager", "TTS is null")
+
+            Log.w(
+                TAG,
+                "TTS is null"
+            )
+
             return
         }
 
         if (!isInitialized) {
-            Log.i("NativeTtsManager", "TTS not initialized yet. Queueing utterance: $text")
+
             synchronized(pendingUtterances) {
-                if (queueMode == TtsManager.QUEUE_FLUSH) {
+
+                if (
+                    queueMode ==
+                    TtsManager.QUEUE_FLUSH
+                ) {
                     pendingUtterances.clear()
                 }
-                pendingUtterances.add(Pair(text, queueMode))
+
+                pendingUtterances.add(
+                    Pair(
+                        text,
+                        queueMode
+                    )
+                )
             }
+
             onSpeakingStateChanged(true)
+
             return
         }
 
-        speakInternal(text, queueMode)
+        speakInternal(
+            text,
+            queueMode
+        )
     }
 
-    private fun speakInternal(text: String, queueMode: Int) {
-        val tts = textToSpeech ?: return
+    private fun speakInternal(
+        text: String,
+        queueMode: Int
+    ) {
 
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val useVoiceCall = audioManager.isBluetoothScoOn ||
-                audioManager.mode == AudioManager.MODE_IN_CALL ||
-                audioManager.mode == AudioManager.MODE_IN_COMMUNICATION
+        val tts =
+            textToSpeech
+                ?: return
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(if (useVoiceCall) AudioAttributes.USAGE_VOICE_COMMUNICATION else AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .build()
-        tts.setAudioAttributes(audioAttributes)
+        // Her konuşmada Türkçe ayarının korunmasını sağla.
+        tts.language =
+            Locale("tr", "TR")
 
-        val mode = if (queueMode == TtsManager.QUEUE_ADD) {
-            TextToSpeech.QUEUE_ADD
-        } else {
-            activeUtterances.clear()
-            TextToSpeech.QUEUE_FLUSH
-        }
+        val audioManager =
+            context.getSystemService(
+                Context.AUDIO_SERVICE
+            ) as AudioManager
 
-        val utteranceId = "tts_utterance_id_${System.currentTimeMillis()}"
-        activeUtterances.add(utteranceId)
+        val useVoiceCall =
+            audioManager.isBluetoothScoOn ||
+                audioManager.mode ==
+                AudioManager.MODE_IN_CALL ||
+                audioManager.mode ==
+                AudioManager.MODE_IN_COMMUNICATION
 
-        val result = tts.speak(text, mode, null, utteranceId)
-        if (result != TextToSpeech.SUCCESS) {
-            activeUtterances.remove(utteranceId)
-            if (activeUtterances.isEmpty()) {
+        val audioAttributes =
+            AudioAttributes.Builder()
+                .setUsage(
+                    if (useVoiceCall) {
+                        AudioAttributes
+                            .USAGE_VOICE_COMMUNICATION
+                    } else {
+                        AudioAttributes.USAGE_MEDIA
+                    }
+                )
+                .setContentType(
+                    AudioAttributes.CONTENT_TYPE_SPEECH
+                )
+                .build()
+
+        tts.setAudioAttributes(
+            audioAttributes
+        )
+
+        val mode =
+            if (
+                queueMode ==
+                TtsManager.QUEUE_ADD
+            ) {
+
+                TextToSpeech.QUEUE_ADD
+
+            } else {
+
+                activeUtterances.clear()
+
+                TextToSpeech.QUEUE_FLUSH
+            }
+
+        val utteranceId =
+            "saban_${System.currentTimeMillis()}"
+
+        activeUtterances.add(
+            utteranceId
+        )
+
+        val result =
+            tts.speak(
+                text,
+                mode,
+                null,
+                utteranceId
+            )
+
+        if (
+            result !=
+            TextToSpeech.SUCCESS
+        ) {
+
+            activeUtterances.remove(
+                utteranceId
+            )
+
+            if (
+                activeUtterances.isEmpty()
+            ) {
                 onSpeakingStateChanged(false)
             }
         }
     }
 
     override fun stop() {
+
         synchronized(pendingUtterances) {
             pendingUtterances.clear()
         }
-        if (isInitialized) {
-            activeUtterances.clear()
-            val wasSpeaking = isSpeaking()
-            textToSpeech?.stop()
-            if (wasSpeaking) {
-                onSpeakingStateChanged(false)
-            }
-        } else {
-            onSpeakingStateChanged(false)
-        }
+
+        activeUtterances.clear()
+
+        textToSpeech?.stop()
+
+        onSpeakingStateChanged(false)
     }
 
     override fun isSpeaking(): Boolean {
-        return (isInitialized && (textToSpeech?.isSpeaking == true || activeUtterances.isNotEmpty())) ||
-                pendingUtterances.isNotEmpty()
+
+        return (
+            isInitialized &&
+                (
+                    textToSpeech?.isSpeaking == true ||
+                        activeUtterances.isNotEmpty()
+                )
+            ) ||
+            pendingUtterances.isNotEmpty()
     }
 
     override fun shutdown() {
+
         synchronized(pendingUtterances) {
             pendingUtterances.clear()
         }
+
         activeUtterances.clear()
-        textToSpeech?.let {
-            it.stop()
-            it.shutdown()
-        }
+
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+
         textToSpeech = null
         isInitialized = false
+    }
+
+    companion object {
+
+        private const val TAG =
+            "NativeTtsManager"
+
+        private const val GOOGLE_TTS_ENGINE =
+            "com.google.android.tts"
     }
 }
