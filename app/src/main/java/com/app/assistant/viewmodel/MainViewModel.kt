@@ -426,18 +426,23 @@ class MainViewModel(
             speak: Boolean
         ) {
             Log.e("Classifier error", "Unable to classify: $error")
+
+            // Older/unsupported devices may fail to load the local
+            // MediaPipe classifier. Fall back to normal AI chat instead
+            // of stopping the conversation.
             viewModelScope.launch(Dispatchers.Main) {
-                val index = chatList.indexOfFirst { it.id == loadingItemId }
-                if (index != -1) {
-                    val item = chatList[index].copy(
-                        text = "Classification failed to load.",
-                        isMe = false,
-                        isLoading = false,
-                        isStreaming = false,
+                val userIndex = chatList.indexOfFirst { it.id == itemId }
+                if (userIndex != -1) {
+                    chatList[userIndex] = chatList[userIndex].copy(
                         category = Category.OTHER.name
                     )
-                    chatList.set(index, item)
                 }
+
+                callAI(
+                    loadingItemId = loadingItemId,
+                    speak = speak,
+                    category = Category.OTHER
+                )
             }
         }
     }
