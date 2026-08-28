@@ -422,6 +422,14 @@ class SpeechRecognizerManager(
             val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
             speechRecognizer = recognizer
 
+            // SABAN_FAST_PARTIAL_FINALIZE
+            // Samsung/Android native STT final sonucu bazen birkaç saniye
+            // geciktiriyor. Hands-Free modunda stabil partial sonucu
+            // doğrudan final olarak kullanacağız.
+            var fastFinalizeJob: kotlinx.coroutines.Job? = null
+            var fastResultDelivered = false
+            var latestPartialText = ""
+
             val speechRecognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
@@ -461,26 +469,104 @@ class SpeechRecognizerManager(
                 override fun onBufferReceived(bytes: ByteArray?) {}
 
                 override fun onEndOfSpeech() {
+                    if (fastResultDelivered) return
+
+                    fastFinalizeJob?.cancel()
                     isListening = false
                     listener.onEndOfSpeech()
                 }
 
                 override fun onError(errorCode: Int) {
+                    fastFinalizeJob?.cancel()
+
+                    // Biz partial sonucu zaten final olarak teslim ettiysek,
+                    // recognizer.cancel() sonrası gelen hatayı kullanıcıya
+                    // tekrar hata olarak gönderme.
+                    if (fastResultDelivered) {
+                        stopBluetoothSco()
+                        return
+                    }
+
                     isListening = false
                     listener.onError(errorCode)
                     stopBluetoothSco()
                 }
 
                 override fun onResults(bundle: Bundle?) {
+                    fastFinalizeJob?.cancel()
+
+                    if (fastResultDelivered) {
+                        stopBluetoothSco()
+                        return
+                    }
+
+                    fastResultDelivered = true
                     isListening = false
-                    val recognizedText = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.get(0) ?: ""
+
+                    val recognizedText =
+                        bundle
+                            ?.getStringArrayList(
+                                SpeechRecognizer.RESULTS_RECOGNITION
+                            )
+                            ?.getOrNull(0)
+                            ?: ""
+
                     listener.onResults(recognizedText)
                     stopBluetoothSco()
                 }
 
                 override fun onPartialResults(bundle: Bundle) {
-                    val recognizedText = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.get(0) ?: ""
+                    val recognizedText =
+                        bundle
+                            .getStringArrayList(
+                                SpeechRecognizer.RESULTS_RECOGNITION
+                            )
+                            ?.getOrNull(0)
+                            ?: ""
+
                     listener.onPartialResults(recognizedText)
+
+                    if (
+                        isHandsFreeMode &&
+                        recognizedText.isNotBlank() &&
+                        !fastResultDelivered
+                    ) {
+                        latestPartialText = recognizedText
+                        fastFinalizeJob?.cancel()
+
+                        val snapshot = recognizedText
+
+                        fastFinalizeJob = scope.launch {
+                            // 700 ms boyunca yeni kelime gelmediyse
+                            // kullanıcı konuşmayı bitirmiş kabul edilir.
+                            kotlinx.coroutines.delay(700)
+
+                            if (
+                                isHandsFreeMode &&
+                                !fastResultDelivered &&
+                                isListening &&
+                                latestPartialText == snapshot
+                            ) {
+                                fastResultDelivered = true
+                                isListening = false
+
+                                Log.d(
+                                    "SpeechRecognizerManager",
+                                    "SABAN FAST FINAL: $snapshot"
+                                )
+
+                                listener.onEndOfSpeech()
+                                listener.onResults(snapshot)
+
+                                try {
+                                    recognizer.cancel()
+                                } catch (_: Exception) {
+                                }
+
+                                stopBluetoothSco()
+                            }
+                        }
+                    }
                 }
 
                 override fun onEvent(i: Int, bundle: Bundle?) {}
