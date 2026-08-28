@@ -121,6 +121,25 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ŞABAN OTOMATİK GÜNCELLEME
+        if (!BuildConfig.DEBUG) {
+            com.app.assistant.update.AppUpdater
+                .checkForUpdates(this)
+
+            lifecycleScope.launch {
+                while (true) {
+                    kotlinx.coroutines.delay(
+                        30 * 60 * 1000L
+                    )
+
+                    com.app.assistant.update.AppUpdater
+                        .checkForUpdates(
+                            this@MainActivity
+                        )
+                }
+            }
+        }
         allowOnLockScreen()
         enableEdgeToEdge()
         
@@ -601,6 +620,16 @@ class MainActivity : ComponentActivity() {
             }
         }
         return false
+    }
+
+    // ŞABAN UPDATE RESUME
+    override fun onResume() {
+        super.onResume()
+
+        if (!BuildConfig.DEBUG) {
+            com.app.assistant.update.AppUpdater
+                .resumePendingInstall(this)
+        }
     }
 
     override fun onDestroy() {
