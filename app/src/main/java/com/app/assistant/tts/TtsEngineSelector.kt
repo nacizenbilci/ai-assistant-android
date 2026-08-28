@@ -15,6 +15,14 @@ class TtsEngineSelector(
     private var offlineTtsManager: OfflineTtsManager? = null
     private var apiTtsManager: ApiTtsManager? = null
 
+
+    // SABAN_TTS_PREWARM
+    // İlk cevapta TTS motorunun açılmasını bekleme.
+    init {
+        if (settingsRepository.getTtsMode() == TtsMode.NATIVE) {
+            getNativeTtsManager()
+        }
+    }
     private fun getNativeTtsManager(): NativeTtsManager {
         return nativeTtsManager ?: NativeTtsManager(context, onSpeakingStateChanged).also { nativeTtsManager = it }
     }

@@ -518,6 +518,7 @@ class MainViewModel(
         focusManager: FocusManager? = null,
         keyboardController: SoftwareKeyboardController? = null,
         speak: Boolean = false,
+        bypassClassifier: Boolean = false,
     ) {
         val originalQuestion = question.value
         val currentAttachments = _selectedAttachments.value
@@ -563,6 +564,25 @@ class MainViewModel(
             chatList.add(loadingItem)
             val loadingItemId = loadingItem.id
 
+            // ŞABAN HIZ MODU
+            // Hands-Free sesli konuşmada classifier'ı bekleme.
+            if (bypassClassifier) {
+                val userIndex = chatList.indexOfFirst { it.id == itemId }
+
+                if (userIndex != -1) {
+                    chatList[userIndex] = chatList[userIndex].copy(
+                        category = Category.OTHER.name
+                    )
+                }
+
+                callAI(
+                    loadingItemId = loadingItemId,
+                    speak = speak,
+                    category = Category.OTHER
+                )
+
+                return@launch
+            }
             if (lockState != LockState.None && processChatCommandUseCase.isNegativeOrNotRequired(processedQuestion)) {
                 lockState = LockState.None
                 classifierHelper.classify(processedQuestion, itemId, loadingItemId, speak)
@@ -654,15 +674,32 @@ class MainViewModel(
             var processedAnswerLength = 0
             var isFirstSentence = true
             
-            val systemContext = if (_isHandsFreeModeActive.value && (_isVisionModeActive.value || _isScreenModeActive.value)) {
-                HANDS_FREE_MODE_IMAGE_CONTEXT
-            } else {
-                MAIN_CONTEXT
+            val systemContext = when {
+                _isHandsFreeModeActive.value &&
+                    (_isVisionModeActive.value || _isScreenModeActive.value) -> {
+                    HANDS_FREE_MODE_IMAGE_CONTEXT
+                }
+
+                _isHandsFreeModeActive.value -> {
+                    "Sen ŞABAN adında çok hızlı bir Türkçe sesli asistansın. " +
+                    "Her zaman Türkçe cevap ver. " +
+                    "Doğrudan cevabı söyle. " +
+                    "Gereksiz giriş, tekrar ve açıklama yapma. " +
+                    "Normal sorulara bir veya iki kısa cümleyle cevap ver. " +
+                    "Kullanıcı ayrıntı isterse ayrıntı ver."
+                }
+
+                else -> MAIN_CONTEXT
             }
+
             try {
                 processChatCommandUseCase.getAiChatResponseStream(
                     systemContext = systemContext,
-                    chatHistory = chatList.toList(),
+                    chatHistory = if (_isHandsFreeModeActive.value) {
+                          chatList.takeLast(8)
+                      } else {
+                          chatList.toList()
+                      },
                     isHandsFreeActive = _isHandsFreeModeActive.value,
                     isVisionActive = _isVisionModeActive.value,
                     isScreenActive = _isScreenModeActive.value
@@ -891,7 +928,7 @@ class MainViewModel(
     fun onSpeechRecognized(recognizedText: String) {
         _question.value = recognizedText
         if (recognizedText.isNotBlank()) {
-            processQuestion(speak = true)
+            processQuestion(speak = true, bypassClassifier = _isHandsFreeModeActive.value)
         }
     }
 
@@ -905,12 +942,12 @@ class MainViewModel(
                         _selectedAttachments.value = listOf(attachment)
                     }
                     _question.value = recognizedText
-                    processQuestion(speak = true)
+                    processQuestion(speak = true, bypassClassifier = _isHandsFreeModeActive.value)
                 }
             } else {
                 withContext(Dispatchers.Main) {
                     _question.value = recognizedText
-                    processQuestion(speak = true)
+                    processQuestion(speak = true, bypassClassifier = _isHandsFreeModeActive.value)
                 }
             }
         }
