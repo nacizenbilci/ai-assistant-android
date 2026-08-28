@@ -281,9 +281,20 @@ class MainActivity : ComponentActivity() {
             }
 
             is UIEvent.SpeakText -> {
-                if (!viewModel.isListening.value && !viewModel.isVoiceProcessing.value) {
-                    textToSpeechManager.speak(event.text, event.queueMode)
+                // ŞABAN ULTRA HIZ:
+                // AI konuşmak istediğinde mikrofon/processing durumu yüzünden
+                // TTS emrini ASLA çöpe atma.
+                viewModel.setVoiceProcessing(false)
+                viewModel.setListening(false)
+
+                if (::speechRecognizerManager.isInitialized) {
+                    speechRecognizerManager.stop()
                 }
+
+                textToSpeechManager.speak(
+                    event.text,
+                    event.queueMode
+                )
             }
 
             is UIEvent.StopSpeaking -> {
